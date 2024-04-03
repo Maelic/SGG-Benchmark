@@ -1,0 +1,14 @@
+ninja
+yacs==0.1.8
+cython
+matplotlib
+tqdm
+torchtext==0.4
+pandas
+scipy
+opencv-python
+loguru
+wandb
+pycocotools
+h5py
+networkx
