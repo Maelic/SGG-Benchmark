@@ -18,6 +18,7 @@ This codebase also focuses on real-time and real-world usage of Scene Graph Gene
 
 - [ ] TODO: Finish support for different backbones + add docs.
 - [ ] TODO: Add support for OpenImage and PSG datasets.
+- [X] 03.04.2024: Added support for the IETrans method for data augmentation on the Visual Genome dataset, please check it out! [IETrans](./process_data/data_augmentation/README.md).
 - [X] 03.04.2024: Update the demo, now working with any models, check [DEMO.md](./demo/DEMO.md).
 - [X] 01.04.2024: Added support for Wandb for better visualization during training, tutorial coming soon.
 
