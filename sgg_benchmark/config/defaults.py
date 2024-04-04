@@ -327,7 +327,7 @@ _C.MODEL.ROI_RELATION_HEAD.TRANSFORMER.VAL_DIM = 64
 
 _C.MODEL.ROI_RELATION_HEAD.LABEL_SMOOTHING_LOSS = False
 _C.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION = True
-_C.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS = True
+_C.MODEL.ROI_RELATION_HEAD.USE_FREQUENCY_BIAS = True
 _C.MODEL.ROI_RELATION_HEAD.REQUIRE_BOX_OVERLAP = True
 _C.MODEL.ROI_RELATION_HEAD.NUM_SAMPLE_PER_GT_REL = 4  # when sample fg relationship from gt, the max number of corresponding proposal pairs
 
@@ -335,6 +335,7 @@ _C.MODEL.ROI_RELATION_HEAD.NUM_SAMPLE_PER_GT_REL = 4  # when sample fg relations
 # we add grount truth box to the output of RPN proposals during Training
 _C.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN = False
 
+_C.MODEL.ROI_RELATION_HEAD.CLASSIFIER = "linear"  # weighted_norm, linear, cosine_similarity
 
 _C.MODEL.ROI_RELATION_HEAD.CAUSAL = CN()
 # direct and indirect effect analysis

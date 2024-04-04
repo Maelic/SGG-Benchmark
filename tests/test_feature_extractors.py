@@ -70,15 +70,6 @@ class TestFeatureExtractors(unittest.TestCase):
             FEATURE_EXTRACTORS_INPUT_CHANNELS,
         )
 
-    def test_roi_keypoints_feature_extractors(self):
-        ''' Make sure roi keypoints feature extractors run '''
-        _test_feature_extractors(
-            self,
-            registry.ROI_KEYPOINT_FEATURE_EXTRACTORS,
-            FEATURE_EXTRACTORS_CFGS,
-            FEATURE_EXTRACTORS_INPUT_CHANNELS,
-        )
-
     def test_roi_mask_feature_extractors(self):
         ''' Make sure roi mask feature extractors run '''
         _test_feature_extractors(

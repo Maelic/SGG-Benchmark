@@ -224,22 +224,6 @@ def add_roi_head(cfg, in_channels):
         last_layer_scale=cfg.MODEL.FBNET.DET_HEAD_LAST_SCALE,
     )
 
-
-@registry.ROI_KEYPOINT_FEATURE_EXTRACTORS.register("FBNet.roi_head_keypoints")
-def add_roi_head_keypoints(cfg, in_channels):
-    builder, model_arch = create_builder(cfg)
-    builder.last_depth = in_channels
-    # builder.name_prefix = "_[kpts]_"
-
-    return FBNetROIHead(
-        cfg, in_channels, builder, model_arch,
-        head_name="kpts",
-        use_blocks=cfg.MODEL.FBNET.KPTS_HEAD_BLOCKS,
-        stride_init=cfg.MODEL.FBNET.KPTS_HEAD_STRIDE,
-        last_layer_scale=cfg.MODEL.FBNET.KPTS_HEAD_LAST_SCALE,
-    )
-
-
 @registry.ROI_MASK_FEATURE_EXTRACTORS.register("FBNet.roi_head_mask")
 def add_roi_head_mask(cfg, in_channels):
     builder, model_arch = create_builder(cfg)

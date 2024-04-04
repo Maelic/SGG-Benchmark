@@ -4,19 +4,9 @@ import torchvision
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.segmentation_mask import SegmentationMask
-from sgg_benchmark.structures.keypoint import PersonKeypoints
-
-
-min_keypoints_per_image = 10
-
-
-def _count_visible_keypoints(anno):
-    return sum(sum(1 for v in ann["keypoints"][2::3] if v > 0) for ann in anno)
-
 
 def _has_only_empty_bbox(anno):
     return all(any(o <= 1 for o in obj["bbox"][2:]) for obj in anno)
-
 
 def has_valid_annotation(anno):
     # if it's empty, there is no annotation
@@ -25,14 +15,6 @@ def has_valid_annotation(anno):
     # if all boxes have close to zero area, there is no annotation
     if _has_only_empty_bbox(anno):
         return False
-    # keypoints task have a slight different critera for considering
-    # if an annotation is valid
-    if "keypoints" not in anno[0]:
-        return True
-    # for keypoint detection tasks, only consider valid images those
-    # containing at least min_keypoints_per_image
-    if _count_visible_keypoints(anno) >= min_keypoints_per_image:
-        return True
     return False
 
 
@@ -85,11 +67,6 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
             masks = [obj["segmentation"] for obj in anno]
             masks = SegmentationMask(masks, img.size, mode='poly')
             target.add_field("masks", masks)
-
-        if anno and "keypoints" in anno[0]:
-            keypoints = [obj["keypoints"] for obj in anno]
-            keypoints = PersonKeypoints(keypoints, img.size)
-            target.add_field("keypoints", keypoints)
 
         target = target.clip_to_image(remove_empty=True)
 

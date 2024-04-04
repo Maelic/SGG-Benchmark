@@ -557,7 +557,7 @@ class PairwiseFeatureExtractor(nn.Module):
         self.cfg = config
         statistics = get_dataset_statistics(config)
         obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
-        self.cfg.MODEL.ROI_RELATION_HEAD.REL_PROP = statistics['pred_freq']
+        # self.cfg.MODEL.ROI_RELATION_HEAD.REL_PROP = statistics['pred_freq']
         self.num_obj_classes = len(obj_classes)
         self.num_rel_classes = len(rel_classes)
         self.obj_classes = obj_classes
@@ -691,13 +691,13 @@ class PairwiseFeatureExtractor(nn.Module):
             obj_representation4rel, the objects features ready for the represent the relationship
         """
         # using label or logits do the label space embeddings
-        if self.training or self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
+        if self.training or self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE:
             obj_labels = cat([proposal.get_field("labels") for proposal in inst_proposals], dim=0)
         else:
             obj_labels = None
 
         if self.word_embed_feats_on:
-            if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
+            if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL or self.cfg.MODEL.BACKBONE.FREEZE:
                 obj_embed_by_pred_dist = self.obj_embed_on_prob_dist(obj_labels.long())
             else:
                 obj_logits = cat([proposal.get_field("predict_logits") for proposal in inst_proposals], dim=0).detach()
@@ -718,13 +718,13 @@ class PairwiseFeatureExtractor(nn.Module):
 
         # todo reclassify on the fused object features
         # Decode in order
-        if self.mode != 'predcls':
+        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL or self.cfg.MODEL.BACKBONE.FREEZE:
+            assert obj_labels is not None
+            obj_pred_labels = obj_labels
+        else:
             # todo: currently no redo classification on embedding representation,
             #       we just use the first stage object prediction
             obj_pred_labels = cat([each_prop.get_field("predict_logits").argmax(-1) for each_prop in inst_proposals], dim=0)
-        else:
-            assert obj_labels is not None
-            obj_pred_labels = obj_labels
 
         # object labels space embedding from the prediction labels
         if self.word_embed_feats_on:

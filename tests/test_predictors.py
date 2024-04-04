@@ -67,19 +67,6 @@ class TestPredictors(unittest.TestCase):
             self.assertEqual(scores.shape[0], bbox_deltas.shape[0])
             self.assertEqual(scores.shape[1] * 4, bbox_deltas.shape[1])
 
-    def test_roi_keypoints_predictors(self):
-        ''' Make sure roi keypoint predictors run '''
-        for cur_in, cur_out, cur_cfg in _test_predictors(
-            self,
-            registry.ROI_KEYPOINT_PREDICTOR,
-            PREDICTOR_CFGS,
-            PREDICTOR_INPUT_CHANNELS,
-            hwsize=14,
-        ):
-            self.assertEqual(cur_out.shape[0], cur_in.shape[0])
-            self.assertEqual(
-                cur_out.shape[1], cur_cfg.MODEL.ROI_KEYPOINT_HEAD.NUM_CLASSES)
-
     def test_roi_mask_predictors(self):
         ''' Make sure roi mask predictors run '''
         for cur_in, cur_out, cur_cfg in _test_predictors(

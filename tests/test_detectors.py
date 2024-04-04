@@ -21,10 +21,6 @@ CONFIG_FILES = [
     "e2e_mask_rcnn_R_50_FPN_1x.yaml",
     "e2e_mask_rcnn_fbnet.yaml",
 
-    # keypoints
-    # TODO: fail to run for random model due to empty head input
-    # "e2e_keypoint_rcnn_R_50_FPN_1x.yaml",
-
     # gn
     "gn_baselines/e2e_faster_rcnn_R_50_FPN_1x_gn.yaml",
     # TODO: fail to run for random model due to empty head input

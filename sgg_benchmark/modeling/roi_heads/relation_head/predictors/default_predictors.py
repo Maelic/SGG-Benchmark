@@ -14,6 +14,10 @@ from ..models.model_motifs_with_attribute import AttributeLSTMContext
 from ..models.model_transformer import TransformerContext
 from ..models.model_gpsnet import GPSNetContext
 from ..models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info
+from ..models.utils.classifiers import build_classifier
+from ..models.utils.utils_motifs import to_onehot
+from ..models.utils.utils_relation import obj_prediction_nms
+
 from sgg_benchmark.data import get_dataset_statistics
 
 class BasePredictor(nn.Module):
@@ -716,10 +720,8 @@ class GPSNetPredictor(nn.Module):
         super(GPSNetPredictor, self).__init__()
         self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
-        # train_use_bias is to use bias in the training
-        self.train_use_bias = config.MODEL.ROI_RELATION_HEAD.TRAIN_USE_BIAS
-        # predict_use_bias is to use bias in the inference
-        self.predict_use_bias = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS
+
+        self.frequency_bias = config.MODEL.ROI_RELATION_HEAD.USE_FREQUENCY_BIAS
 
         self.cfg = config
         # mode
@@ -745,7 +747,7 @@ class GPSNetPredictor(nn.Module):
 
         self.rel_feature_type = "fusion"
 
-        self.use_obj_recls_logits = False
+        self.use_obj_recls_logits = not self.cfg.MODEL.BACKBONE.FREEZE
         self.obj_recls_logits_update_manner = (
             "replace"
         )
@@ -804,7 +806,7 @@ class GPSNetPredictor(nn.Module):
             for idx, prop in enumerate(inst_proposals):
                 prop.add_field("relness_mat", relatedness[idx])
 
-        if self.mode == "predcls":
+        if self.mode == "predcls" or self.cfg.MODEL.BACKBONE.FREEZE:
             obj_labels = cat(
                 [proposal.get_field("labels") for proposal in inst_proposals], dim=0
             )
@@ -817,7 +819,7 @@ class GPSNetPredictor(nn.Module):
         num_objs = [len(b) for b in inst_proposals]
         num_rels = [r.shape[0] for r in rel_pair_idxs]
         assert len(num_rels) == len(num_objs)
-        if self.mode != "predcls":
+        if self.mode != "predcls" and not self.cfg.MODEL.BACKBONE.FREEZE:
             obj_pred_logits = cat(
                 [each_prop.get_field("predict_logits") for each_prop in inst_proposals], dim=0
             )
@@ -842,7 +844,7 @@ class GPSNetPredictor(nn.Module):
             obj_pred_labels = cat(
                 [each_prop.get_field("labels") for each_prop in inst_proposals], dim=0
             )
-        if (self.train_use_bias and self.training) or (self.predict_use_bias and not self.training):
+        if self.frequency_bias:
             obj_pred_labels = obj_pred_labels.split(num_objs, dim=0)
             pair_preds = []
             for pair_idx, obj_pred in zip(rel_pair_idxs, obj_pred_labels):
