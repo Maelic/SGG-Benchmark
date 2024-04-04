@@ -3,7 +3,6 @@ import sys
 import json
 import numpy as np
 import torch
-import torch.nn.functional as F
 from tqdm import tqdm
 
 from sgg_benchmark.config import cfg
@@ -11,31 +10,12 @@ from sgg_benchmark.data import make_data_loader
 from sgg_benchmark.modeling.detector import build_detection_model
 from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
 from sgg_benchmark.utils.logger import setup_logger, logger_step
-from sgg_benchmark.utils.miscellaneous import mkdir, save_config
+from sgg_benchmark.utils.miscellaneous import mkdir
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 
 
 def process(path, output_file=None):
-    base_path = path
-    categories_path = base_path+"/categories_gpt3_Indoorvg4.csv"
-    stats_path = base_path+"/VG-SGG-dicts.json"
-    config_file = base_path+"/config.yml"
-
-    categories = {}
-    with open(categories_path, 'r') as f:
-        for i, line in enumerate(f):
-            line = line.strip().split(',')
-            try:
-                categories[line[0]] = line[1]
-            except:
-                print(line)
-                print(i)
-                exit(0)
-    with open(stats_path, 'r') as f:
-        stats = json.load(f)
-
-    idx_to_label = stats['idx_to_label']
-    idx_to_predicate = stats['idx_to_predicate']
+    config_file = path
 
     cfg.merge_from_file(config_file)
     cfg.freeze()
@@ -74,8 +54,9 @@ def process(path, output_file=None):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
             mkdir(output_folder)
             output_folders[idx] = output_folder
+
+    # dataset_to_test can be customize to test or val to perform data-transfer on the rest of the data
     data_loader_train = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed, dataset_to_test='train')
-    #data_loader_train = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed)
     data_loader_train = data_loader_train[0]
     model.eval()
 
@@ -103,7 +84,8 @@ def process(path, output_file=None):
 
             predictions = model(images.to(device), targets)
 
-        out_data[image_ids[0]] = []
+        img_name = targets[0].get_field('image_path').split('/')[-1]
+        out_data[img_name] = []
         img_info = dataset.get_img_info(image_ids[0])
         image_width = img_info["width"]
         image_height = img_info["height"]
@@ -112,6 +94,7 @@ def process(path, output_file=None):
         predictions = predictions.resize((image_width, image_height)).convert('xyxy').to(device)
 
         gt = dataset.get_groundtruth(image_ids[0], evaluation=True).to(device)
+        assert dataset.filenames[image_ids[0]].split('/')[-1] == img_name, 'Image name does not match: %s %s' % (dataset.filenames[image_ids[0]], img_name)
 
         gt_labels = gt.get_field('labels') # integer
         gt_rels = gt.get_field('relation_tuple')
@@ -135,11 +118,6 @@ def process(path, output_file=None):
         # get pred
         pd_rels = predictions.get_field('rel_pair_idxs')
         pd_rel_dists = predictions.get_field('pred_rel_scores').tolist()
-
-        # pd_rel_dists, pd_rel_labels = all_rel_prob.max(-1)
-        # pd_rel_dists = []
-        # for i in range(pd_rel_labels.shape[0]):
-        #     pd_rel_dists.append(predictions.get_field('pred_rel_scores')[i][1:].max(0)[1].item() + 1)
         pd_labels = predictions.get_field('pred_labels').tolist()
         
         # get iou between gt and pd
@@ -178,23 +156,16 @@ def process(path, output_file=None):
                     confusion_r_labels = r_sort[:gt_r_idx]
                     # we get then ratio of frequence of the triplet in original data over the frequence of the relation                    
                     ori_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), gt_r_label.item()+1)] / stats['pred_freq'][gt_r_label.item()]
-                    ori_rel = idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(gt_r_label.item()+1)] + ' ' + idx_to_label[str(gt_o_label.item())]
 
-                    counter_cat = []
                     for c_r_label in confusion_r_labels:
                         if c_r_label != 0:
                             if stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label+1)] == 0:
                                 continue
                             new_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label+1)] / stats['pred_freq'][c_r_label]
 
-                            new_cat = categories[idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label+1)] + ' ' + idx_to_label[str(gt_o_label.item())]]
-
-                            if new_attr < ori_attr and new_cat not in counter_cat:
-                                counter_cat.append(new_cat)
-                                full_rel = idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label+1)] + ' ' + idx_to_label[str(gt_o_label.item())]
-                                out_data[image_ids[0]].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label+1)])
+                            if new_attr < ori_attr:
+                                out_data[img_name].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label+1)])
                                 internal_trans_count += 1
-                                # print('Transfered from %s to %s' % (ori_rel, full_rel))
 
         ##################
         # external trans #
@@ -231,18 +202,12 @@ def process(path, output_file=None):
                     attr_sort = [stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), r_label)] / stats['pred_freq'][r_label-1] for r_label in confusion_r_labels]
                     confusion_r_labels = [x for _, x in sorted(zip(attr_sort, confusion_r_labels), key=lambda pair: pair[0], reverse=True)]
 
-                    # counter_cat = []
                     for i, c_r_label in enumerate(confusion_r_labels):
                         if c_r_label != 0:
                             new_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label)]
                             if new_attr > 0:
-                                # new_cat = categories[idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label)] + ' ' + idx_to_label[str(gt_o_label.item())]]
-                                # if new_cat not in counter_cat:
-                                #     counter_cat.append(new_cat)
-                                out_data[image_ids[0]].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label)])
+                                out_data[img_name].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label)])
                                 external_trans_count += 1
-                                full_rel = idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label)] + ' ' + idx_to_label[str(gt_o_label.item())]
-                                # print('Adding new rel %s ' % (full_rel))
                                 break
 
         pbar.set_description('int: %d, ext: %d' % (internal_trans_count, external_trans_count))
@@ -257,5 +222,5 @@ def process(path, output_file=None):
 if __name__ == '__main__':
     config_file = sys.argv[1]
     output_file = sys.argv[2]
+
     process(config_file, output_file)
-    
