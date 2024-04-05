@@ -196,9 +196,8 @@ class TransformerContext(nn.Module):
         super().__init__()
         self.cfg = config
         # setting parameters
-        self.obj_pred = True
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE:
-            self.obj_pred = False
+        self.obj_decode = not (self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE)
+
         self.obj_classes = obj_classes
         self.rel_classes = rel_classes
         self.num_obj_cls = len(obj_classes)
@@ -242,11 +241,11 @@ class TransformerContext(nn.Module):
     
     def forward(self, roi_features, proposals, logger=None):
         # labels will be used in DecoderRNN during training
-        use_gt_label = self.training or not self.obj_pred
+        use_gt_label = self.training or not self.obj_decode
         obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0) if use_gt_label else None
 
         # label/logits embedding will be used as input
-        if not self.obj_pred:
+        if not self.obj_decode:
             obj_embed = self.obj_embed1(obj_labels)
         else:
             obj_logits = cat([proposal.get_field("predict_logits") for proposal in proposals], dim=0).detach()
@@ -272,7 +271,7 @@ class TransformerContext(nn.Module):
             use_decoder_nms = self.mode == 'sgdet' and not self.training
             if use_decoder_nms:
                 boxes_per_cls = [proposal.get_field('boxes_per_cls') for proposal in proposals]
-                obj_preds = self.nms_per_cls(obj_dists, boxes_per_cls, num_objs)
+                obj_preds = nms_per_cls(obj_dists, boxes_per_cls, num_objs, self.nms_thresh)
             else:
                 obj_preds = obj_dists[:, 1:].max(1)[1] + 1
             edge_pre_rep = cat((roi_features, obj_feats, self.obj_embed2(obj_preds)), dim=-1)
@@ -283,23 +282,23 @@ class TransformerContext(nn.Module):
 
         return obj_dists, obj_preds, edge_ctx
 
-    def nms_per_cls(self, obj_dists, boxes_per_cls, num_objs):
-        obj_dists = obj_dists.split(num_objs, dim=0)
-        obj_preds = []
-        for i in range(len(num_objs)):
-            is_overlap = nms_overlaps(boxes_per_cls[i]).cpu().numpy() >= self.nms_thresh # (#box, #box, #class)
+def nms_per_cls(obj_dists, boxes_per_cls, num_objs, nms_thresh=0.7):
+    obj_dists = obj_dists.split(num_objs, dim=0)
+    obj_preds = []
+    for i in range(len(num_objs)):
+        is_overlap = nms_overlaps(boxes_per_cls[i]).cpu().numpy() >= nms_thresh # (#box, #box, #class)
 
-            out_dists_sampled = F.softmax(obj_dists[i], -1).cpu().numpy()
-            out_dists_sampled[:, 0] = -1
+        out_dists_sampled = F.softmax(obj_dists[i], -1).cpu().numpy()
+        out_dists_sampled[:, 0] = -1
 
-            out_label = obj_dists[i].new(num_objs[i]).fill_(0)
+        out_label = obj_dists[i].new(num_objs[i]).fill_(0)
 
-            for i in range(num_objs[i]):
-                box_ind, cls_ind = np.unravel_index(out_dists_sampled.argmax(), out_dists_sampled.shape)
-                out_label[int(box_ind)] = int(cls_ind)
-                out_dists_sampled[is_overlap[box_ind,:,cls_ind], cls_ind] = 0.0
-                out_dists_sampled[box_ind] = -1.0 # This way we won't re-sample
+        for i in range(num_objs[i]):
+            box_ind, cls_ind = np.unravel_index(out_dists_sampled.argmax(), out_dists_sampled.shape)
+            out_label[int(box_ind)] = int(cls_ind)
+            out_dists_sampled[is_overlap[box_ind,:,cls_ind], cls_ind] = 0.0
+            out_dists_sampled[box_ind] = -1.0 # This way we won't re-sample
 
-            obj_preds.append(out_label.long())
-        obj_preds = torch.cat(obj_preds, dim=0)
-        return obj_preds
+        obj_preds.append(out_label.long())
+    obj_preds = torch.cat(obj_preds, dim=0)
+    return obj_preds

@@ -7,6 +7,8 @@ from .misc import DFConv2d
 from .misc import ConvTranspose2d
 from .misc import BatchNorm2d
 from .misc import interpolate
+from .misc import MLP
+from .misc import fusion_func
 from .nms import nms
 from .roi_align import ROIAlign
 from .roi_align import roi_align

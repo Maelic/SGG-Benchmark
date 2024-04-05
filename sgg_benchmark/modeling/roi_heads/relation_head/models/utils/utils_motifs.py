@@ -166,6 +166,34 @@ def obj_edge_vectors(names, wv_dir, wv_type='glove.6B', wv_dim=300):
 
     return vectors
 
+def rel_vectors(names, wv_dir, wv_type='glove.6B', wv_dim=300):
+    wv_dict, wv_arr, wv_size = load_word_vectors(wv_dir, wv_type, wv_dim)
+
+    vectors = torch.Tensor(len(names), wv_dim)  # 51, 200
+    vectors.normal_(0, 1)
+    for i, token in enumerate(names):
+        if i == 0:
+            continue
+        wv_index = wv_dict.get(token, None)
+        if wv_index is not None:
+            vectors[i] = wv_arr[wv_index]
+        else:
+            # 进行混合然后求平均
+            split_token = token.split(' ')
+            ss = 0
+            s_vec = torch.zeros(wv_dim)
+            for s_token in split_token:
+                wv_index = wv_dict.get(s_token)
+                if wv_index is not None:
+                    ss += 1
+                    s_vec += wv_arr[wv_index]
+                else:
+                    print("fail on {}".format(token))
+            s_vec /= ss
+            vectors[i] = s_vec
+
+    return vectors
+
 def load_word_vectors(root, wv_type, dim):
     """Load word vectors from a path, trying .pt, .txt, and .zip extensions."""
     URL = {

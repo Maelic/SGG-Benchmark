@@ -13,6 +13,7 @@ import math
 import torch
 from torch import nn
 from torch.nn.modules.utils import _ntuple
+import torch.nn.functional as F
 
 
 class _NewEmptyTensorOp(torch.autograd.Function):
@@ -201,3 +202,20 @@ class DFConv2d(nn.Module):
         ]
         output_shape = [x.shape[0], self.conv.weight.shape[0]] + output_shape
         return _NewEmptyTensorOp.apply(x, output_shape)
+    
+class MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+        super().__init__()
+        self.num_layers = num_layers
+        h = [hidden_dim] * (num_layers - 1)
+        self.layers = nn.ModuleList(
+            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+
+    def forward(self, x):
+        for i, layer in enumerate(self.layers):
+            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)  
+        return x
+    
+    
+def fusion_func(x, y):
+    return F.relu(x + y) - (x - y) ** 2
