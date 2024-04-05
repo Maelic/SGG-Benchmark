@@ -99,11 +99,6 @@ def _rename_weights_for_resnet(weights, stage_names):
     layer_keys = [k.replace(".[mask].fcn", "mask_fcn") for k in layer_keys]
     layer_keys = [k.replace("conv5.mask", "conv5_mask") for k in layer_keys]
 
-    # Keypoint R-CNN
-    layer_keys = [k.replace("kps.score.lowres", "kps_score_lowres") for k in layer_keys]
-    layer_keys = [k.replace("kps.score", "kps_score") for k in layer_keys]
-    layer_keys = [k.replace("conv.fcn", "conv_fcn") for k in layer_keys]
-
     # Rename for our RPN structure
     layer_keys = [k.replace("rpn.", "rpn.head.") for k in layer_keys]
 

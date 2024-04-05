@@ -169,7 +169,6 @@ def _get_head_stage(arch, head_name, blocks):
 # name mapping for head names in arch def and cfg
 ARCH_CFG_NAME_MAPPING = {
     "bbox": "ROI_BOX_HEAD",
-    "kpts": "ROI_KEYPOINT_HEAD",
     "mask": "ROI_MASK_HEAD",
 }
 
