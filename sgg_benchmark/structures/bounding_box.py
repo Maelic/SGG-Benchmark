@@ -284,6 +284,7 @@ class BoxList(object):
         s += "image_width={}, ".format(self.size[0])
         s += "image_height={}, ".format(self.size[1])
         s += "mode={})".format(self.mode)
+        s += "fields=[{}])".format(", ".join(self.extra_fields.keys()))
         return s
 
 

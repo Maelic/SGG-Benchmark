@@ -13,7 +13,7 @@ def add_gt_proposals(proposals, targets):
 
     proposals = [
         cat_boxlist((proposal, gt_box))
-        for proposal, gt_box in zip(proposals, gt_boxes)
+        for proposal, gt_box in zip(proposals, targets)
     ]
 
     return proposals

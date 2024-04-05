@@ -105,7 +105,6 @@ class VGDataset(torch.utils.data.Dataset):
 
         target = self.get_groundtruth(index, flip_img)
 
-        # if self.format == 'yolo':
         img = cv2.imread(self.filenames[index])
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             # return img, target, index

@@ -8,7 +8,7 @@ from torch import nn
 
 from sgg_benchmark.structures.image_list import to_image_list
 from sgg_benchmark.structures.bounding_box import BoxList
-from sgg_benchmark.modeling.backbone import add_gt_proposals
+from sgg_benchmark.structures.boxlist_ops import cat_boxlist
 
 from ..backbone import build_backbone
 from ..roi_heads.roi_heads import build_roi_heads
@@ -29,6 +29,7 @@ class GeneralizedYOLO(nn.Module):
         self.backbone = build_backbone(cfg)
         self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
         self.predcls = self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL
+        self.add_gt = self.cfg.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN
 
     def forward(self, images, targets=None, logger=None):
         """
@@ -50,9 +51,9 @@ class GeneralizedYOLO(nn.Module):
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, embed=True)
             proposals = self.backbone.postprocess(outputs, images.image_sizes)
-        
-        # if self.roi_heads.training and not self.predcls:
-        #     proposals = add_gt_proposals(proposals, targets)
+
+        if self.roi_heads.training and (targets is not None) and self.add_gt:
+            proposals = self.add_gt_proposals(proposals,targets)
 
         if self.roi_heads:
             if self.predcls and self.roi_heads.training: # in predcls mode, we pass the targets as proposals
@@ -72,3 +73,23 @@ class GeneralizedYOLO(nn.Module):
             losses.update(detector_losses)
             return losses
         return result
+        
+    def add_gt_proposals(self, proposals, targets):
+        """
+        Arguments:
+            proposals: list[BoxList]
+            targets: list[BoxList]
+        """
+        new_targets = []
+        for t in targets:
+            new_t = t.copy_with_fields(["labels"])
+            new_t.add_field("pred_labels", t.get_field("labels"))
+            new_t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
+            new_targets.append(new_t)
+
+        proposals = [
+            cat_boxlist((proposal, gt_box))
+            for proposal, gt_box in zip(proposals, new_targets)
+        ]
+
+        return proposals

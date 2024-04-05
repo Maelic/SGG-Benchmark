@@ -168,7 +168,7 @@ def cat_boxlist(bboxes):
     assert all(bbox.mode == mode for bbox in bboxes)
 
     fields = set(bboxes[0].fields())
-    assert all(set(bbox.fields()) == fields for bbox in bboxes)
+    assert all(set(bbox.fields()) == fields for bbox in bboxes), [set(bbox.fields()) for bbox in bboxes]
 
     cat_boxes = BoxList(_cat([bbox.bbox for bbox in bboxes], dim=0), size, mode)
 
