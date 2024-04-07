@@ -7,7 +7,6 @@ import torch
 from torch import nn
 
 from sgg_benchmark.structures.image_list import to_image_list
-from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import cat_boxlist
 
 from ..backbone import build_backbone
@@ -17,10 +16,9 @@ from ..roi_heads.roi_heads import build_roi_heads
 class GeneralizedYOLO(nn.Module):
     """
     Main class for Generalized YOLO. Currently supports boxes and masks.
-    It consists of three main parts:
+    It consists of two main parts:
     - backbone
-    - heads: takes the features + the proposals from the YOLO head and computes
-        detections / masks from it.
+    - heads: takes the features + the proposals from the YOLO head and computes the relations from it.
     """
 
     def __init__(self, cfg):
@@ -54,6 +52,10 @@ class GeneralizedYOLO(nn.Module):
 
         if self.roi_heads.training and (targets is not None) and self.add_gt:
             proposals = self.add_gt_proposals(proposals,targets)
+
+        # to avoid the empty list to be passed into roi_heads during testing and cause error in the pooler
+        if not self.training and len(proposals[0]) == 0:
+            return proposals
 
         if self.roi_heads:
             if self.predcls and self.roi_heads.training: # in predcls mode, we pass the targets as proposals
