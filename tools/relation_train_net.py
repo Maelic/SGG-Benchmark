@@ -188,10 +188,7 @@ def train(cfg, logger, args):
     )
     logger_step(logger, 'Building dataloader')
 
-    checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
-
     if cfg.SOLVER.PRE_VAL:
-        model.backbone.model.eval()
         model.roi_heads.eval()
 
         logger.info("Validate before training")
