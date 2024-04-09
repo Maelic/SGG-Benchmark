@@ -14,5 +14,10 @@ CUDA_VISIBLE_DEVICES=0 python tools/relation_train_net.py --save-best --task sgd
 # GPS-Net
 CUDA_VISIBLE_DEVICES=0 python tools/relation_train_net.py --save-best --task sgdet --config-file "configs/IndoorVG/e2e_relation_yolov8.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR GPSNetPredictor SOLVER.IMS_PER_BATCH 16 TEST.IMS_PER_BATCH 1 DTYPE "float16" SOLVER.PRE_VAL True GLOVE_DIR /home/maelic/glove OUTPUT_DIR ./checkpoints/IndoorVG4/SGDET/gpsnet-yolov8l
 
+CUDA_VISIBLE_DEVICES=0 python tools/relation_test_net.py --save-best --task sgdet --config-file "configs/IndoorVG/e2e_relation_yolov8.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR GPSNetPredictor SOLVER.IMS_PER_BATCH 16 TEST.IMS_PER_BATCH 1 DTYPE "float16" SOLVER.PRE_VAL True GLOVE_DIR /home/maelic/glove OUTPUT_DIR ./checkpoints/IndoorVG4/SGDET/gpsnet-yolov8l
+
+
 # PENET
 CUDA_VISIBLE_DEVICES=0 python tools/relation_train_net.py --save-best --task sgdet --config-file "configs/IndoorVG/e2e_relation_yolov8.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR PrototypeEmbeddingNetwork SOLVER.IMS_PER_BATCH 16 TEST.IMS_PER_BATCH 1 DTYPE "float16" SOLVER.PRE_VAL True GLOVE_DIR /home/maelic/glove OUTPUT_DIR ./checkpoints/IndoorVG4/SGDET/penet-yolov8l
+
+CUDA_VISIBLE_DEVICES=0 python tools/relation_train_net.py --save-best --task sgdet --config-file "configs/IndoorVG/e2e_relation_faster_rcnn.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR PrototypeEmbeddingNetwork SOLVER.IMS_PER_BATCH 16 TEST.IMS_PER_BATCH 1 DTYPE "float16" SOLVER.PRE_VAL True GLOVE_DIR /home/maelic/glove OUTPUT_DIR ./checkpoints/IndoorVG4/SGDET/penet-faster_rcnn

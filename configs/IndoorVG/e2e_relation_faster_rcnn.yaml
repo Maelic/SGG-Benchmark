@@ -11,7 +11,7 @@ MODEL:
   BACKBONE:
     TYPE: "R-101-FPN"
     NMS_THRESH: 0.7
-    FREEZE: True
+    FREEZE: False
   YOLO:
     SIZE: ""
     OUT_CHANNELS: 256
@@ -62,10 +62,10 @@ MODEL:
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
-    USE_GT_BOX: True
-    USE_GT_OBJECT_LABEL: True
+    USE_GT_BOX: False
+    USE_GT_OBJECT_LABEL: False
     REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
-    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: False    # for sgdet only, in case some gt boxes are missing
+    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
     NUM_CLASSES: 38                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
     BATCH_SIZE_PER_IMAGE: 1024      # sample as much as possible
     POSITIVE_FRACTION: 0.25

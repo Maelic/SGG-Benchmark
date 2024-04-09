@@ -161,15 +161,14 @@ def train(cfg, logger, args):
         extra_checkpoint_data = checkpointer.load(None, update_schedule=cfg.SOLVER.UPDATE_SCHEDULE_DURING_LOAD)
         arguments.update(extra_checkpoint_data)
     else:
-        print("FPN" in cfg.MODEL.BACKBONE.TYPE)
         if "FPN" in cfg.MODEL.BACKBONE.TYPE:
             # load_mapping is only used when we init current model from detection model.
             checkpointer.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT, with_optim=False, load_mapping=load_mapping)
         else:
             model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
             model.backbone.model.to(device)
-        # load backbone weights
-        logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
+            # load backbone weights
+            logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
     
     mode = get_mode(cfg)
 
@@ -189,7 +188,7 @@ def train(cfg, logger, args):
     logger_step(logger, 'Building dataloader')
 
     if cfg.SOLVER.PRE_VAL:
-        model.roi_heads.eval()
+        # model.roi_heads.eval()
 
         logger.info("Validate before training")
         run_val(cfg, model, val_data_loaders, args['distributed'], logger, device=device)
@@ -283,7 +282,7 @@ def train(cfg, logger, args):
     print('\n\n')
     logger.info("Best Epoch is : %.4f" % best_epoch)
 
-    return model, best_checkpoint 
+    return model, best_checkpoint
 
 def fix_eval_modules(eval_modules):
     for module in eval_modules:
@@ -305,7 +304,6 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     dataset_names = cfg.DATASETS.VAL
     val_result = []
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
-        # shrink data_loader to only 100 samples
         dataset_result = inference(
                             cfg,
                             model,

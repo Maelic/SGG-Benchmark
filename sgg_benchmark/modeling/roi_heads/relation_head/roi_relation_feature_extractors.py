@@ -28,7 +28,7 @@ class RelationFeatureExtractor(nn.Module):
             self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, cat_all_levels=pool_all_levels)
             self.out_channels = self.feature_extractor.out_channels
 
-        # separete spatial
+        # separate spatial
         self.separate_spatial = self.cfg.MODEL.ROI_RELATION_HEAD.CAUSAL.SEPARATE_SPATIAL
         if self.separate_spatial:
             input_size = self.feature_extractor.resize_channels

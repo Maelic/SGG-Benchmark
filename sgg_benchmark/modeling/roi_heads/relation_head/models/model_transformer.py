@@ -262,13 +262,13 @@ class TransformerContext(nn.Module):
         obj_feats = self.context_obj(obj_pre_rep, num_objs)
 
         # predict obj_dists and obj_preds
-        if not self.obj_pred:
+        if use_gt_label:
             obj_preds = obj_labels
             obj_dists = to_onehot(obj_preds, self.num_obj_cls)
             edge_pre_rep = cat((roi_features, obj_feats, self.obj_embed2(obj_labels)), dim=-1)
         else:
             obj_dists = self.out_obj(obj_feats)
-            use_decoder_nms = self.mode == 'sgdet' and not self.training
+            use_decoder_nms = self.obj_decode and not self.training
             if use_decoder_nms:
                 boxes_per_cls = [proposal.get_field('boxes_per_cls') for proposal in proposals]
                 obj_preds = nms_per_cls(obj_dists, boxes_per_cls, num_objs, self.nms_thresh)
