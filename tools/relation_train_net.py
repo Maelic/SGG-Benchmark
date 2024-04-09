@@ -248,8 +248,10 @@ def train(cfg, logger, args):
                 mode+'_f1': val_result[mode+"_f1"],
                 mode+'_recall': val_result[mode+"_recall"],
                 mode+'_mean_recall': val_result[mode+"_mean_recall"],
-                mode+'_informative_recall': val_result[mode+"_informative_recall"],
             }
+
+            if cfg.TEST.INFORMATIVE:
+                res_dict[mode+'_informative_recall'] = val_result[mode+"_informative_recall"]
 
             wandb.log(res_dict, step=epoch)            
 

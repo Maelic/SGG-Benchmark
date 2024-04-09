@@ -212,6 +212,8 @@ def do_vg_evaluation(
 
 
     logger.info(result_str)
+
+    result_dict['detector_mAP@50'] = mAp
     
     if "relations" in iou_types:
         if output_folder:

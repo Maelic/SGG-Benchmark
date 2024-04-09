@@ -158,7 +158,7 @@ def inference(
     inference_timer = Timer()
     total_timer.tic()
     if load_prediction_from_cache:
-        pred_path = "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/checkpoints/original_VG150/upload_causal_motif_sgdet/inference/VG_stanford_filtered_with_attribute_test/predictions.pth"
+        pred_path = os.path.join(output_folder, "predictions.pth")
         predictions = torch.load(pred_path, map_location=torch.device("cpu"))
         logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:

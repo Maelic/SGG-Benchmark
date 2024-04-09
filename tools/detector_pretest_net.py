@@ -107,16 +107,14 @@ def main():
 
     logger = setup_logger("sgg_benchmark", output_dir, get_rank())
     logger.info("Using {} GPUs".format(num_gpus))
-    logger.info(args)
 
     logger.info("Collecting env info (might take some time)")
-    logger.info("\n" + collect_env_info())
 
     logger.info("Loaded configuration file {}".format(args.config_file))
     with open(args.config_file, "r") as cf:
         config_str = "\n" + cf.read()
         logger.info(config_str)
-    logger.info("Running with config:\n{}".format(cfg))
+    # logger.info("Running with config:\n{}".format(cfg))
 
     output_config_path = os.path.join(cfg.OUTPUT_DIR, 'config.yml')
     logger.info("Saving config into: {}".format(output_config_path))
@@ -128,7 +126,10 @@ def main():
 
     output_dir = cfg.OUTPUT_DIR
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
-    _ = checkpointer.load(cfg.MODEL.WEIGHT)
+    if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
+        checkpointer.load(cfg.MODEL.WEIGHT)
+    else:
+        model.backbone.load(cfg.MODEL.WEIGHT)
 
     iou_types = ("bbox",)
     if cfg.MODEL.MASK_ON:
@@ -145,7 +146,8 @@ def main():
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
             mkdir(output_folder)
             output_folders[idx] = output_folder
-    data_loaders_val = make_data_loader(cfg, mode='test', is_distributed=args.distributed) # mode=val for fast visualization
+    data_loaders_val = make_data_loader(cfg, mode='test', is_distributed=args.distributed)# mode=val for fast visualization
+    print(len(data_loaders_val))
     for output_folder, dataset_name, data_loader_val in zip(output_folders, dataset_names, data_loaders_val):
         inference(
             cfg,
