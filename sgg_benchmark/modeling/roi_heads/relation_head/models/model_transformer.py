@@ -262,7 +262,7 @@ class TransformerContext(nn.Module):
         obj_feats = self.context_obj(obj_pre_rep, num_objs)
 
         # predict obj_dists and obj_preds
-        if use_gt_label:
+        if not self.obj_decode:
             obj_preds = obj_labels
             obj_dists = to_onehot(obj_preds, self.num_obj_cls)
             edge_pre_rep = cat((roi_features, obj_feats, self.obj_embed2(obj_labels)), dim=-1)

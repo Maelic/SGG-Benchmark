@@ -129,7 +129,7 @@ def main():
     if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
         checkpointer.load(cfg.MODEL.WEIGHT)
     else:
-        model.backbone.load(cfg.MODEL.WEIGHT)
+        model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
 
     iou_types = ("bbox",)
     if cfg.MODEL.MASK_ON:
@@ -146,8 +146,8 @@ def main():
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
             mkdir(output_folder)
             output_folders[idx] = output_folder
-    data_loaders_val = make_data_loader(cfg, mode='test', is_distributed=args.distributed)# mode=val for fast visualization
-    print(len(data_loaders_val))
+    data_loaders_val = make_data_loader(cfg, mode='val', is_distributed=args.distributed)# mode=val for fast visualization
+
     for output_folder, dataset_name, data_loader_val in zip(output_folders, dataset_names, data_loaders_val):
         inference(
             cfg,

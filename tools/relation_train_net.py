@@ -334,6 +334,9 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
                 dataset_result[k1][k2] = torch.distributed.all_reduce(torch.tensor(np.mean(v2)).to(device).unsqueeze(0)).item() / torch.distributed.get_world_size()
     else:
         for k1, v1 in dataset_result.items():
+            if type(v1) != dict or type(v1) != list:
+                dataset_result[k1] = v1
+                continue
             for k2, v2 in v1.items():
                 if isinstance(v2, list):
                     # mean everything

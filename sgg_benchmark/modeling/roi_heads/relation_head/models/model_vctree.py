@@ -79,9 +79,7 @@ class VCTreeLSTMContext(nn.Module):
         self.num_obj_classes = len(obj_classes)
 
         # mode
-        self.obj_pred = True
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE:
-            self.obj_pred = False
+        self.obj_decode = not (self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE)
 
         # word embedding
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
@@ -184,7 +182,7 @@ class VCTreeLSTMContext(nn.Module):
             encod_rep = self.obj_ctx_rnn(tree, feat, len(proposal))
             obj_ctxs.append(encod_rep)
             # Decode in order
-            if self.obj_pred:
+            if self.obj_decode:
                 if (not self.training) and self.effect_analysis and ctx_average:
                     decoder_inp = self.untreated_dcd_feat.view(1, -1).expand(encod_rep.shape[0], -1)
                 else:
@@ -222,12 +220,12 @@ class VCTreeLSTMContext(nn.Module):
     def forward(self, x, proposals, rel_pair_idxs, logger=None, all_average=False, ctx_average=False):
         num_objs = [len(b) for b in proposals]
         # labels will be used in DecoderRNN during training (for nms)
-        if self.training or not self.obj_pred:
+        if self.training or not self.obj_decode:
             obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
         else:
             obj_labels = None
 
-        if not self.obj_pred:
+        if not self.obj_decode:
             obj_embed = self.obj_embed1(obj_labels.long())
             obj_logits = to_onehot(obj_labels, self.num_obj_classes)
         else:
