@@ -247,7 +247,7 @@ class VCTreeLSTMContext(nn.Module):
         pair_inp = self.overlap_embed(get_overlap_info(proposals))
         bi_inp = cat((self.obj_reduce(x.detach()), self.emb_reduce(obj_embed.detach()), box_inp, pair_inp), -1)
         bi_preds, vc_scores = self.vctree_score_net(num_objs, bi_inp, obj_logits, proposals)
-        forest = generate_forest(vc_scores, proposals, self.obj_pred)
+        forest = generate_forest(vc_scores, proposals, self.obj_decode)
         vc_forest = arbForest_to_biForest(forest)
 
         # object level contextual feature

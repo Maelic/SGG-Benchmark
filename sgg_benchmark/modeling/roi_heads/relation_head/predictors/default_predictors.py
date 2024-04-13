@@ -749,7 +749,7 @@ class GPSNetPredictor(BasePredictor):
             obj_pred_labels = cat(
                 [each_prop.get_field("labels") for each_prop in inst_proposals], dim=0
             )
-        if self.frequency_bias:
+        if self.use_bias:
             obj_pred_labels = obj_pred_labels.split(num_objs, dim=0)
             pair_preds = []
             for pair_idx, obj_pred in zip(rel_pair_idxs, obj_pred_labels):
