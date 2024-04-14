@@ -110,40 +110,40 @@ class RTDetr(DetectionModel):
             results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
     
     def postprocess(self, preds, image_sizes):
-        """Post-processes predictions and returns a list of Results objects."""
-        preds = ops.non_max_suppression(
-            preds,
-            nc=self.nc,
-            conf_thres=self.conf_thres,
-            iou_thres=self.iou_thres,
-            max_det=50,
-        )
+
+        nd = preds[0].shape[-1]
+        bboxes, scores = preds[0].split((4, nd - 4), dim=-1)
 
         results = []
-        for i, pred in enumerate(preds):
+        for i, bbox in enumerate(bboxes):  # (300, 4)
             out_img_size = image_sizes[i]
             # flip
             out_img_size = (out_img_size[1], out_img_size[0])
 
-            boxes = pred[:, :4]
-            # boxes = boxes.cpu()
+            bbox = ops.xywh2xyxy(bbox)
+            score, cls = scores[i].max(-1, keepdim=True)  # (300, 1)
+            idx = score.squeeze(-1) > self.conf_thres  # (300, )
 
-            boxlist = BoxList(boxes, out_img_size, mode="xyxy")
+            pred = torch.cat([bbox, score, cls], dim=-1)[idx]  # filter
+            oh, ow = image_sizes[i]
+            pred[..., [0, 2]] *= ow
+            pred[..., [1, 3]] *= oh
 
-            #boxlist = boxlist.clip_to_image(remove_empty=False)
+            boxlist = BoxList(pred[:, :4], out_img_size, mode="xyxy")
+
             scores = pred[:, 4]
             labels = pred[:, 5].long()
             boxlist.add_field("pred_labels", labels.detach().clone())
-            # add 1 to all labels to account for background class
+            # add 1 to all labels to account for background class, for rel pred
             labels += 1
             # resize
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
 
             assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
-            # boxlist.add_field("pred_logits", pred[:, 5:])
 
             results.append(boxlist)
+
         return results
 
     

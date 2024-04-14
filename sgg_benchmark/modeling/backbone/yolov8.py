@@ -144,6 +144,17 @@ class YoloV8(DetectionModel):
             max_det=50,
         )
 
+        if len(preds) == 0:
+            # return a dummy box with size of all image
+            boxes = torch.tensor([[0, 0, image_sizes[0][1], image_sizes[0][0]]], device=self.device)
+            scores = torch.tensor([0.0], device=self.device)
+            labels = torch.tensor([0], device=self.device)
+            boxlist = BoxList(boxes, image_sizes[0], mode="xyxy")
+            boxlist.add_field("pred_labels", labels)
+            boxlist.add_field("pred_scores", scores)
+            return [boxlist]
+        
+
         results = []
         for i, pred in enumerate(preds):
             out_img_size = image_sizes[i]
