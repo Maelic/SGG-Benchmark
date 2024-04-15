@@ -48,7 +48,6 @@ def main():
 
     output_dir = cfg.OUTPUT_DIR
 
-    save_dir = ""
     logger = setup_logger("sgg_benchmark", output_dir, get_rank(), filename="log.txt", steps=True, verbose=args.verbose)
     logger.info("Using {} GPUs".format(num_gpus))
     logger.debug(args)

@@ -90,9 +90,9 @@ def obj_prediction_nms(boxes_per_cls, pred_logits, nms_thresh=0.3):
     assert num_obj == boxes_per_cls.shape[0]
 
     is_overlap = nms_overlaps(boxes_per_cls).view(boxes_per_cls.size(0), boxes_per_cls.size(0), 
-                              boxes_per_cls.size(1)).cpu().numpy() >= nms_thresh
+                              boxes_per_cls.size(1)).cpu().detach().numpy() >= nms_thresh
 
-    prob_sampled = F.softmax(pred_logits, 1).cpu().numpy()
+    prob_sampled = F.softmax(pred_logits, 1).cpu().detach().numpy()
     prob_sampled[:, 0] = 0  # set bg to 0
 
     pred_label = torch.zeros(num_obj, device=pred_logits.device, dtype=torch.int64)

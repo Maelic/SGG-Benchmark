@@ -411,6 +411,8 @@ class LSTMContext(nn.Module):
         self.rel_classes = rel_classes
         self.num_obj_classes = len(obj_classes)
 
+        self.obj_decode = not (self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE)
+
         # mode
         if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
             if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
@@ -457,6 +459,11 @@ class LSTMContext(nn.Module):
                 num_layers=self.nl_edge,
                 dropout=self.dropout_rate if self.nl_edge > 1 else 0,
                 bidirectional=True)
+        if self.obj_decode:
+            self.decoder_rnn = DecoderRNN(self.cfg, self.obj_classes, embed_dim=self.embed_dim,
+                inputs_dim=self.hidden_dim + self.obj_dim + self.embed_dim + 128,
+                hidden_dim=self.hidden_dim,
+                rnn_drop=self.dropout_rate)
         # map bidirectional hidden states of dimension self.hidden_dim*2 to self.hidden_dim
         self.lin_obj_h = nn.Linear(self.hidden_dim*2, self.hidden_dim)
         self.lin_edge_h = nn.Linear(self.hidden_dim*2, self.hidden_dim)
@@ -508,11 +515,24 @@ class LSTMContext(nn.Module):
         if self.training and self.effect_analysis:
             self.untreated_dcd_feat = self.moving_average(self.untreated_dcd_feat, decoder_inp)
 
-        obj_preds = obj_labels
+        # Decode in order
+        if self.obj_decode:
+            decoder_inp = PackedSequence(decoder_inp, ls_transposed)
+            obj_dists, obj_preds = self.decoder_rnn(
+                decoder_inp, #obj_dists[perm],
+                labels=obj_labels[perm] if obj_labels is not None else None,
+                boxes_for_nms=boxes_per_cls[perm] if boxes_per_cls is not None else None,
+                )
+            obj_preds = obj_preds[inv_perm]
+            obj_dists = obj_dists[inv_perm]
+        else:
+            assert obj_labels is not None
+            obj_preds = obj_labels
+            obj_dists = to_onehot(obj_preds, self.num_obj_classes)
 
         encoder_rep = encoder_rep[inv_perm]
 
-        return obj_preds, encoder_rep, perm, inv_perm, ls_transposed
+        return obj_dists, obj_preds, encoder_rep, perm, inv_perm, ls_transposed
 
     def edge_ctx(self, inp_feats, perm, inv_perm, ls_transposed):
         """
@@ -561,7 +581,7 @@ class LSTMContext(nn.Module):
             boxes_per_cls = cat([proposal.get_field('boxes_per_cls') for proposal in proposals], dim=0) # comes from post process of box_head
 
         # object level contextual feature
-        obj_preds, obj_ctx, perm, inv_perm, ls_transposed = self.obj_ctx(obj_pre_rep, proposals, obj_labels, boxes_per_cls, ctx_average=ctx_average)
+        obj_dists, obj_preds, obj_ctx, perm, inv_perm, ls_transposed = self.obj_ctx(obj_pre_rep, proposals, obj_labels, boxes_per_cls, ctx_average=ctx_average)
         # edge level contextual feature
         obj_embed2 = self.obj_embed2(obj_preds.long())
 
@@ -577,6 +597,4 @@ class LSTMContext(nn.Module):
             self.untreated_obj_feat = self.moving_average(self.untreated_obj_feat, obj_pre_rep)
             self.untreated_edg_feat = self.moving_average(self.untreated_edg_feat, cat((obj_embed2, x), -1))
         
-        obj_dists = to_onehot(obj_preds, self.num_obj_classes)
-
         return obj_dists, obj_preds, edge_ctx, None

@@ -58,6 +58,100 @@ class SGF1Score(SceneGraphEvaluation):
                 f1 = 0
             self.result_dict[mode + '_f1'][k] = f1
 
+class SGRecallRelative(SceneGraphEvaluation):
+    def __init__(self, result_dict):
+        super(SGRecallRelative, self).__init__(result_dict)
+        
+    def register_container(self, mode):
+        self.result_dict[mode + '_recall_relative'] = []
+
+    def generate_print_string(self, mode):
+        result_str = 'SGG eval: '
+        result_str += '    R @ %s: %.4f; ' % ('relative', np.mean(self.result_dict[mode + '_recall_relative']))
+        result_str += ' for mode=%s, type=Recall(Main).' % mode
+        result_str += '\n'
+        return result_str
+
+    def calculate_recall(self, global_container, local_container, mode):
+        gt_rels = local_container['gt_rels']
+
+        pred_to_gt = local_container['pred_to_gt']
+
+        # get number of gt relationships
+        k = gt_rels.shape[0]
+        match = reduce(np.union1d, pred_to_gt[:k])
+        rec_i = float(len(match)) / float(gt_rels.shape[0])
+        self.result_dict[mode + '_recall_relative'].append(rec_i)
+
+        return local_container
+    
+class SGMeanRecallRelative(SceneGraphEvaluation):
+    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=False):
+        super(SGMeanRecallRelative, self).__init__(result_dict)
+        self.num_rel = num_rel
+        self.print_detail = print_detail
+        self.rel_name_list = ind_to_predicates[1:] # remove __background__
+
+    def register_container(self, mode):
+        self.result_dict[mode + '_mean_recall_relative'] = {'relative': 0.0}
+        self.result_dict[mode + '_mean_recall_collect_relative'] = {'relative': [[] for i in range(self.num_rel)]}
+        self.result_dict[mode + '_mean_recall_list_relative'] = {'relative': []}
+
+    def generate_print_string(self, mode):
+        result_str = 'SGG eval: '
+        for k, v in self.result_dict[mode + '_mean_recall_relative'].items():
+            result_str += '   mR @ %s: %.4f; ' % (k, float(v))
+        result_str += ' for mode=%s, type=Mean Recall.' % mode
+        result_str += '\n'
+        if self.print_detail:
+            result_str += '----------------------- Details ------------------------\n'
+            for n, r in zip(self.rel_name_list, self.result_dict[mode + '_mean_recall_list'][100]):
+                result_str += '({}:{:.4f}) '.format(str(n), r)
+            result_str += '\n'
+            result_str += '--------------------------------------------------------\n'
+
+        return result_str
+
+    def collect_mean_recall_items(self, global_container, local_container, mode):
+        pred_to_gt = local_container['pred_to_gt']
+        gt_rels = local_container['gt_rels']
+
+        k = gt_rels.shape[0]
+
+        # the following code are copied from Neural-MOTIFS
+        match = reduce(np.union1d, pred_to_gt[:k])
+        # NOTE: by kaihua, calculate Mean Recall for each category independently
+        # this metric is proposed by: CVPR 2019 oral paper "Learning to Compose Dynamic Tree Structures for Visual Contexts"
+        recall_hit = [0] * self.num_rel
+        recall_count = [0] * self.num_rel
+        for idx in range(gt_rels.shape[0]):
+            local_label = gt_rels[idx,2]
+            recall_count[int(local_label)] += 1
+            recall_count[0] += 1
+
+        for idx in range(len(match)):
+            local_label = gt_rels[int(match[idx]),2]
+            recall_hit[int(local_label)] += 1
+            recall_hit[0] += 1
+        
+        for n in range(self.num_rel):
+            if recall_count[n] > 0:
+                self.result_dict[mode + '_mean_recall_collect_relative']['relative'][n].append(float(recall_hit[n] / recall_count[n]))
+
+    def calculate_mean_recall(self, mode):
+        sum_recall = 0
+        num_rel_no_bg = self.num_rel - 1
+        for idx in range(num_rel_no_bg):
+            if len(self.result_dict[mode + '_mean_recall_collect_relative']['relative'][idx+1]) == 0:
+                tmp_recall = 0.0
+            else:
+                tmp_recall = np.mean(self.result_dict[mode + '_mean_recall_collect_relative']['relative'][idx+1])
+            self.result_dict[mode + '_mean_recall_list_relative']['relative'].append(tmp_recall)
+            sum_recall += tmp_recall
+
+        self.result_dict[mode + '_mean_recall_relative']['relative'] = sum_recall / float(num_rel_no_bg)
+        return
+
 class SGInformativeRecall(SceneGraphEvaluation):
     def __init__(self, result_dict, sim='glove'):
         super(SGInformativeRecall, self).__init__(result_dict)

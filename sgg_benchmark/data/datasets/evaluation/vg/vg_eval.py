@@ -12,7 +12,7 @@ from sgg_benchmark.data import get_dataset_statistics
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
-from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall, SGInformativeRecall, SGF1Score
+from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall, SGInformativeRecall, SGF1Score, SGRecallRelative, SGMeanRecallRelative
 from sgg_benchmark.config.paths_catalog import DatasetCatalog
 
 def do_vg_evaluation(
@@ -168,6 +168,14 @@ def do_vg_evaluation(
             eval_informative_recall.register_container(mode)
             evaluator['eval_informative_recall'] = eval_informative_recall
 
+            eval_relative_recall = SGRecallRelative(result_dict)
+            eval_relative_recall.register_container(mode)
+            evaluator['eval_relative_recall'] = eval_relative_recall
+
+            eval_mean_relative_recall = SGMeanRecallRelative(result_dict, num_rel_category, dataset.ind_to_predicates, print_detail=True)
+            eval_mean_relative_recall.register_container(mode)
+            evaluator['eval_mean_relative_recall'] = eval_mean_relative_recall
+
         # prepare all inputs
         global_container = {}
         global_container['zeroshot_triplet'] = zeroshot_triplet
@@ -191,6 +199,9 @@ def do_vg_evaluation(
         eval_mean_recall.calculate_mean_recall(mode)
         eval_ng_mean_recall.calculate_mean_recall(mode)
 
+        if informative:
+            eval_mean_relative_recall.calculate_mean_recall(mode)
+
         # calculate f1 score
         eval_f1_score.calculate_f1(global_container['result_dict'], mode)
         
@@ -202,10 +213,12 @@ def do_vg_evaluation(
         result_str += eval_mean_recall.generate_print_string(mode)
         result_str += eval_ng_mean_recall.generate_print_string(mode)
         result_str += eval_f1_score.generate_print_string(mode)
-        
+
         if informative:
             result_str += eval_informative_recall.generate_print_string(mode)
-        
+            result_str += eval_relative_recall.generate_print_string(mode)
+            result_str += eval_mean_relative_recall.generate_print_string(mode)
+
         if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
             result_str += eval_pair_accuracy.generate_print_string(mode)
         result_str += '=' * 100 + '\n'
@@ -359,6 +372,9 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
 
     if informative:
         evaluator['eval_informative_recall'].calculate_recall(global_container, local_container, mode)
+
+        evaluator['eval_relative_recall'].calculate_recall(global_container, local_container, mode)
+        evaluator['eval_mean_relative_recall'].collect_mean_recall_items(global_container, local_container, mode)
         
     return 
 

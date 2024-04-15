@@ -286,9 +286,9 @@ def nms_per_cls(obj_dists, boxes_per_cls, num_objs, nms_thresh=0.7):
     obj_dists = obj_dists.split(num_objs, dim=0)
     obj_preds = []
     for i in range(len(num_objs)):
-        is_overlap = nms_overlaps(boxes_per_cls[i]).cpu().numpy() >= nms_thresh # (#box, #box, #class)
+        is_overlap = nms_overlaps(boxes_per_cls[i]).cpu().detach().numpy() >= nms_thresh # (#box, #box, #class)
 
-        out_dists_sampled = F.softmax(obj_dists[i], -1).cpu().numpy()
+        out_dists_sampled = F.softmax(obj_dists[i], -1).cpu().detach().numpy()
         out_dists_sampled[:, 0] = -1
 
         out_label = obj_dists[i].new(num_objs[i]).fill_(0)

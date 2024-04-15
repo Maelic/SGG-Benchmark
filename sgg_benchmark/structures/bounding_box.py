@@ -239,13 +239,14 @@ class BoxList(object):
         return self.bbox.shape[0]
 
     def clip_to_image(self, remove_empty=True):
-        self.bbox[:, 0].clamp_(min=0, max=self.size[0])
-        self.bbox[:, 1].clamp_(min=0, max=self.size[1])
-        self.bbox[:, 2].clamp_(min=0, max=self.size[0])
-        self.bbox[:, 3].clamp_(min=0, max=self.size[1])
+        bbox_copy = self.bbox.clone()
+        bbox_copy[:, 0] = bbox_copy[:, 0].clamp(min=0, max=self.size[0])
+        bbox_copy[:, 1] = bbox_copy[:, 1].clamp(min=0, max=self.size[1])
+        bbox_copy[:, 2] = bbox_copy[:, 2].clamp(min=0, max=self.size[0])
+        bbox_copy[:, 3] = bbox_copy[:, 3].clamp(min=0, max=self.size[1])
+        self.bbox = bbox_copy
         if remove_empty:
-            box = self.bbox
-            keep = (box[:, 3] > box[:, 1]) & (box[:, 2] > box[:, 0])
+            keep = (bbox_copy[:, 3] > bbox_copy[:, 1]) & (bbox_copy[:, 2] > bbox_copy[:, 0])
             return self[keep]
         return self
 
