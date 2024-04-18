@@ -13,12 +13,10 @@ from sgg_benchmark.config import cfg
 from sgg_benchmark.data.build import build_transforms
 from sgg_benchmark.utils.logger import setup_logger
 
-from ultralytics.engine.results import Boxes
-
 import cv2
 
 class SGG_Model(object):
-    def __init__(self, config, dict_classes, weights, tracking=False, logging_level="INFO") -> None:
+    def __init__(self, config, dict_classes, weights, tracking=False, rel_conf=0.1, box_conf=0.5) -> None:
         cfg.merge_from_file(config)
         cfg.TEST.CUSTUM_EVAL = True
         cfg.freeze()
@@ -35,6 +33,9 @@ class SGG_Model(object):
         self.device = None
         self.tracking = tracking
         self.last_time = 0
+
+        self.rel_conf = rel_conf
+        self.box_conf = box_conf
 
         # can choose between BYTETracker or OCSORT, in my experience OCSORT works a little bit better
         if self.tracking:
@@ -76,15 +77,12 @@ class SGG_Model(object):
         with torch.no_grad():
             targets = None
             img_list = img_list.to(self.device)
-            # outputs, features = self.model.backbone(img_list.tensors, embed=True)
-            # proposals = self.model.backbone.postprocess(outputs, img_list.image_sizes)
 
-            # _, predictions, _ = self.model.roi_heads(features, proposals, targets, None, proposals)
             t_start = time.time()
             predictions = self.model(img_list, targets)
             print("Detection time: ", time.time()-t_start, "s")
 
-        predictions = self._post_process_yolo(predictions[0], orig_size=image.shape[:2])
+        predictions = self._post_process(predictions[0], orig_size=image.shape[:2], rel_threshold=self.rel_conf, box_thres=self.box_conf)
         
         print("Number of objects detected: ", len(predictions['bbox']))
         print("Number of relationships detected: ", len(predictions['rel_pairs']))
@@ -93,7 +91,7 @@ class SGG_Model(object):
         if self.tracking:
             predictions['track_id'] = [None for _ in range(len(predictions['bbox']))]
             # check if there is bbox to track
-            yolo_bbox = predictions['yolo_bboxes'].data.numpy()
+            yolo_bbox = predictions['yolo_bboxes'].numpy()
             if len(yolo_bbox) > 0:
                 tracks = self.tracker.update(yolo_bbox, image)
                 for i, cur_id in enumerate(tracks[:,6]):
@@ -102,11 +100,6 @@ class SGG_Model(object):
                     predictions['track_id'][cur_id] = int(tracks[i][4])
                     # update the box
                     predictions['bbox'][cur_id] = tracks[i][:4]
-
-            for i, track_id in enumerate(predictions['track_id']):
-                if track_id is None:
-                    # add dummy id to not break the code
-                    predictions['track_id'][i] = max([p for p in predictions['track_id'] if p != None]) + 1
 
         if visu:
             for i, bbox in enumerate(predictions['bbox']):
@@ -165,7 +158,7 @@ class SGG_Model(object):
 
         return image_list, target
     
-    def _post_process_yolo(self, boxlist, rel_threshold=0.1, box_thres=0.5, orig_size=(640,640)):
+    def _post_process(self, boxlist, rel_threshold=0.1, box_thres=0.5, orig_size=(640,640)):
         height, width = orig_size
         boxlist = boxlist.resize((width, height))
 
@@ -194,9 +187,7 @@ class SGG_Model(object):
         current_dict['bbox_labels'] = [c for c in current_dict['bbox_labels']]
         
         # transform bbox, bbox_labels and bbox_scores to a single tensor of shape (N, 6)
-        bboxes_tensor = torch.cat([torch.tensor(current_dict['bbox']), torch.tensor(current_dict['bbox_scores']).unsqueeze(1), torch.arange(len(current_dict['bbox'])).unsqueeze(1)], dim=1)
-
-        bboxes = Boxes(bboxes_tensor, (width, height))
+        bboxes_tensor = torch.cat([torch.tensor(current_dict['bbox']), torch.tensor(current_dict['bbox_scores']).unsqueeze(1), torch.arange(len(current_dict['bbox_labels'])).unsqueeze(1)], dim=1)
 
         # sorted relationships
         rel_sortedid, _ = self.get_sorted_bbox_mapping(boxlist.get_field('pred_rel_scores')[:,1:].max(1)[0].tolist())
@@ -218,7 +209,7 @@ class SGG_Model(object):
         current_dict['bbox_labels'] = [self.stats['idx_to_label'][str(i)] for i in current_dict['bbox_labels']]
         current_dict['rel_labels'] = [self.stats['idx_to_predicate'][str(i)] for i in current_dict['rel_labels']]
 
-        current_dict['yolo_bboxes'] = bboxes
+        current_dict['yolo_bboxes'] = bboxes_tensor
 
         return current_dict
     
