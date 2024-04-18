@@ -18,7 +18,7 @@ from ultralytics.engine.results import Boxes
 import cv2
 
 class SGG_Model(object):
-    def __init__(self, config, dict_classes, tracking=False, logging_level="INFO") -> None:
+    def __init__(self, config, dict_classes, weights, tracking=False, logging_level="INFO") -> None:
         cfg.merge_from_file(config)
         cfg.TEST.CUSTUM_EVAL = True
         cfg.freeze()
@@ -30,6 +30,7 @@ class SGG_Model(object):
         logger.remove()
         
         self.model = None
+        self.model_weights = weights
         self.checkpointer = None
         self.device = None
         self.tracking = tracking
@@ -60,10 +61,11 @@ class SGG_Model(object):
         self.model.to(self.cfg.MODEL.DEVICE)
 
         self.checkpointer = DetectronCheckpointer(self.cfg, self.model)
-        last_check = self.checkpointer.get_checkpoint_file()
-        if last_check == "":
-            last_check = self.cfg.MODEL.WEIGHT
-        _ = self.checkpointer.load(last_check)
+        # last_check = self.checkpointer.get_checkpoint_file()
+        # if last_check == "":
+        #     last_check = self.cfg.MODEL.WEIGHT
+
+        _ = self.checkpointer.load(self.model_weights)
         self.device = torch.device(self.cfg.MODEL.DEVICE)
 
     def predict(self, image, visu=False):
