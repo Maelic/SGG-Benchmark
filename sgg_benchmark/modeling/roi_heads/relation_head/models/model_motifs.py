@@ -185,9 +185,9 @@ class DecoderRNN(nn.Module):
         if boxes_for_nms is not None and not self.training:
             is_overlap = nms_overlaps(boxes_for_nms).view(
                 boxes_for_nms.size(0), boxes_for_nms.size(0), boxes_for_nms.size(1)
-            ).cpu().numpy() >= self.nms_thresh
+            ).cpu().detach().numpy() >= self.nms_thresh
 
-            out_dists_sampled = F.softmax(torch.cat(out_dists,0), 1).cpu().numpy()
+            out_dists_sampled = F.softmax(torch.cat(out_dists,0), 1).cpu().detach().numpy()
             out_dists_sampled[:,0] = 0
 
             out_commitments = out_commitments[0].new(len(out_commitments)).fill_(0)

@@ -8,6 +8,7 @@ from sgg_benchmark.utils.model_serialization import load_state_dict
 from sgg_benchmark.utils.c2_model_loading import load_c2_format
 from sgg_benchmark.utils.imports import import_file
 from sgg_benchmark.utils.model_zoo import cache_url
+from sgg_benchmark.utils.miscellaneous import get_path
 
 class Checkpointer(object):
     def __init__(
@@ -118,6 +119,12 @@ class DetectronCheckpointer(Checkpointer):
         logger=None,
         custom_scheduler=False,
     ):
+        if not os.path.exists(save_dir):
+            if os.path.exists(cfg.OUTPUT_DIR):
+                save_dir = cfg.OUTPUT_DIR
+            elif os.path.exists(os.path.join(get_path(), cfg.OUTPUT_DIR)):
+                save_dir = os.path.join(get_path(), cfg.OUTPUT_DIR)
+
         super(DetectronCheckpointer, self).__init__(
             model, optimizer, scheduler, save_dir, save_to_disk, logger, custom_scheduler
         )

@@ -8,6 +8,10 @@ import numpy as np
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
+import sgg_benchmark
+
+def get_path():
+    return os.path.dirname(sgg_benchmark.__file__).split('sgg_benchmark')[0]
 
 def mkdir(path):
     try:

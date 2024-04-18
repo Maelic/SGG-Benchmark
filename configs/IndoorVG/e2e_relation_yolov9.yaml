@@ -7,7 +7,7 @@ INPUT:
 MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
-  WEIGHT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/Backbones/yolov9-c-small/weights/best.pt"
+  WEIGHT: ""
   PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/Backbones/yolov9-c-small/weights/best.pt"
   BACKBONE:
     TYPE: "yolov8"

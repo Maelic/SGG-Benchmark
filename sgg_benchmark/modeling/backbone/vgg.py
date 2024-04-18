@@ -16,19 +16,10 @@ OR:
 Custom implementations may be written in user code and hooked in via the
 `register_*` functions.
 """
-from collections import namedtuple
 
-import torch
-import torch.nn.functional as F
 from torch import nn
 
 import torchvision.models as models
-from sgg_benchmark.layers import FrozenBatchNorm2d
-from sgg_benchmark.layers import Conv2d
-from sgg_benchmark.layers import DFConv2d
-from sgg_benchmark.modeling.make_layers import group_norm
-from sgg_benchmark.utils.registry import Registry
-
 
 class VGG16(nn.Module):
     def __init__(self, cfg):

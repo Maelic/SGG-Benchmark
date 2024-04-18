@@ -7,15 +7,15 @@ INPUT:
 MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
-  WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Downloads/indoorvg_4_yolov8/best.pt"
+  WEIGHT: "/home/maelic/Downloads/2024-04-09 17:19:13.329/best.pt"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Downloads/2024-04-09 17:19:13.329/best.pt"
   BACKBONE:
     TYPE: "yolov8"
-    NMS_THRESH: 0.8
+    NMS_THRESH: 0.5
     FREEZE: True
   YOLO:
-    SIZE: "yolov8l"
-    OUT_CHANNELS: 256 # 192 for yolov8m, 256 for yolov8l
+    SIZE: "yolov8m"
+    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
     STRIDE_IN_1X1: False

@@ -168,6 +168,8 @@ class VGDataset(torch.utils.data.Dataset):
     def get_custom_imgs(self, path):
         self.custom_files = []
         self.img_info = []
+        if not os.path.exists(path):
+            return
         if os.path.isdir(path):
             for file_name in tqdm(os.listdir(path)):
                 self.custom_files.append(os.path.join(path, file_name))

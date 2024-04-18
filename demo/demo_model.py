@@ -20,6 +20,7 @@ import cv2
 class SGG_Model(object):
     def __init__(self, config, dict_classes, tracking=False, logging_level="INFO") -> None:
         cfg.merge_from_file(config)
+        cfg.TEST.CUSTUM_EVAL = True
         cfg.freeze()
         self.cfg = cfg
 
@@ -52,7 +53,7 @@ class SGG_Model(object):
             
         self.load_model()
         self.model.roi_heads.eval()
-        self.model.backbone.eval()
+        self.model.eval()
 
     def load_model(self):
         self.model = build_detection_model(self.cfg)
@@ -71,14 +72,20 @@ class SGG_Model(object):
         img_list, target = self._pre_processing(image)
 
         with torch.no_grad():
-            targets = [target.to(self.device)]
+            targets = None
             img_list = img_list.to(self.device)
-            outputs, features = self.model.backbone(img_list.tensors, embed=True)
-            proposals = self.model.backbone.postprocess(outputs, img_list.image_sizes)
+            # outputs, features = self.model.backbone(img_list.tensors, embed=True)
+            # proposals = self.model.backbone.postprocess(outputs, img_list.image_sizes)
 
-            _, predictions, _ = self.model.roi_heads(features, proposals, targets, None, proposals)
+            # _, predictions, _ = self.model.roi_heads(features, proposals, targets, None, proposals)
+            t_start = time.time()
+            predictions = self.model(img_list, targets)
+            print("Detection time: ", time.time()-t_start, "s")
 
-        predictions = self._post_process_yolo(predictions[0], orig_size=img_list.image_sizes[0])
+        predictions = self._post_process_yolo(predictions[0], orig_size=image.shape[:2])
+        
+        print("Number of objects detected: ", len(predictions['bbox']))
+        print("Number of relationships detected: ", len(predictions['rel_pairs']))
         
         # update tracker
         if self.tracking:
@@ -102,13 +109,13 @@ class SGG_Model(object):
         if visu:
             for i, bbox in enumerate(predictions['bbox']):
                 bbox = [int(b) for b in bbox]
-                cv2.rectangle(out_img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+                cv2.rectangle(out_img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0), 1)
                 if 'track_id' in predictions:
-                    cv2.putText(out_img, f"{predictions['track_id'][i]}_{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    cv2.putText(out_img, f"{predictions['track_id'][i]}_{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
                 else:
-                    cv2.putText(out_img, f"{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    cv2.putText(out_img, f"{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
                 # show fps
-                cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 2)
             img_graph = self.visualize_graph(predictions)
             return out_img, img_graph
         return predictions
@@ -145,7 +152,7 @@ class SGG_Model(object):
         # to cv2 format
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # reshape to 480,640
-        image = cv2.resize(image, (640, 480))
+        image = cv2.resize(image, (640, 640))
 
         target = torch.LongTensor([-1])
         transform = build_transforms(self.cfg, is_train=False)
@@ -156,7 +163,7 @@ class SGG_Model(object):
 
         return image_list, target
     
-    def _post_process_yolo(self, boxlist, rel_threshold=0.01, orig_size=(480,640)):
+    def _post_process_yolo(self, boxlist, rel_threshold=0.1, box_thres=0.5, orig_size=(640,640)):
         height, width = orig_size
         boxlist = boxlist.resize((width, height))
 
@@ -173,6 +180,9 @@ class SGG_Model(object):
         
         # sort boxes based on confidence
         sortedid, id2sorted = self.get_sorted_bbox_mapping(boxlist.get_field('pred_scores').tolist())
+        # filter by box thres
+        sortedid = [i for i in sortedid if boxlist.get_field('pred_scores')[i] > box_thres]
+        id2sorted = {v: k for k, v in enumerate(sortedid)}
 
         for i in sortedid:
             current_dict['bbox'].append([int(round(b)) for b in xyxy_bbox[i].tolist()])
