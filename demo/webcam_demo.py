@@ -7,7 +7,6 @@ from sgg_benchmark.utils.miscellaneous import get_path
 
 # main
 def main(args):
-
     config_path = args.config
     dict_file = args.classes
     weights = args.weights

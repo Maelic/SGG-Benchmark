@@ -19,6 +19,9 @@ class SGG_Model(object):
     def __init__(self, config, dict_classes, weights, tracking=False, rel_conf=0.1, box_conf=0.5) -> None:
         cfg.merge_from_file(config)
         cfg.TEST.CUSTUM_EVAL = True
+        # to force SGDET mode /!\ careful though, if the model hasn't been trained in sgdet mode, this will break the code
+        cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = False
+        cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
         cfg.freeze()
         self.cfg = cfg
 
