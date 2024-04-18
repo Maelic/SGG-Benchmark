@@ -208,8 +208,9 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch --master_port 10027 --
 
 The output is a json file. For each image, the scene graph information is saved as a dictionary containing bbox(sorted), bbox_labels(sorted), bbox_scores(sorted), rel_pairs(sorted), rel_labels(sorted), rel_scores(sorted), rel_all_scores(sorted), where the last rel_all_scores give all 51 predicates probability for each pair of objects. The dataset information is saved as custom_data_info.json in the same DETECTED_SGG_DIR.
 
-## Visualize Detected SGs of Custom Images
-To visualize the detected scene graphs of custom images, you can follow the jupyter note: [visualization/3.visualize_custom_SGDet.jpynb](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch/blob/master/visualization/3.visualize_custom_SGDet.ipynb). The inputs of our visualization code are custom_prediction.json and custom_data_info.json in DETECTED_SGG_DIR. They will be automatically generated if you run the above custom SGDet instruction successfully. Note that there may be too much trivial bounding boxes and relationships, so you can select top-k bbox and predicates for better scene graphs by change parameters box_topk and rel_topk. 
+## DEMO
+
+I made a small demo code to try SGDET with your webcam in the [demo folder](./demo/), feel free to have a look! You will need a trained model in SGDET mode for the demo.
 
 ## Other Options that May Improve the SGG
 
