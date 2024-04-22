@@ -54,8 +54,8 @@ class GeneralizedYOLO(nn.Module):
             proposals = self.add_gt_proposals(proposals,targets)
 
         # to avoid the empty list to be passed into roi_heads during testing and cause error in the pooler
-        if not self.training and len(proposals[0].bbox) == 0:
-            return proposals
+        # if not self.training and len(proposals[0].bbox) == 0:
+        #     return proposals
 
         if self.roi_heads:
             if self.predcls and self.roi_heads.training: # in predcls mode, we pass the targets as proposals

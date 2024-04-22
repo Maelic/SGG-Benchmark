@@ -16,7 +16,8 @@ This codebase also focuses on real-time and real-world usage of Scene Graph Gene
 
 ## Recent Updates
 
-- [ ] TODO: Finish support for different backbones + add docs.
+- [ ] TODO: Change Dataloader to COCO format (urgent).
+- [ ] TODO: Add support for [DT2-ACBS](https://github.com/a-lakh/DT2-ACBS/tree/main).
 - [ ] TODO: Add support for OpenImage and PSG datasets.
 - [X] 03.04.2024: Added support for the IETrans method for data augmentation on the Visual Genome dataset, please check it out! [IETrans](./process_data/data_augmentation/README.md).
 - [X] 03.04.2024: Update the demo, now working with any models, check [DEMO.md](./demo/DEMO.md).
@@ -27,20 +28,21 @@ This codebase also focuses on real-time and real-world usage of Scene Graph Gene
 1. [Overview](#Overview)
 2. [Install the Requirements](INSTALL.md)
 3. [Prepare the Dataset](DATASET.md)
-4. [Metrics and Results for our Toolkit](METRICS.md)
+4. [Simple Webcam Demo](#demo)
+5. [Supported Models](#supported-models)
+6. [Metrics and Results for our Toolkit](METRICS.md)
     - [Explanation of R@K, mR@K, zR@K, ng-R@K, ng-mR@K, ng-zR@K, A@K, S2G](METRICS.md#explanation-of-our-metrics)
     - [Output Format](METRICS.md#output-format-of-our-code)
     - [Reported Results](METRICS.md#reported-results)
-5. [Faster R-CNN Pre-training](#pretrained-models)
-6. [Scene Graph Generation as RoI_Head](#scene-graph-generation-as-RoI_Head)
-7. [Training on Scene Graph Generation](#perform-training-on-scene-graph-generation)
-8. [Evaluation on Scene Graph Generation](#Evaluation)
-9. [**Detect Scene Graphs on Your Custom Images** :star2:](#SGDet-on-custom-images)
+7. [Scene Graph Generation as RoI_Head](#scene-graph-generation-as-RoI_Head)
+8. [Training on Scene Graph Generation](#perform-training-on-scene-graph-generation)
+9. [Evaluation on Scene Graph Generation](#Evaluation)
+<!-- 9. [**Detect Scene Graphs on Your Custom Images** :star2:](#SGDet-on-custom-images) -->
 10. [**Visualize Detected Scene Graphs of Custom Images** :star2:](#Visualize-Detected-SGs-of-Custom-Images)
 11. [Other Options that May Improve the SGG](#other-options-that-may-improve-the-SGG)
-12. [Tips and Tricks for TDE on any Unbiased Task](#tips-and-Tricks-for-any-unbiased-taskX-from-biased-training)
-13. [Frequently Asked Questions](#frequently-asked-questions)
-14. [Citations](#Citations)
+<!-- 11. [Tips and Tricks for TDE on any Unbiased Task](#tips-and-Tricks-for-any-unbiased-taskX-from-biased-training) -->
+12. [Frequently Asked Questions](#frequently-asked-questions)
+13. [Citations](#Citations)
 
 ## Overview
 
@@ -68,17 +70,58 @@ Check [INSTALL.md](INSTALL.md) for installation instructions.
 
 Check [DATASET.md](DATASET.md) for instructions regarding dataset preprocessing.
 
+## DEMO
+
+I made a small demo code to try SGDET with your webcam in the [demo folder](./demo/), feel free to have a look! You will need a trained model in SGDET mode for the demo.
+
+## Supported Models
+
+Scene Graph Generation approaches can be categorized between one-stage and two-stage approaches.
+Two-stages approaches are the original implementation of SGG. It decouples the training process into (1) training an object detection backbone and (2) using bounding box proposals and image features from the backbone to train a relation prediction model.
+One-stage approaches are learning both the object and relation features in the same learning stage. This codebase focuses on the first category, two-stage approaches.
+
+### Object Detection Backbones
+
+We proposed different object detection backbones that can be plugged with any relation prediction head, depending on the use case.
+
+- [x] YOLOV9: SOTA in real-time object detection.
+- [x] YOLOV8: SOTA in real-time object detection.
+- [x] Faster-RCNN: This is the original backbone used in most SGG approaches. It is based on a ResNeXt-101 feature extractor and an RPN for regression and classification. See [the original paper for reference](https://arxiv.org/pdf/1506.01497.pdf). Performance is 38.52/26.35/28.14 mAp on VG train/val/test set respectively. You can find the original pretrained model by Kaihua [here](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw).
+
+### Relation Heads
+
+We try to compiled the main approaches for relation modeling in this codebase:
+
+- [x] PE-NET: [Prototype-based Embedding Network for Scene Graph Generation
+](https://arxiv.org/abs/2303.07096), thanks to the [official implementation by authors](https://github.com/VL-Group/PENET)
+
+- [x] SHA-GCL: [Stacked Hybrid-Attention and Group Collaborative Learning for Unbiased Scene Graph Generation in Pytorch](https://arxiv.org/abs/2203.09811), thanks to the [official implementation by authors](https://github.com/dongxingning/SHA-GCL-for-SGG)
+
+- [x] GPS-NET: [GPS-Net: Graph Property Sensing Network for Scene Graph Generation
+](https://arxiv.org/abs/2003.12962), thanks to the [official implementation by authors](https://github.com/siml3/GPS-Net)
+
+- [x] VCTree: [Learning to Compose Dynamic Tree Structures for Visual Contexts](https://arxiv.org/abs/1812.01880), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+
+- [x] Neural-Motifs: [Neural Motifs: Scene Graph Parsing with Global Context](https://arxiv.org/abs/1711.06640), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+
+- [x] IMP: [Scene Graph Generation by Iterative Message Passing](https://arxiv.org/abs/1701.02426), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+
+### Debiasing methods
+
+On top of relation heads, several debiasing methods have been proposed through the years with the aim of increasing the accuracy of baseline models in the prediction of tail classes.
+
+- [x] Hierarchical: [Hierarchical Relationships: A New Perspective to Enhance Scene Graph Generation](https://arxiv.org/abs/2303.06842), thanks to the [implementation by authors](https://github.com/zzjun725/Scene-Graph-Benchmark.pytorch)
+
+- [x] Causal: [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), thanks to the [implementation by authors](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+
+### Data Augmentation methods
+
+Due to severe biases in datasets, the task of Scene Graph Generation as also been tackled through data-centring approaches.
+
+- [x] IETrans: [Fine-Grained Scene Graph Generation with Data Transfer](https://arxiv.org/abs/2203.11654), custom implementation based on the one [by Zijian Zhou](https://github.com/franciszzj/HiLo/tree/main/tools/data_prepare)
+
 ## Metrics and Results **(IMPORTANT)**
 Explanation of metrics in our toolkit and reported results are given in [METRICS.md](METRICS.md)
-
-
-## Pretrained Models
-
-Since we tested many SGG models in our paper [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), I won't upload all the pretrained SGG models here. However, you can download the [pretrained Faster R-CNN](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw) we used in the paper, which is the most time consuming step in the whole training process (it took 4 2080ti GPUs). As to the SGG model, you can follow the rest instructions to train your own, which only takes 2 GPUs to train each SGG model. The results should be very close to the reported results given in [METRICS.md](METRICS.md)
-
-After you download the [Faster R-CNN model](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw), please extract all the files to the directory `/home/username/checkpoints/pretrained_faster_rcnn`. To train your own Faster R-CNN model, please follow the next section.
-
-The above pretrained Faster R-CNN model achives 38.52/26.35/28.14 mAp on VG train/val/test set respectively.
 
 ## Alternate links
 
@@ -92,14 +135,7 @@ The following command can be used to train your own Faster R-CNN model:
 ```bash
 CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch --master_port 10001 --nproc_per_node=4 tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" SOLVER.MAX_ITER 50000 SOLVER.STEPS "(30000, 45000)" SOLVER.VAL_PERIOD 2000 SOLVER.CHECKPOINT_PERIOD 2000 MODEL.RELATION_ON False OUTPUT_DIR /home/kaihua/checkpoints/pretrained_faster_rcnn SOLVER.PRE_VAL False
 ```
-where ```CUDA_VISIBLE_DEVICES``` and ```--nproc_per_node``` represent the id of GPUs and number of GPUs you use, ```--config-file``` means the config we use, where you can change other parameters. ```SOLVER.IMS_PER_BATCH``` and ```TEST.IMS_PER_BATCH``` are the training and testing batch size respectively, ```DTYPE "float16"``` enables Automatic Mixed Precision supported by [APEX](https://github.com/NVIDIA/apex), ```SOLVER.MAX_ITER``` is the maximum iteration, ```SOLVER.STEPS``` is the steps where we decay the learning rate, ```SOLVER.VAL_PERIOD``` and ```SOLVER.CHECKPOINT_PERIOD``` are the periods of conducting val and saving checkpoint, ```MODEL.RELATION_ON``` means turning on the relationship head or not (since this is the pretraining phase for Faster R-CNN only, we turn off the relationship head),  ```OUTPUT_DIR``` is the output directory to save checkpoints and log (considering `/home/username/checkpoints/pretrained_faster_rcnn`), ```SOLVER.PRE_VAL``` means whether we conduct validation before training or not.
-
-
-## Scene Graph Generation as RoI_Head
-
-To standardize the SGG, I define scene graph generation as an RoI_Head. Referring to the design of other roi_heads like box_head, I put most of the SGG codes under ```maskrcnn_benchmark/modeling/roi_heads/relation_head``` and their calling sequence is as follows:
-
-![alt text](demo/relation_head.png "structure of relation_head")
+where ```CUDA_VISIBLE_DEVICES``` and ```--nproc_per_node``` represent the id of GPUs and number of GPUs you use, ```--config-file``` means the config we use, where you can change other parameters. ```SOLVER.IMS_PER_BATCH``` and ```TEST.IMS_PER_BATCH``` are the training and testing batch size respectively, ```DTYPE "float16"``` enables Automatic Mixed Precision, ```SOLVER.MAX_ITER``` is the maximum iteration, ```SOLVER.STEPS``` is the steps where we decay the learning rate, ```SOLVER.VAL_PERIOD``` and ```SOLVER.CHECKPOINT_PERIOD``` are the periods of conducting val and saving checkpoint, ```MODEL.RELATION_ON``` means turning on the relationship head or not (since this is the pretraining phase for Faster R-CNN only, we turn off the relationship head),  ```OUTPUT_DIR``` is the output directory to save checkpoints and log (considering `/home/username/checkpoints/pretrained_faster_rcnn`), ```SOLVER.PRE_VAL``` means whether we conduct validation before training or not.
 
 
 ## Perform training on Scene Graph Generation
@@ -134,7 +170,7 @@ For [VCTree](https://arxiv.org/abs/1812.01880) Model:
 ```bash
 MODEL.ROI_RELATION_HEAD.PREDICTOR VCTreePredictor
 ```
-For our predefined Transformer Model (Note that Transformer Model needs to change SOLVER.BASE_LR to 0.001, SOLVER.SCHEDULE.TYPE to WarmupMultiStepLR, SOLVER.MAX_ITER to 16000, SOLVER.IMS_PER_BATCH to 16, SOLVER.STEPS to (10000, 16000).), which is provided by [Jiaxin Shi](https://github.com/shijx12):
+For Transformer Model (Note that Transformer Model needs to change SOLVER.BASE_LR to 0.001, SOLVER.SCHEDULE.TYPE to WarmupMultiStepLR, SOLVER.MAX_ITER to 16000, SOLVER.IMS_PER_BATCH to 16, SOLVER.STEPS to (10000, 16000).), which is provided by [Jiaxin Shi](https://github.com/shijx12):
 ```bash
 MODEL.ROI_RELATION_HEAD.PREDICTOR TransformerPredictor
 ```
@@ -146,24 +182,27 @@ MODEL.ROI_RELATION_HEAD.PREDICTOR CausalAnalysisPredictor
 The default settings are under ```configs/e2e_relation_X_101_32_8_FPN_1x.yaml``` and ```sgg_benchmark/config/defaults.py```. The priority is ```command > yaml > defaults.py```
 
 ### Customize Your Own Model
-If you want to customize your own model, you can refer ```sgg_benchmark/modeling/roi_heads/relation_head/model_XXXXX.py``` and ```sgg_benchmark/modeling/roi_heads/relation_head/utils_XXXXX.py```. You also need to add corresponding nn.Module in ```sgg_benchmark/modeling/roi_heads/relation_head/roi_relation_predictors.py```. Sometimes you may also need to change the inputs & outputs of the module through ```sgg_benchmark/modeling/roi_heads/relation_head/relation_head.py```.
+If you want to customize your own model, you can refer ```sgg_benchmark/modeling/roi_heads/relation_head/model_XXXXX.py``` and ```sgg_benchmark/modeling/roi_heads/relation_head/utils_XXXXX.py```. You also need to add the corresponding nn.Module in ```sgg_benchmark/modeling/roi_heads/relation_head/roi_relation_predictors.py```. Sometimes you may also need to change the inputs & outputs of the module through ```sgg_benchmark/modeling/roi_heads/relation_head/relation_head.py```.
 
-### The proposed Causal TDE on [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949)
+### The Causal TDE on [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949)
 As to the Unbiased-Causal-TDE, there are some additional parameters you need to know. ```MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE``` is used to select the causal effect analysis type during inference(test), where "none" is original likelihood, "TDE" is total direct effect, "NIE" is natural indirect effect, "TE" is total effect. ```MODEL.ROI_RELATION_HEAD.CAUSAL.FUSION_TYPE``` has two choice "sum" or "gate". Since Unbiased Causal TDE Analysis is model-agnostic, we support [Neural-MOTIFS](https://arxiv.org/abs/1711.06640), [VCTree](https://arxiv.org/abs/1812.01880) and [VTransE](https://arxiv.org/abs/1702.08319). ```MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER``` is used to select these models for Unbiased Causal Analysis, which has three choices: motifs, vctree, vtranse.
 
 Note that during training, we always set ```MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE``` to be 'none', because causal effect analysis is only applicable to the inference/test phase.
 
 ### Examples of the Training Command
+
+**NEW: I replaced the training by iteration (steps) with training by epochs (iteration on the whole dataset), controlling the training loop by iteration is still possible but it's made easier by epochs imo, you can try with the argument `SOLVER.MAX_EPOCH` (see below)** 
+
 By default, only the last checkpoint will be saved which is not very efficient. You can choose to save only the best checkpoint instead with the argument ```--save-best```.
 Training Example 1 : (PreCls, Motif Model)
 ```bash
-CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10025 --nproc_per_node=2 tools/relation_train_net.py --task predcls --save-best --config-file "configs/e2e_relation_X_101_32_8_FPN_1x.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor SOLVER.IMS_PER_BATCH 12 TEST.IMS_PER_BATCH 2 DTYPE "float16" SOLVER.MAX_ITER 50000 SOLVER.VAL_PERIOD 2000 SOLVER.CHECKPOINT_PERIOD 2000 MODEL.PRETRAINED_DETECTOR_CKPT ./checkpoints/pretrained_faster_rcnn/model_final.pth OUTPUT_DIR ./checkpoints/motif-precls-exmp
+CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10025 --nproc_per_node=2 tools/relation_train_net.py --task predcls --save-best --config-file "configs/e2e_relation_X_101_32_8_FPN_1x.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor SOLVER.IMS_PER_BATCH 12 TEST.IMS_PER_BATCH 2 DTYPE "float16" SOLVER.MAX_EPOCH 20 MODEL.PRETRAINED_DETECTOR_CKPT ./checkpoints/pretrained_faster_rcnn/model_final.pth OUTPUT_DIR ./checkpoints/motif-precls-exmp
 ```
 where ```MODEL.PRETRAINED_DETECTOR_CKPT``` is the pretrained Faster R-CNN model you want to load, ```OUTPUT_DIR``` is the output directory used to save checkpoints and the log. Since we use the ```WarmupReduceLROnPlateau``` as the learning scheduler for SGG, ```SOLVER.STEPS``` is not required anymore.
 
 Training Example 2 : (SGCls, Causal, **TDE**, SUM Fusion, MOTIFS Model)
 ```bash
-CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10026 --nproc_per_node=2 tools/relation_train_net.py --task sgcls --save-best  --config-file "configs/e2e_relation_X_101_32_8_FPN_1x.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR CausalAnalysisPredictor MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE none MODEL.ROI_RELATION_HEAD.CAUSAL.FUSION_TYPE sum MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER motifs  SOLVER.IMS_PER_BATCH 12 TEST.IMS_PER_BATCH 2 DTYPE "float16" SOLVER.MAX_ITER 50000 SOLVER.VAL_PERIOD 2000 SOLVER.CHECKPOINT_PERIOD 2000 MODEL.PRETRAINED_DETECTOR_CKPT ./checkpoints/pretrained_faster_rcnn/model_final.pth OUTPUT_DIR ./checkpoints/causal-motifs-sgcls-exmp
+CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10026 --nproc_per_node=2 tools/relation_train_net.py --task sgcls --save-best  --config-file "configs/e2e_relation_X_101_32_8_FPN_1x.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR CausalAnalysisPredictor MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE none MODEL.ROI_RELATION_HEAD.CAUSAL.FUSION_TYPE sum MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER motifs  SOLVER.IMS_PER_BATCH 12 TEST.IMS_PER_BATCH 2 DTYPE "float16" SOLVER.MAX_EPOCH 20 MODEL.PRETRAINED_DETECTOR_CKPT ./checkpoints/pretrained_faster_rcnn/model_final.pth OUTPUT_DIR ./checkpoints/causal-motifs-sgcls-exmp
 ```
 
 ## Evaluation
@@ -193,7 +232,7 @@ MOTIFS-SGCls-TDE    | 20.47 | 26.31 | 28.79 | 9.80 | 13.21 | 15.06 | 1.91 | 2.95
 MOTIFS-PredCls-none | 59.64 | 66.11 | 67.96 | 11.46 | 14.60 | 15.84 | 5.79 | 11.02 | 14.74
 MOTIFS-PredCls-TDE  | 33.38 | 45.88 | 51.25 | 17.85 | 24.75 | 28.70 | 8.28 | 14.31 | 18.04
 
-## SGDet on Custom Images
+<!-- ## SGDet on Custom Images
 Note that evaluation on custum images is only applicable for SGDet model, because PredCls and SGCls model requires additional ground-truth bounding boxes information. To detect scene graphs into a json file on your own images, you need to turn on the switch TEST.CUSTUM_EVAL and give a folder path (or a json file containing a list of image paths) that contains the custom images to TEST.CUSTUM_PATH. Only JPG files are allowed. The output will be saved as custom_prediction.json in the given DETECTED_SGG_DIR.
 
 Test Example 1 : (SGDet, **Causal TDE**, MOTIFS Model, SUM Fusion) [(checkpoint)](https://1drv.ms/u/s!AmRLLNf6bzcir9x7OYb6sKBlzoXuYA?e=s3Y602)
@@ -206,11 +245,8 @@ Test Example 2 : (SGDet, **Original**, MOTIFS Model, SUM Fusion) [(same checkpoi
 CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch --master_port 10027 --nproc_per_node=1 tools/relation_test_net.py --config-file "configs/e2e_relation_X_101_32_8_FPN_1x.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX False MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL False MODEL.ROI_RELATION_HEAD.PREDICTOR CausalAnalysisPredictor MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE none MODEL.ROI_RELATION_HEAD.CAUSAL.FUSION_TYPE sum MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER motifs TEST.IMS_PER_BATCH 1 DTYPE "float16" GLOVE_DIR /home/kaihua/glove MODEL.PRETRAINED_DETECTOR_CKPT /home/kaihua/checkpoints/causal-motifs-sgdet OUTPUT_DIR /home/kaihua/checkpoints/causal-motifs-sgdet TEST.CUSTUM_EVAL True TEST.CUSTUM_PATH /home/kaihua/checkpoints/custom_images DETECTED_SGG_DIR /home/kaihua/checkpoints/your_output_path
 ```
 
-The output is a json file. For each image, the scene graph information is saved as a dictionary containing bbox(sorted), bbox_labels(sorted), bbox_scores(sorted), rel_pairs(sorted), rel_labels(sorted), rel_scores(sorted), rel_all_scores(sorted), where the last rel_all_scores give all 51 predicates probability for each pair of objects. The dataset information is saved as custom_data_info.json in the same DETECTED_SGG_DIR.
+The output is a json file. For each image, the scene graph information is saved as a dictionary containing bbox(sorted), bbox_labels(sorted), bbox_scores(sorted), rel_pairs(sorted), rel_labels(sorted), rel_scores(sorted), rel_all_scores(sorted), where the last rel_all_scores give all 51 predicates probability for each pair of objects. The dataset information is saved as custom_data_info.json in the same DETECTED_SGG_DIR. -->
 
-## DEMO
-
-I made a small demo code to try SGDET with your webcam in the [demo folder](./demo/), feel free to have a look! You will need a trained model in SGDET mode for the demo.
 
 ## Other Options that May Improve the SGG
 
@@ -220,12 +256,12 @@ I made a small demo code to try SGDET with your webcam in the [demo folder](./de
 
 - Not to mention the hidden dimensions in the models, e.g., ```MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM```. Due to the limited time, we didn't fully explore all the settings in this project, I won't be surprised if you improve our results by simply changing one of our hyper-parameters
 
-## Tips and Tricks for any Unbiased TaskX from Biased Training
+<!-- ## Tips and Tricks for any Unbiased TaskX from Biased Training
 
 The counterfactual inference is not only applicable to SGG. Actually, my collegue [Yulei](https://github.com/yuleiniu) found that counterfactual causal inference also has significant potential in [unbiased VQA](https://arxiv.org/abs/2006.04315). We believe such an counterfactual inference can also be applied to lots of reasoning tasks with significant bias. It basically just runs the model two times (one for original output, another for the intervened output), and the later one gets the biased prior that should be subtracted from the final prediction. But there are three tips you need to bear in mind:
 - The most important things is always the causal graph. You need to find the correct causal graph with an identifiable branch that causes the biased predictions. If the causal graph is incorrect, the rest would be meaningless. Note that causal graph is not the summarization of the existing network (but the guidance to build networks), you should modify your network based on causal graph, but not vise versa. 
 - For those nodes having multiple input branches in the causal graph, it's crucial to choose the right fusion function. We tested lots of fusion funtions and only found the SUM fusion and GATE fusion consistently working well. The fusion function like element-wise production won't work for TDE analysis in most of the cases, because the causal influence from multiple branches can not be linearly separated anymore, which means, it's no longer an identifiable 'influence'.
-- For those final predictions having multiple input branches in the causal graph, it may also need to add auxiliary losses for each branch to stablize the causal influence of each independent branch. Because when these branches have different convergent speeds, those hard branches would easily be learned as unimportant tiny floatings that depend on the fastest/stablest converged branch. Auxiliary losses allow different branches to have independent and equal influences.
+- For those final predictions having multiple input branches in the causal graph, it may also need to add auxiliary losses for each branch to stablize the causal influence of each independent branch. Because when these branches have different convergent speeds, those hard branches would easily be learned as unimportant tiny floatings that depend on the fastest/stablest converged branch. Auxiliary losses allow different branches to have independent and equal influences. -->
 
 ## Frequently Asked Questions:
 
@@ -248,19 +284,5 @@ title = {A Scene Graph Generation Codebase in PyTorch},
 author = {Tang, Kaihua},
 year = {2020},
 note = {\url{https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch}},
-}
-
-@inproceedings{tang2018learning,
-  title={Learning to Compose Dynamic Tree Structures for Visual Contexts},
-  author={Tang, Kaihua and Zhang, Hanwang and Wu, Baoyuan and Luo, Wenhan and Liu, Wei},
-  booktitle= "Conference on Computer Vision and Pattern Recognition",
-  year={2019}
-}
-
-@inproceedings{tang2020unbiased,
-  title={Unbiased Scene Graph Generation from Biased Training},
-  author={Tang, Kaihua and Niu, Yulei and Huang, Jianqiang and Shi, Jiaxin and Zhang, Hanwang},
-  booktitle= "Conference on Computer Vision and Pattern Recognition",
-  year={2020}
 }
 ```

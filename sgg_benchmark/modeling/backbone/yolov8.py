@@ -42,7 +42,7 @@ class YoloV8(DetectionModel):
             For different object scales, as in original YOLOV8 implementation.
             """
             if embed:
-                if i in {15, 18, 21}:  # if current layer is one of the feature extraction layers
+                if i in {4, 6, 9}:  # if current layer is one of the feature extraction layers
                     feature_maps.append(x)
         if embed:
             return x, feature_maps

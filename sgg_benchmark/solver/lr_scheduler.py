@@ -3,6 +3,18 @@ from bisect import bisect_right
 from functools import wraps
 import torch
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import MultiStepLR
+# from torch_optimizer.lr_scheduler import GradualWarmupScheduler
+
+
+# class WarmupMultiStepLR():
+#     def __init__(self, optimizer, milestones, gamma=0.1, warmup_factor=1.0 / 3, warmup_iters=500, warmup_method="linear", last_epoch=-1,):
+            
+#         # Define your MultiStepLR scheduler
+#         scheduler_multistep = MultiStepLR(optimizer, milestones=milestones, gamma=gamma, last_epoch=last_epoch)
+
+#         # Define your GradualWarmupScheduler
+#         scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=1, total_epoch=5, after_scheduler=scheduler_multistep)
 
 
 # FIXME ideally this would be achieved with a CombinedLRScheduler,
