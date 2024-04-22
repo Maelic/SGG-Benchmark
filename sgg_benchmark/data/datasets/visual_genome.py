@@ -171,6 +171,11 @@ class VGDataset(torch.utils.data.Dataset):
         if not os.path.exists(path):
             return
         if os.path.isdir(path):
+            # check if there is images in the directory
+            files = os.listdir(path)
+            img = ['.jpg', '.jpeg', '.png']
+            if not any([f.endswith(tuple(img)) for f in files]): # for webcam demo
+                return
             for file_name in tqdm(os.listdir(path)):
                 self.custom_files.append(os.path.join(path, file_name))
                 img = Image.open(os.path.join(path, file_name)).convert("RGB")
