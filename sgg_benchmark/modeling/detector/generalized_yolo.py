@@ -54,8 +54,12 @@ class GeneralizedYOLO(nn.Module):
             proposals = self.add_gt_proposals(proposals,targets)
 
         # to avoid the empty list to be passed into roi_heads during testing and cause error in the pooler
-        # if not self.training and len(proposals[0].bbox) == 0:
-        #     return proposals
+        if not self.training and len(proposals[0].bbox) == 0:
+            # add empty missing fields
+            for p in proposals:
+                p.add_field("pred_rel_scores", torch.tensor([], dtype=torch.float32, device=p.bbox.device))
+                p.add_field("rel_pair_idxs", torch.tensor([], dtype=torch.int64, device=p.bbox.device))
+            return proposals
 
         if self.roi_heads:
             if self.predcls and self.roi_heads.training: # in predcls mode, we pass the targets as proposals

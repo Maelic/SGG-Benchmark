@@ -60,9 +60,4 @@ if __name__ == "__main__":
     if not os.path.isabs(args.classes):
         args.classes = os.path.join(get_path(), args.classes)
 
-    # Now args.config contains the value of the --config argument
-    config_path = args.config
-    dict_file = args.classes
-    weights = args.weights
-
     main(args)

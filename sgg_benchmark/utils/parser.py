@@ -44,6 +44,12 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         choices=['predcls', 'sgcls', 'sgdet'], 
     )
 
+    parser.add_argument("--name",
+        type=str,
+        dest="name",
+        help="Name of the run, used for output folder",
+    )
+
     parser.add_argument("--save-best",
         dest="save_best",
         action="store_true",
