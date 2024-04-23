@@ -18,7 +18,9 @@ logs/
 wandb/
 
 # dataset
-/datasets/
+!/datasets/
+/datasets/**
+!/datasets/vg/
 *.png
 *.jpg
 *.jpeg
