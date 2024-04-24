@@ -2,6 +2,7 @@
 import logging
 import time
 import os
+import numpy as np
 
 import json
 import torch
@@ -21,19 +22,26 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
     results_dict = {}
     cpu_device = torch.device("cpu")
     torch.cuda.empty_cache()
-    
+    starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+    timings=np.zeros((len(data_loader),1))
+
     for i, batch in enumerate(tqdm(data_loader)):
         with torch.no_grad():
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]
+
             if timer:
                 timer.tic()
+                starter.record()
             if cfg.TEST.BBOX_AUG.ENABLED:
                 output = im_detect_bbox_aug(model, images, device)
             else:
                 # relation detection needs the targets
                 output = model(images.to(device), targets)
             if timer:
+                ender.record()
+                curr_time = starter.elapsed_time(ender)
+                timings[i] = curr_time
                 if not cfg.MODEL.DEVICE == 'cpu':
                     torch.cuda.synchronize()
                 timer.toc()
@@ -53,7 +61,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             # save the detected sgg to npy file
             #np.save(os.path.join(save_dir, 'sgg_{}.npy'.format(image_id)), clean_graph)
     torch.cuda.empty_cache()
-    return results_dict
+    return results_dict, timings
 
 
 def generate_detect_sg(predictions, vg_dict, obj_thres = 0.5):
@@ -162,7 +170,7 @@ def inference(
         predictions = torch.load(pred_path, map_location=torch.device("cpu"))
         logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:
-        predictions = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=inference_timer)
+        predictions, timings = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=inference_timer)
     # wait for all processes to complete before measuring the time
     synchronize()
     total_time = total_timer.toc()
@@ -172,15 +180,23 @@ def inference(
             total_time_str, total_time * num_devices / len(dataset), num_devices
         )
     )
-    total_infer_time = get_time_str(inference_timer.total_time)
-    logger.info(
-        "Model inference time: {} ({} s / img per device, on {} devices)".format(
-            total_infer_time,
-            inference_timer.total_time * num_devices / len(dataset),
-            num_devices,
-        )
-    )
+    # total_infer_time = get_time_str(inference_timer.total_time)
+    # logger.info(
+    #     "Model inference time: {} ({} s / img per device, on {} devices)".format(
+    #         total_infer_time,
+    #         inference_timer.total_time * num_devices / len(dataset),
+    #         num_devices,
+    #     )
+    # )
 
+    mean_syn = np.mean(timings)
+    mean_std = np.std(timings)
+    logger.info(
+        "Average latency per image: {}s".format(mean_syn)
+    )
+    logger.info(
+        "Standard deviation of latency: {}s".format(mean_std)
+    )
     if not load_prediction_from_cache:
         predictions = _accumulate_predictions_from_multiple_gpus(predictions, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER)
 

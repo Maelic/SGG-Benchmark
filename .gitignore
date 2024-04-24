@@ -20,7 +20,7 @@ wandb/
 # dataset
 !/datasets/
 /datasets/**
-!/datasets/vg/
+!/datasets/vg/**
 *.png
 *.jpg
 *.jpeg

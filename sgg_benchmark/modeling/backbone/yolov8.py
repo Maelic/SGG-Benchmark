@@ -26,6 +26,7 @@ class YoloV8(DetectionModel):
         self.device = cfg.MODEL.DEVICE
         self.input_size = cfg.INPUT.MIN_SIZE_TRAIN
         self.nc = nc
+        self.max_det = cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG
 
     def forward(self, x, profile=False, visualize=False, embed=None):
         y, feature_maps = [], []  # outputs
