@@ -164,7 +164,7 @@ def do_vg_evaluation(
         evaluator['eval_f1_score'] = eval_f1_score
 
         if informative:
-            eval_informative_recall = SGInformativeRecall(result_dict)
+            eval_informative_recall = SGInformativeRecall(result_dict, sim="glove")
             eval_informative_recall.register_container(mode)
             evaluator['eval_informative_recall'] = eval_informative_recall
 

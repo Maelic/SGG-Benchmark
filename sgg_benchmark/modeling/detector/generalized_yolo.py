@@ -77,7 +77,7 @@ class GeneralizedYOLO(nn.Module):
         if self.roi_heads.training:
             losses = {}
             losses.update(detector_losses)
-            return losses
+            return losses        
         return result
         
     def add_gt_proposals(self, proposals, targets):

@@ -40,6 +40,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
                 output = model(images.to(device), targets)
             if timer:
                 ender.record()
+                torch.cuda.synchronize()
                 curr_time = starter.elapsed_time(ender)
                 timings[i] = curr_time
                 if not cfg.MODEL.DEVICE == 'cpu':

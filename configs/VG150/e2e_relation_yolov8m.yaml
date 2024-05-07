@@ -1,14 +1,21 @@
 INPUT:
-  MIN_SIZE_TRAIN: (600,)
-  MAX_SIZE_TRAIN: 1000
-  MIN_SIZE_TEST: 600
-  MAX_SIZE_TEST: 1000
+  MIN_SIZE_TRAIN: 640
+  MAX_SIZE_TRAIN: 640
+  MIN_SIZE_TEST: 640
+  MAX_SIZE_TEST: 640
+  PADDING: True
 MODEL:
-  PRETRAINED_DETECTOR_CKPT: /home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG150/curated/pretrained_faster_rcnn/model_final.pth
-  META_ARCHITECTURE: "GeneralizedRCNN"
-  WEIGHT: "catalog://ImageNetPretrained/FAIR/20171220/X-101-32x8d"
+  META_ARCHITECTURE: "GeneralizedYOLO"
+  BOX_HEAD: False
+  WEIGHT: ""
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/VG150/Backbones/yolov8m/weights/best.pt"
   BACKBONE:
-    CONV_BODY: "R-101-FPN" # VGG-16
+    TYPE: "yolov8"
+    NMS_THRESH: 0.001
+    FREEZE: True
+  YOLO:
+    SIZE: "yolov8m"
+    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
     STRIDE_IN_1X1: False
@@ -31,28 +38,29 @@ MODEL:
     FPN_POST_NMS_PER_BATCH: False
     RPN_MID_CHANNEL: 256
   ROI_HEADS:
-    USE_FPN: True
     POSITIVE_FRACTION: 0.5
-    BG_IOU_THRESHOLD: 0.3
+    FG_IOU_THRESHOLD: 0.3
+    BG_IOU_THRESHOLD: 0.1
     BATCH_SIZE_PER_IMAGE: 256
     DETECTIONS_PER_IMG: 80
     NMS_FILTER_DUPLICATES: True
+    NMS: 0.2
   ROI_BOX_HEAD:
     POOLER_RESOLUTION: 7
     POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
     POOLER_SAMPLING_RATIO: 2
-    FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
+    FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 151                # 151 for VG, 1201 for GQA
-    MLP_HEAD_DIM: 4096
+    NUM_CLASSES: 151              # 151 for VG, 1201 for GQA
+    MLP_HEAD_DIM: 2048
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
     USE_BINARY_LOSS: True           # choose binary, because cross_entropy loss deteriorate the box head, even with 0.1 weight
     POS_WEIGHT: 50.0
     ATTRIBUTE_LOSS_WEIGHT: 1.0
-    NUM_ATTRIBUTES: 201             # 201 for VG, 501 for GQA
-    MAX_ATTRIBUTES: 10             
+    # NUM_ATTRIBUTES: 201             # 201 for VG, 501 for GQA
+    # MAX_ATTRIBUTES: 10             
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
@@ -63,7 +71,7 @@ MODEL:
     NUM_CLASSES: 51                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
     BATCH_SIZE_PER_IMAGE: 1024      # sample as much as possible
     POSITIVE_FRACTION: 0.25
-    CONTEXT_POOLING_DIM: 4096
+    CONTEXT_POOLING_DIM: 2048
     CONTEXT_HIDDEN_DIM: 512         #1024 for VCTree
     POOLING_ALL_LEVELS: True
     LABEL_SMOOTHING_LOSS: False
@@ -95,12 +103,13 @@ MODEL:
       VAL_DIM: 64
       INNER_DIM: 2048 
 DATASETS:
-  TRAIN: ("VG150_curated_filtered_train",)
-  VAL: ("VG150_curated_filtered_val",)
-  TEST: ("VG150_curated_filtered_test",)
+  TRAIN: ("VG150_train",)
+  VAL: ("VG150_val",)
+  TEST: ("VG150_test",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
+  MAX_EPOCH: 20
   BIAS_LR_FACTOR: 1
   BASE_LR: 0.01
   WARMUP_FACTOR: 0.1
@@ -120,16 +129,13 @@ SOLVER:
     COOLDOWN: 0
     FACTOR: 0.1
     MAX_DECAY_STEP: 3
+OUTPUT_DIR: './output/relation_baseline'
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
+  INFORMATIVE: True
   RELATION:
     SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem
-    REQUIRE_OVERLAP: False
+    REQUIRE_OVERLAP: True
     LATER_NMS_PREDICTION_THRES: 0.5
-  CUSTUM_EVAL: True       # eval SGDet model on custum images, output a json
-  CUSTUM_PATH: '/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/demo/final_comparison/images' 
-  IMS_PER_BATCH: 1
-DTYPE: "float32"
-GLOVE_DIR: /home/maelic/glove 
-OUTPUT_DIR: /home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG150/curated/sgdet_motifs_causal_tde 
-DETECTED_SGG_DIR: /home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/demo/final_comparison/curated
+  CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
+  CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed  

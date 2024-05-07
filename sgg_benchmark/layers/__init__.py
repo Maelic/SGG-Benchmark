@@ -6,7 +6,7 @@ from .misc import BatchNorm2d
 from .misc import interpolate
 from .misc import MLP
 from .misc import fusion_func
-from .nms import nms
+from torchvision.ops import nms
 from torchvision.ops import RoIAlign as ROIAlign
 from torchvision.ops import roi_align, roi_pool
 from torchvision.ops import RoIPool as ROIPool

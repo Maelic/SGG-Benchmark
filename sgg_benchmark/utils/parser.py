@@ -16,6 +16,14 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         metavar="FILE",
         help="path to config file",
     )
+
+    parser.add_argument("--dataset",
+        type=str,
+        default="",
+        metavar="FILE",
+        help="Name of dataset dir or path to dataset yaml file",
+    )
+
     parser.add_argument("--local_rank", type=int, default=0)
 
     parser.add_argument("--skip-test",

@@ -6,45 +6,15 @@ import copy
 
 
 class DatasetCatalog(object):
-    DATA_DIR = "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/"
+    DATA_DIR = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/"
     IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
     DATASETS = {
-        "VG_stanford_filtered": {
+        "VG150": {
             "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/VG150/baseline/VG-SGG.h5",
-            "dict_file": DATA_DIR+"datasets/VG150/baseline/VG-SGG-dicts.json",
+            "roidb_file": DATA_DIR+"datasets/VG150/VG-SGG-with-attri.h5",
+            "dict_file": DATA_DIR+"datasets/VG150/VG-SGG-dicts-with-attri.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/VG150/baseline/zeroshot_triplet.pytorch",
-            "informative_file": DATA_DIR+"datasets/informative_sg.json",
-        },
-        "VG150_curated_filtered": {
-            "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/VG150/curated/VG-SGG.h5",
-            "dict_file": DATA_DIR+"datasets/VG150/curated/VG-SGG-dicts.json",
-            "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/VG150/curated/zeroshot_triplet.pytorch",
-        },
-        "VG150_curated_filtered_with_attribute": {
-            "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/VG150/curated/VG-SGG-with-attri.h5",
-            "dict_file": DATA_DIR+"datasets/VG150/curated/VG-SGG-dicts-with-attri.json",
-            "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/VG150/curated/zeroshot_triplet.pytorch",
-            "informative_file": DATA_DIR+"datasets/informative_sg.json",
-        },
-        "VG150_connected_filtered": {
-            "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/VG150/connected/VG-SGG.h5",
-            "dict_file": DATA_DIR+"datasets/VG150/connected/VG-SGG-dicts.json",
-            "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/VG150/connected/zeroshot_triplet.pytorch",
-        },
-        "VG_stanford_filtered_with_attribute": {
-            "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/VG150/baseline/VG-SGG-with-attri.h5",
-            "dict_file": DATA_DIR+"datasets/VG150/baseline/VG-SGG-dicts-with-attri.json",
-            "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/VG150/baseline/zeroshot_triplet.pytorch",
+            "zeroshot_file": DATA_DIR+"datasets/VG150/zeroshot_triplet.pytorch",
             "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "VrR-VG_filtered_with_attribute": {
@@ -56,10 +26,10 @@ class DatasetCatalog(object):
         },
         "VG_indoor_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/IndoorVG/VG-SGG.h5",
-            "dict_file": DATA_DIR+"datasets/IndoorVG/VG-SGG-dicts.json",
+            "roidb_file": DATA_DIR+"datasets/IndoorVG_4/VG-SGG.h5",
+            "dict_file": DATA_DIR+"datasets/IndoorVG_4/VG-SGG-dicts.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/zero_shot_triplets.pytorch",
+            "zeroshot_file": DATA_DIR+"datasets/IndoorVG_4/zero_shot_triplets.pytorch",
             "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "VG178": {

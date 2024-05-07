@@ -156,7 +156,7 @@ class SGInformativeRecall(SceneGraphEvaluation):
     def __init__(self, result_dict, sim='glove'):
         super(SGInformativeRecall, self).__init__(result_dict)
 
-        self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm']
+        self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet']
         if sim not in self.sim_options:
             raise ValueError('sim must be in %s' % self.sim_options)
         self.similarity = sim
@@ -170,6 +170,8 @@ class SGInformativeRecall(SceneGraphEvaluation):
             self.sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
         elif self.similarity == 'minilm':
             self.sim_model = SentenceTransformer('all-MiniLM-L6-v2')
+        elif self.similarity == "mpnet":
+            self.sim_model = SentenceTransformer('all-mpnet-base-v2')
 
     def register_container(self, mode):
         self.result_dict[mode + '_informative_recall'] = {5: [], 10: [], 20: [], 50: [], 100: []}
@@ -232,27 +234,9 @@ class SGInformativeRecall(SceneGraphEvaluation):
 
         pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
 
-        full_name_triplets = [str(global_container['ind_to_classes'][triplet[0]] +' ' +global_container['ind_to_predicates'][triplet[1]] +' '+global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
-        
-        pred_to_gt = self.similarity_match(gt_relationships, full_name_triplets, cosine_thres=0.8)
+        pred_triplets = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
 
-        # if mode == "sgdet":
-        #     # reduce pred_triplets to predictions that matches the grountruth gt
-        #     # first, reduce over the boxes using bbox_overlaps
-        #     keep = bbox_overlaps(gt_boxes, pred_boxes).max(0) > iou_thres
-        #     # keep is a m x n matrix, m is the number of gt_boxes, n is the number of pred_boxes
-        #     # second, reduce over the classes
-        #     keep = keep & (pred_classes[:, None] == gt_classes[None]).any(1)
-        #     pred_boxes = pred_boxes[keep]
-        #     pred_classes = pred_classes[keep]
-        #     obj_scores = obj_scores[keep]
-        #     # third, reduce over the relations, remove all rels where either sub or obj is not in the filtered boxes
-        #     keep = (pred_rels[:, 0] < len(pred_boxes)) & (pred_rels[:, 1] < len(pred_boxes))
-        #     pred_rel_inds = pred_rel_inds[keep]
-        #     pred_scores = pred_scores[keep]
-        #     pred_rels = pred_rels[keep]
-
-        local_container['pred_to_gt_inf'] = pred_to_gt
+        pred_to_gt = self.similarity_match(gt_relationships, pred_triplets, cosine_thres=0.9)
 
         for k in self.result_dict[mode + '_informative_recall']:
             # check if pred_to_gt_inf is empty
@@ -317,6 +301,7 @@ class SGRecall(SceneGraphEvaluation):
             gt_triplet_boxes,
             pred_triplet_boxes,
             iou_thres,
+            global_container,
             phrdet=mode=='phrdet',
         )
         local_container['pred_to_gt'] = pred_to_gt
@@ -376,6 +361,7 @@ class SGNoGraphConstraintRecall(SceneGraphEvaluation):
             gt_triplet_boxes,
             nogc_pred_triplet_boxes,
             iou_thres,
+            global_container,
             phrdet=mode=='phrdet',
         )
 
@@ -780,4 +766,92 @@ def _compute_pred_matches(gt_triplets, pred_triplets,
             pred_to_gt[i].append(int(gt_ind))
     return pred_to_gt
 
+# def _compute_pred_matches(gt_triplets, pred_triplets,
+#                  gt_boxes, pred_boxes, iou_thres, global_container, phrdet=False, sim='glove', threshold=0.9):
 
+#     sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet']
+#     if sim not in sim_options:
+#         raise ValueError('sim must be in %s' % sim_options)
+#     similarity = sim
+
+#     # load embeddings according to similarity value
+#     if similarity == 'glove':
+#         sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
+#     elif similarity == 'uae_large':
+#         sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
+#     elif similarity == 'bert_large':
+#         sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
+#     elif similarity == 'minilm':
+#         sim_model = SentenceTransformer('all-MiniLM-L6-v2')
+#     elif similarity == "mpnet":
+#         sim_model = SentenceTransformer('all-mpnet-base-v2')
+
+#     """
+#     Given a set of predicted triplets, return the list of matching GT's for each of the
+#     given predictions
+#     Return:
+#         pred_to_gt [List of List]
+#     """
+#     # transform gt_triplets and pred_triplets to full string
+#     pred_triplets = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
+
+#     gt_triplets = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in gt_triplets]
+
+#     # this performs cosine sim between the two lists of strings
+
+#     gt_triplets_embeddings = sim_model.encode(gt_triplets)
+#     pred_triplets_embeddings = sim_model.encode(pred_triplets)
+
+#     from torch.nn.functional import cosine_similarity
+
+#     gt_triplets_embeddings = torch.from_numpy(gt_triplets_embeddings)
+#     pred_triplets_embeddings = torch.from_numpy(pred_triplets_embeddings)
+
+#     # Normalize the embeddings
+#     gt_triplets_embeddings = gt_triplets_embeddings / gt_triplets_embeddings.norm(dim=1, keepdim=True)
+#     pred_triplets_embeddings = pred_triplets_embeddings / pred_triplets_embeddings.norm(dim=1, keepdim=True)
+
+#     # Compute the cosine similarity using matrix multiplication
+#     cos_sim = torch.mm(gt_triplets_embeddings, pred_triplets_embeddings.t())
+
+#     # Determine which GT triplets have a match (cosine similarity > threshold)
+#     gt_has_match = (cos_sim > threshold)
+
+#     # Get the indices of the matching pred triplets for each GT triplet
+#     keeps = gt_has_match.nonzero(as_tuple=True)[1]
+
+#     # Ensure that the mask and the tensor being indexed have the same shape
+#     gt_has_match = gt_has_match.any(1)
+
+#     # Create a boolean tensor of the same size as gt_triplets_embeddings and pred_triplets_embeddings
+#     keeps = torch.zeros_like(cos_sim, dtype=torch.bool)
+
+#     # Set the indices of the matching pred triplets to True
+#     keeps[cos_sim > threshold] = True
+
+#     pred_to_gt = [[] for _ in range(pred_boxes.shape[0])]
+#     if len(gt_boxes) > 0:
+#         for gt_ind, gt_box, keep_inds in zip(np.where(gt_has_match)[0],
+#                                             gt_boxes[gt_has_match],
+#                                             keeps[gt_has_match]):
+
+#             boxes = pred_boxes[keep_inds]
+#             if phrdet:
+#                 # Evaluate where the union box > 0.5
+#                 gt_box_union = gt_box.reshape((2, 4))
+#                 gt_box_union = np.concatenate((gt_box_union.min(0)[:2], gt_box_union.max(0)[2:]), 0)
+
+#                 box_union = boxes.reshape((-1, 2, 4))
+#                 box_union = np.concatenate((box_union.min(1)[:,:2], box_union.max(1)[:,2:]), 1)
+
+#                 inds = bbox_overlaps(gt_box_union[None], box_union)[0] >= iou_thres
+
+#             else:
+#                 sub_iou = bbox_overlaps(gt_box[None,:4], boxes[:, :4])[0]
+#                 obj_iou = bbox_overlaps(gt_box[None,4:], boxes[:, 4:])[0]
+
+#                 inds = (sub_iou >= iou_thres) & (obj_iou >= iou_thres)
+
+#             for i in np.where(keep_inds)[0][inds]:
+#                 pred_to_gt[i].append(int(gt_ind))
+#     return pred_to_gt

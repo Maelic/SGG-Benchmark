@@ -22,7 +22,12 @@ def make_optimizer(cfg, model, logger, slow_heads=None, slow_ratio=5.0, rl_facto
                     break
         params += [{"params": [value], "lr": lr * rl_factor, "weight_decay": weight_decay}]
 
-    optimizer = torch.optim.AdamW(params, lr=cfg.SOLVER.BASE_LR, weight_decay=cfg.SOLVER.WEIGHT_DECAY)
+    if cfg.SOLVER.OPTIMIZER == "SGD":
+        optimizer = torch.optim.SGD(params, lr=cfg.SOLVER.BASE_LR * rl_factor, momentum=cfg.SOLVER.MOMENTUM)
+    elif cfg.SOLVER.OPTIMIZER == "ADAMW":
+        optimizer = torch.optim.AdamW(params, lr=cfg.SOLVER.BASE_LR * rl_factor, weight_decay=cfg.SOLVER.WEIGHT_DECAY)
+    else:
+        raise ValueError("Invalid Optimizer Type")
     return optimizer
 
 

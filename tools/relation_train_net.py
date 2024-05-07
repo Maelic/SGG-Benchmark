@@ -1,8 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
-"""
-Basic training script for PyTorch
-"""
-
 # Set up custom environment before nearly anything else is imported
 # NOTE: this should be the first import (no not reorder)
 from sgg_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
@@ -15,7 +10,6 @@ import numpy as np
 import wandb
 
 import torch
-import torch.distributed as dist
 
 from sgg_benchmark.config import cfg
 from sgg_benchmark.config.defaults_GCL import _C as cfg_GCL
@@ -26,12 +20,10 @@ from sgg_benchmark.engine.trainer import reduce_loss_dict
 from sgg_benchmark.engine.inference import inference
 from sgg_benchmark.modeling.detector import build_detection_model
 from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
-from sgg_benchmark.utils.checkpoint import clip_grad_norm
 from sgg_benchmark.utils.collect_env import collect_env_info
 from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
 from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, save_config
-from sgg_benchmark.utils.metric_logger import MetricLogger
 from sgg_benchmark.utils.parser import default_argument_parser
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, logger, cfg, scaler, use_wandb=False, use_amp=True):
@@ -77,7 +69,11 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, logger, cfg, s
         batch_time = time.time() - end
         end = time.time()
 
-        pbar.set_description(f"Epoch={epoch} || Loss={losses_reduced.item():.2f} || Time={batch_time:.2f}")
+        # get memory used from cuda
+        if torch.cuda.is_available():
+            max_mem = torch.cuda.max_memory_allocated() / 1024.0 / 1024.0
+
+        pbar.set_description(f"Epoch={epoch} | Loss={losses_reduced.item():.2f} | Mem={max_mem:.2f}MB")
 
     return losses_reduced
 

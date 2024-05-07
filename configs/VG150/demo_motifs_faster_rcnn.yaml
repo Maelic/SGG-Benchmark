@@ -4,11 +4,11 @@ DATALOADER:
   SIZE_DIVISIBILITY: 32
 DATASETS:
   TEST:
-  - VG_stanford_filtered_with_attribute_test
+  - VG150_test
   TRAIN:
-  - VG_stanford_filtered_with_attribute_train
+  - VG150_train
   VAL:
-  - VG_stanford_filtered_with_attribute_val
+  - VG150_val
 DTYPE: float16
 GLOVE_DIR: /home/maelic/glove
 INPUT:
@@ -67,7 +67,7 @@ MODEL:
     NUM_GROUPS: 32
   MASK_ON: false
   META_ARCHITECTURE: GeneralizedRCNN
-  PRETRAINED_DETECTOR_CKPT: ./checkpoints/pretrained_faster_rcnn/model_final.pth
+  PRETRAINED_DETECTOR_CKPT: /home/maelic/SGG-Benchmark/checkpoints/VG150/Backbone/Faster_rcnn/model_final.pth
   RELATION_ON: true
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
@@ -258,9 +258,8 @@ MODEL:
   VGG:
     VGG16_OUT_CHANNELS: 512
   WEIGHT: catalog://ImageNetPretrained/FAIR/20171220/X-101-32x8d
-OUTPUT_DIR: ../checkpoints/upload_causal_motif_sgdet
-PATHS_CATALOG: ../sgg_benchmark/config/paths_catalog.py
-PATHS_DATA: ../datasets
+OUTPUT_DIR: .
+PATHS_CATALOG: ./sgg_benchmark/config/paths_catalog.py
 SOLVER:
   BASE_LR: 0.01
   BIAS_LR_FACTOR: 1
@@ -299,7 +298,7 @@ TEST:
     MAX_SIZE: 4000
     SCALES: []
     SCALE_H_FLIP: false
-  DETECTIONS_PER_IMG: 100
+  DETECTIONS_PER_IMG: 80
   EXPECTED_RESULTS: []
   EXPECTED_RESULTS_SIGMA_TOL: 4
   IMS_PER_BATCH: 2

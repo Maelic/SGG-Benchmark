@@ -15,7 +15,6 @@ from torch import nn
 from torch.nn.modules.utils import _ntuple
 import torch.nn.functional as F
 
-
 class _NewEmptyTensorOp(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, new_shape):

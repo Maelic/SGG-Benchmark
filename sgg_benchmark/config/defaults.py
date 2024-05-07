@@ -526,6 +526,7 @@ _C.SOLVER.UPDATE_SCHEDULE_DURING_LOAD = False
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
 _C.SOLVER.IMS_PER_BATCH = 16
+_C.SOLVER.OPTIMIZER = "SGD"  # "ADAMW"
 
 # ---------------------------------------------------------------------------- #
 # Specific test options
