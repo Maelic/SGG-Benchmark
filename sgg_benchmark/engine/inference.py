@@ -151,6 +151,7 @@ def inference(
         informative=False,
 ):
     load_prediction_from_cache = cfg.TEST.ALLOW_LOAD_FROM_CACHE and output_folder is not None and os.path.exists(os.path.join(output_folder, "predictions.pth"))
+
     # convert to a torch.device for efficiency
     device = torch.device(device)
     num_devices = get_world_size()
@@ -172,40 +173,29 @@ def inference(
         logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:
         predictions, timings = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=inference_timer)
-    # wait for all processes to complete before measuring the time
-    synchronize()
-    total_time = total_timer.toc()
-    total_time_str = get_time_str(total_time)
-    logger.info(
-        "Total run time: {} ({} s / img per device, on {} devices)".format(
-            total_time_str, total_time * num_devices / len(dataset), num_devices
+        # wait for all processes to complete before measuring the time
+        synchronize()
+        total_time = total_timer.toc()
+        total_time_str = get_time_str(total_time)
+        logger.info(
+            "Total run time: {} ({} s / img per device, on {} devices)".format(
+                total_time_str, total_time * num_devices / len(dataset), num_devices
+            )
         )
-    )
-    # total_infer_time = get_time_str(inference_timer.total_time)
-    # logger.info(
-    #     "Model inference time: {} ({} s / img per device, on {} devices)".format(
-    #         total_infer_time,
-    #         inference_timer.total_time * num_devices / len(dataset),
-    #         num_devices,
-    #     )
-    # )
+        mean_syn = np.mean(timings)
+        mean_std = np.std(timings)
+        logger.info(
+            "Average latency per image: {}s".format(mean_syn)
+        )
+        logger.info(
+            "Standard deviation of latency: {}s".format(mean_std)
+        )
 
-    mean_syn = np.mean(timings)
-    mean_std = np.std(timings)
-    logger.info(
-        "Average latency per image: {}s".format(mean_syn)
-    )
-    logger.info(
-        "Standard deviation of latency: {}s".format(mean_std)
-    )
     if not load_prediction_from_cache:
         predictions = _accumulate_predictions_from_multiple_gpus(predictions, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER)
 
     if not is_main_process():
         return -1.0
-
-    #if output_folder is not None and not load_prediction_from_cache:
-    #    torch.save(predictions, os.path.join(output_folder, "predictions.pth"))
 
     extra_args = dict(
         box_only=box_only,

@@ -14,9 +14,32 @@ from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
 from sentence_transformers import SentenceTransformer, util
+import time
 
 from abc import ABC, abstractmethod
 
+sim = 'glove'
+sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
+if sim not in sim_options:
+    raise ValueError('sim must be in %s' % sim_options)
+similarity = sim
+
+# load embeddings according to similarity value
+if similarity == 'glove':
+    sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
+elif similarity == 'uae_large':
+    sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
+elif similarity == 'bert_large':
+    sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
+elif similarity == 'minilm':
+    sim_model = SentenceTransformer('all-MiniLM-L6-v2')
+elif similarity == "mpnet":
+    sim_model = SentenceTransformer('all-mpnet-base-v2')
+elif similarity == "clip":
+    from transformers import AutoTokenizer, CLIPTextModelWithProjection
+    sim_model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
+    tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+    
 class SceneGraphEvaluation(ABC):
     def __init__(self, result_dict):
         super().__init__()
@@ -156,7 +179,7 @@ class SGInformativeRecall(SceneGraphEvaluation):
     def __init__(self, result_dict, sim='glove'):
         super(SGInformativeRecall, self).__init__(result_dict)
 
-        self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet']
+        self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
         if sim not in self.sim_options:
             raise ValueError('sim must be in %s' % self.sim_options)
         self.similarity = sim
@@ -172,6 +195,10 @@ class SGInformativeRecall(SceneGraphEvaluation):
             self.sim_model = SentenceTransformer('all-MiniLM-L6-v2')
         elif self.similarity == "mpnet":
             self.sim_model = SentenceTransformer('all-mpnet-base-v2')
+        elif self.similarity == "clip":
+            from transformers import AutoTokenizer, CLIPTextModelWithProjection
+            self.sim_model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
+            self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
     def register_container(self, mode):
         self.result_dict[mode + '_informative_recall'] = {5: [], 10: [], 20: [], 50: [], 100: []}
@@ -203,8 +230,15 @@ class SGInformativeRecall(SceneGraphEvaluation):
             return pred_to_gt
 
         # encoding the gt_triplets and pred_triplets
-        gt_triplets_embeddings = self.sim_model.encode(gt_triplets)
-        pred_triplets_embeddings = self.sim_model.encode(pred_triplets)
+        if self.similarity == 'clip':
+            gt_triplets_input = self.tokenizer(gt_triplets, padding=True, truncation=True, return_tensors="pt")
+            pred_triplets_input = self.tokenizer(pred_triplets, padding=True, truncation=True, return_tensors="pt")
+
+            gt_triplets_embeddings = self.sim_model(**gt_triplets_input).text_embeds.detach().cpu().numpy()
+            pred_triplets_embeddings = self.sim_model(**pred_triplets_input).text_embeds.detach().cpu().numpy()
+        else:
+            gt_triplets_embeddings = self.sim_model.encode(gt_triplets)
+            pred_triplets_embeddings = self.sim_model.encode(pred_triplets)
 
         # cosine similarity between gt_triplets and pred_triplets
         for i in range(len(pred_triplets)):
@@ -727,7 +761,7 @@ def _triplet(relations, classes, boxes, predicate_scores=None, class_scores=None
     return triplets, triplet_boxes, triplet_scores
 
 
-def _compute_pred_matches(gt_triplets, pred_triplets,
+def _compute_pred_matches2(gt_triplets, pred_triplets,
                  gt_boxes, pred_boxes, iou_thres, phrdet=False):
     """
     Given a set of predicted triplets, return the list of matching GT's for each of the
@@ -766,92 +800,79 @@ def _compute_pred_matches(gt_triplets, pred_triplets,
             pred_to_gt[i].append(int(gt_ind))
     return pred_to_gt
 
-# def _compute_pred_matches(gt_triplets, pred_triplets,
-#                  gt_boxes, pred_boxes, iou_thres, global_container, phrdet=False, sim='glove', threshold=0.9):
+def _compute_pred_matches(gt_triplets, pred_triplets,
+                 gt_boxes, pred_boxes, iou_thres, global_container, phrdet=False, sim='clip', threshold=0.9):
 
-#     sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet']
-#     if sim not in sim_options:
-#         raise ValueError('sim must be in %s' % sim_options)
-#     similarity = sim
+    """
+    Given a set of predicted triplets, return the list of matching GT's for each of the
+    given predictions
+    Return:
+        pred_to_gt [List of List]
+    """
+        
+    # transform gt_triplets and pred_triplets to full string
+    pred_triplets_full = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
 
-#     # load embeddings according to similarity value
-#     if similarity == 'glove':
-#         sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
-#     elif similarity == 'uae_large':
-#         sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
-#     elif similarity == 'bert_large':
-#         sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
-#     elif similarity == 'minilm':
-#         sim_model = SentenceTransformer('all-MiniLM-L6-v2')
-#     elif similarity == "mpnet":
-#         sim_model = SentenceTransformer('all-mpnet-base-v2')
+    gt_triplets_full = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in gt_triplets]
 
-#     """
-#     Given a set of predicted triplets, return the list of matching GT's for each of the
-#     given predictions
-#     Return:
-#         pred_to_gt [List of List]
-#     """
-#     # transform gt_triplets and pred_triplets to full string
-#     pred_triplets = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
+    for i in range(len(gt_triplets)):
+        gt_triplets_full[i] = gt_triplets_full[i].lower()
+    for i in range(len(pred_triplets)):
+        pred_triplets_full[i] = pred_triplets_full[i].lower()
 
-#     gt_triplets = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in gt_triplets]
+    pred_to_gt = [[] for x in range(len(pred_triplets_full))]
 
-#     # this performs cosine sim between the two lists of strings
+    if len(gt_triplets_full) == 0 or len(pred_triplets_full) == 0:
+        return pred_to_gt
 
-#     gt_triplets_embeddings = sim_model.encode(gt_triplets)
-#     pred_triplets_embeddings = sim_model.encode(pred_triplets)
+    # encoding the gt_triplets and pred_triplets
+    if similarity == 'clip':
+        gt_triplets_input = tokenizer(gt_triplets_full, padding=True, truncation=True, return_tensors="pt")
+        pred_triplets_input = tokenizer(pred_triplets_full, padding=True, truncation=True, return_tensors="pt")
 
-#     from torch.nn.functional import cosine_similarity
+        gt_triplets_embeddings = sim_model(**gt_triplets_input).text_embeds.detach().cpu().numpy()
+        pred_triplets_embeddings = sim_model(**pred_triplets_input).text_embeds.detach().cpu().numpy()
+    else:
+        gt_triplets_embeddings = sim_model.encode(gt_triplets_full)
+        pred_triplets_embeddings = sim_model.encode(pred_triplets_full)
 
-#     gt_triplets_embeddings = torch.from_numpy(gt_triplets_embeddings)
-#     pred_triplets_embeddings = torch.from_numpy(pred_triplets_embeddings)
+    # Convert the lists to PyTorch tensors
+    gt_triplets_embeddings = torch.tensor(gt_triplets_embeddings)
+    pred_triplets_embeddings = torch.tensor(pred_triplets_embeddings)
 
-#     # Normalize the embeddings
-#     gt_triplets_embeddings = gt_triplets_embeddings / gt_triplets_embeddings.norm(dim=1, keepdim=True)
-#     pred_triplets_embeddings = pred_triplets_embeddings / pred_triplets_embeddings.norm(dim=1, keepdim=True)
+    # Normalize the embeddings
+    gt_triplets_embeddings = F.normalize(gt_triplets_embeddings, p=2, dim=1)
+    pred_triplets_embeddings = F.normalize(pred_triplets_embeddings, p=2, dim=1)
 
-#     # Compute the cosine similarity using matrix multiplication
-#     cos_sim = torch.mm(gt_triplets_embeddings, pred_triplets_embeddings.t())
+    # Compute the cosine similarity for all pairs of triplets
+    cos_sim = torch.mm(pred_triplets_embeddings, gt_triplets_embeddings.t())
 
-#     # Determine which GT triplets have a match (cosine similarity > threshold)
-#     gt_has_match = (cos_sim > threshold)
+    # Get the indices of the top-k similarities for each predicted triplet
+    top_sim_values, top_sim_indices = torch.topk(cos_sim, k=1, dim=1)
 
-#     # Get the indices of the matching pred triplets for each GT triplet
-#     keeps = gt_has_match.nonzero(as_tuple=True)[1]
+    # Get the indices of the predicted triplets that have a similarity above the threshold
+    match_indices = (top_sim_values > threshold).nonzero(as_tuple=True)[0]
 
-#     # Ensure that the mask and the tensor being indexed have the same shape
-#     gt_has_match = gt_has_match.any(1)
+    # Convert the bounding boxes to PyTorch tensors
+    gt_boxes = torch.tensor(gt_boxes)
+    pred_boxes = torch.tensor(pred_boxes)
 
-#     # Create a boolean tensor of the same size as gt_triplets_embeddings and pred_triplets_embeddings
-#     keeps = torch.zeros_like(cos_sim, dtype=torch.bool)
+    # Compute the IoU for all pairs of bounding boxes
+    iou_sub = bbox_overlaps(gt_boxes[:, :4], pred_boxes[:, :4])
+    iou_obj = bbox_overlaps(gt_boxes[:, 4:], pred_boxes[:, 4:])
 
-#     # Set the indices of the matching pred triplets to True
-#     keeps[cos_sim > threshold] = True
+    # For each matched predicted triplet
+    for i in match_indices:
+        # Get the index of the matched ground truth triplet
+        gt_index = top_sim_indices[i]
 
-#     pred_to_gt = [[] for _ in range(pred_boxes.shape[0])]
-#     if len(gt_boxes) > 0:
-#         for gt_ind, gt_box, keep_inds in zip(np.where(gt_has_match)[0],
-#                                             gt_boxes[gt_has_match],
-#                                             keeps[gt_has_match]):
+        # Get the IoU between the bounding boxes of the matched triplets
+        sub_iou = iou_sub[gt_index, i]
+        obj_iou = iou_obj[gt_index, i]
 
-#             boxes = pred_boxes[keep_inds]
-#             if phrdet:
-#                 # Evaluate where the union box > 0.5
-#                 gt_box_union = gt_box.reshape((2, 4))
-#                 gt_box_union = np.concatenate((gt_box_union.min(0)[:2], gt_box_union.max(0)[2:]), 0)
+        inds = (sub_iou >= iou_thres) & (obj_iou >= iou_thres)
 
-#                 box_union = boxes.reshape((-1, 2, 4))
-#                 box_union = np.concatenate((box_union.min(1)[:,:2], box_union.max(1)[:,2:]), 1)
-
-#                 inds = bbox_overlaps(gt_box_union[None], box_union)[0] >= iou_thres
-
-#             else:
-#                 sub_iou = bbox_overlaps(gt_box[None,:4], boxes[:, :4])[0]
-#                 obj_iou = bbox_overlaps(gt_box[None,4:], boxes[:, 4:])[0]
-
-#                 inds = (sub_iou >= iou_thres) & (obj_iou >= iou_thres)
-
-#             for i in np.where(keep_inds)[0][inds]:
-#                 pred_to_gt[i].append(int(gt_ind))
-#     return pred_to_gt
+        # If the IoU is above the threshold, add the ground truth triplet to the list of matches for the predicted triplet
+        if inds:
+            pred_to_gt[i].append(gt_index)
+    return pred_to_gt
