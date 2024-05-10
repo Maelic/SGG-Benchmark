@@ -201,9 +201,8 @@ def run_val(cfg, model, val_data_loaders, distributed):
             output_folder=None,
         )
         synchronize()
-        results.append(dataset_result)
 
-    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+    gathered_result = all_gather(torch.tensor(dataset_result['mAP']).cpu())
     gathered_result = [t.view(-1) for t in gathered_result]
     gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
     valid_result = gathered_result[gathered_result>=0]

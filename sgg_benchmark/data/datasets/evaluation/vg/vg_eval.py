@@ -225,10 +225,9 @@ def do_vg_evaluation(
 
 
     logger.info(result_str)
-
-    result_dict['detector_mAP@50'] = mAp
     
     if "relations" in iou_types:
+        result_dict['detector_mAP@50'] = mAp
         if output_folder:
             torch.save(result_dict, os.path.join(output_folder, 'result_dict.pytorch'))
         return result_dict
