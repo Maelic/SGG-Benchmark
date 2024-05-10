@@ -216,7 +216,6 @@ class VGDataset(torch.utils.data.Dataset):
         if self.filter_duplicate_rels:
             # Filter out dupes!
             assert self.split == 'train'
-            old_size = relation.shape[0]
             all_rel_sets = defaultdict(list)
             for (o0, o1, r) in relation:
                 all_rel_sets[(o0, o1)].append(r)

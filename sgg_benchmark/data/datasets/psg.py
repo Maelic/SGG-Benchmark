@@ -1,66 +1,38 @@
-import os.path as osp
 import random
 from collections import defaultdict
 
-import mmcv
 import numpy as np
 import torch
-from detectron2.data.detection_utils import read_image
-from mmdet.datasets.coco_panoptic import COCOPanoptic
-from mmdet.datasets.pipelines import Compose
-from panopticapi.utils import rgb2id
 
-from openpsg.evaluation import sgg_evaluation
-from openpsg.models.relation_heads.approaches import Result
+import json
+from PIL import Image
+import cv2
 
+from sgg_benchmark.structures.bounding_box import BoxList
+from tqdm import tqdm
 
-class PanopticSceneGraphDataset(torch.utils.data.Dataset):
+class PSGDataset(torch.utils.data.Dataset):
     def __init__(
             self,
+            split,  # {"train", "test"}
+            img_dir,
             ann_file,
-            pipeline,
-            classes=None,
-            data_root=None,
-            img_prefix='',
-            seg_prefix=None,
-            proposal_file=None,
-            test_mode=False,
-            filter_empty_gt=True,
-            file_client_args=dict(backend='disk'),
-            # New args
-            split: str = 'train',  # {"train", "test"}
-            all_bboxes: bool = False,  # load all bboxes (thing, stuff) for SG
+            filter_empty_rels=True,
+            filter_duplicate_rels=True,
+            transforms=None,
+            informative_file=None,
+            all_bboxes: bool = True,  # load all bboxes (thing, stuff) for SG
     ):
         self.ann_file = ann_file
-        self.data_root = data_root
-        self.img_prefix = img_prefix
-        self.seg_prefix = seg_prefix
-        self.proposal_file = proposal_file
-        self.test_mode = test_mode
-        self.filter_empty_gt = filter_empty_gt
-        self.file_client = mmcv.FileClient(**file_client_args)
-
-        # join paths if data_root is specified
-        if self.data_root is not None:
-            if not osp.isabs(self.ann_file):
-                self.ann_file = osp.join(self.data_root, self.ann_file)
-            if not (self.img_prefix is None or osp.isabs(self.img_prefix)):
-                self.img_prefix = osp.join(self.data_root, self.img_prefix)
-            if not (self.seg_prefix is None or osp.isabs(self.seg_prefix)):
-                self.seg_prefix = osp.join(self.data_root, self.seg_prefix)
-            if not (self.proposal_file is None
-                    or osp.isabs(self.proposal_file)):
-                self.proposal_file = osp.join(self.data_root,
-                                              self.proposal_file)
-
-        self.proposal_file = None
-        self.proposals = None
+        self.transforms = transforms
+        self.filter_empty_rels = filter_empty_rels
+        self.filter_duplicate_rels = filter_duplicate_rels
+        self.img_prefix = img_dir
 
         self.all_bboxes = all_bboxes
-        self.split = split
+        self.split = split        
 
-        # Load dataset
-        dataset = mmcv.load(ann_file)
+        dataset = self.__load_annotations__(ann_file)
 
         for d in dataset['data']:
             # NOTE: 0-index for object class labels
@@ -76,24 +48,32 @@ class PanopticSceneGraphDataset(torch.utils.data.Dataset):
 
         # NOTE: Filter out images with zero relations. 
         # Comment out this part for competition files
-        dataset['data'] = [
-            d for d in dataset['data'] if len(d['relations']) != 0
-        ]
+        if self.filter_empty_rels:
+            dataset['data'] = [
+                d for d in dataset['data'] if len(d['relations']) != 0
+            ]
 
         # Get split
-        assert split in {'train', 'test'}
+        assert split in {'train', 'test', 'val'}
         if split == 'train':
             self.data = [
                 d for d in dataset['data']
                 if d['image_id'] not in dataset['test_image_ids']
             ]
-            # self.data = self.data[:1000] # for quick debug
+            # slice 1000 images for validation
+            self.data = self.data[1000:]
         elif split == 'test':
             self.data = [
                 d for d in dataset['data']
                 if d['image_id'] in dataset['test_image_ids']
             ]
-            # self.data = self.data[:1000] # for quick debug
+        elif split == 'val':
+            self.data = [
+                d for d in dataset['data']
+                if d['image_id'] in dataset['test_image_ids']
+            ]
+            self.data = self.data[:1000]
+
         # Init image infos
         self.data_infos = []
         for d in self.data:
@@ -112,84 +92,52 @@ class PanopticSceneGraphDataset(torch.utils.data.Dataset):
         self.CLASSES = self.THING_CLASSES + self.STUFF_CLASSES
         self.PREDICATES = dataset['predicate_classes']
 
-        # NOTE: For evaluation
-        self.coco = self._init_cocoapi()
-        self.cat_ids = self.coco.get_cat_ids()
-        self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
-        self.categories = self.coco.cats
+        label_to_idx = {label: idx+1 for idx, label in enumerate(self.CLASSES)}
+        predicate_to_idx = {label: idx+1 for idx, label in enumerate(self.PREDICATES)}
 
-        # processing pipeline
-        self.pipeline = Compose(pipeline)
+        label_to_idx['__background__'] = 0
+        predicate_to_idx['__background__'] = 0
 
-        if not self.test_mode:
-            self._set_group_flag()
+        self.ind_to_classes = sorted(label_to_idx, key=lambda k: label_to_idx[k])
+        self.ind_to_predicates = sorted(predicate_to_idx, key=lambda k: predicate_to_idx[k])
+        self.categories = {i : self.ind_to_classes[i] for i in range(len(self.ind_to_classes))}
 
-    def _init_cocoapi(self):
-        auxcoco = COCOPanoptic()
+        if informative_file is not None:
+            self.informative_graphs = json.load(open(informative_file, 'r'))
+        else:
+            self.informative_graphs = {img: [] for img in self.img_ids}
+    
+    def get_img_info(self, index):
+        return self.data_infos[index]
 
-        annotations = []
+    def __load_annotations__(self, ann_file):
+        with open(ann_file, 'r') as f:
+            dataset = json.load(f)
+        return dataset
+    
+    def __len__(self):
+        return len(self.data_infos)
+    
+    def __getitem__(self, index):
+        data = self.data_infos[index]
+        img_path = self.img_prefix + '/' + data['id']+ '.jpg'
+        
+        img = cv2.imread(img_path)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        # Create mmdet coco panoptic data format
-        for d in self.data:
+        target = self.get_groundtruth(index)
 
-            annotation = {
-                'file_name': d['pan_seg_file_name'],
-                'image_id': d['image_id'],
-            }
-            segments_info = []
+        if self.transforms is not None:
+            img, target = self.transforms(img, target)
+        target.add_field("image_path", img_path, is_triplet=True)
 
-            for a, s in zip(d['annotations'], d['segments_info']):
+        return img, target, index
 
-                segments_info.append({
-                    'id':
-                    s['id'],
-                    'category_id':
-                    s['category_id'],
-                    'iscrowd':
-                    s['iscrowd'],
-                    'area':
-                    int(s['area']),
-                    # Convert from xyxy to xywh
-                    'bbox': [
-                        a['bbox'][0],
-                        a['bbox'][1],
-                        a['bbox'][2] - a['bbox'][0],
-                        a['bbox'][3] - a['bbox'][1],
-                    ],
-                })
-
-            annotation['segments_info'] = segments_info
-
-            annotations.append(annotation)
-
-        thing_categories = [{
-            'id': i,
-            'name': name,
-            'isthing': 1
-        } for i, name in enumerate(self.THING_CLASSES)]
-        stuff_categories = [{
-            'id': i + len(self.THING_CLASSES),
-            'name': name,
-            'isthing': 0
-        } for i, name in enumerate(self.STUFF_CLASSES)]
-
-        # Create `dataset` attr for for `createIndex` method
-        auxcoco.dataset = {
-            'images': self.data_infos,
-            'annotations': annotations,
-            'categories': thing_categories + stuff_categories,
-        }
-        auxcoco.createIndex()
-        auxcoco.img_ann_map = auxcoco.imgToAnns
-        auxcoco.cat_img_map = auxcoco.catToImgs
-
-        return auxcoco
-
-    def get_ann_info(self, idx):
+    def get_groundtruth(self, idx, evaluation=False):
         d = self.data[idx]
 
-        # Process bbox annotations
-        gt_bboxes_ignore = np.zeros((0, 4), dtype=np.float32)
+        # get img size
+        w, h = d['width'], d['height']
 
         if self.all_bboxes:
             # NOTE: Get all the bbox annotations (thing + stuff)
@@ -215,27 +163,23 @@ class PanopticSceneGraphDataset(torch.utils.data.Dataset):
                     gt_bboxes.append(a['bbox'])
                     gt_labels.append(a['category_id'])
 
-            if gt_bboxes:
-                gt_bboxes = np.array(gt_bboxes, dtype=np.float32)
-                gt_labels = np.array(gt_labels, dtype=np.int64)
-            else:
-                gt_bboxes = np.zeros((0, 4), dtype=np.float32)
-                gt_labels = np.array([], dtype=np.int64)
+            gt_bboxes = np.array(gt_bboxes, dtype=np.float32)
+            gt_labels = np.array(gt_labels, dtype=np.int64)
 
-        # Process segment annotations
-        gt_mask_infos = []
-        for s in d['segments_info']:
-            gt_mask_infos.append({
-                'id': s['id'],
-                'category': s['category_id'],
-                'is_thing': s['isthing']
-            })
+        # add 1 for bg
+        gt_labels += 1
+
+        gt_bboxes = torch.from_numpy(gt_bboxes).reshape(-1, 4)
+
+        target = BoxList(gt_bboxes, (w, h), 'xyxy') # xyxy
+        target.add_field("labels", torch.from_numpy(gt_labels.copy()))
+        del gt_labels
 
         # Process relationship annotations
         gt_rels = d['relations'].copy()
 
         # Filter out dupes!
-        if self.split == 'train':
+        if self.split == 'train' and self.filter_duplicate_rels:
             all_rel_sets = defaultdict(list)
             for (o0, o1, r) in gt_rels:
                 all_rel_sets[(o0, o1)].append(r)
@@ -252,7 +196,7 @@ class PanopticSceneGraphDataset(torch.utils.data.Dataset):
             gt_rels = np.array(all_rel_sets, dtype=np.int32)
 
         # add relation to target
-        num_box = len(gt_mask_infos)
+        num_box = len(gt_bboxes)
         relation_map = np.zeros((num_box, num_box), dtype=np.int64)
         for i in range(gt_rels.shape[0]):
             # If already exists a relation?
@@ -263,53 +207,128 @@ class PanopticSceneGraphDataset(torch.utils.data.Dataset):
             else:
                 relation_map[int(gt_rels[i, 0]),
                              int(gt_rels[i, 1])] = int(gt_rels[i, 2])
+                
+        relation_map = torch.from_numpy(relation_map)
+        target.add_field("relation", relation_map, is_triplet=True)
 
-        ann = dict(
-            bboxes=gt_bboxes,
-            labels=gt_labels,
-            rels=gt_rels,
-            rel_maps=relation_map,
-            bboxes_ignore=gt_bboxes_ignore,
-            masks=gt_mask_infos,
-            seg_map=d['pan_seg_file_name'],
-        )
-
-        return ann
-
+        if evaluation:
+            target = target.clip_to_image(remove_empty=False)
+            target.add_field("relation_tuple", torch.LongTensor(gt_rels)) # for evaluation
+            if self.informative_graphs is not None:
+                target.add_field("informative_rels", self.informative_graphs[str(self.data_infos[idx]['id'])])
+            return target
+        else:
+            target = target.clip_to_image(remove_empty=True)
+            return target
+        
     def get_statistics(self):
-        freq_matrix = self.get_freq_matrix()
+        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq = self.get_PSG_statistics()
         eps = 1e-3
-        freq_matrix += eps
-        pred_dist = np.log(freq_matrix / freq_matrix.sum(2)[:, :, None] + eps)
+        bg_matrix += 1
+        fg_matrix[:, :, 0] = bg_matrix
+        pred_dist = np.log(fg_matrix / fg_matrix.sum(2)[:, :, None] + eps)
 
         result = {
-            'freq_matrix': torch.from_numpy(freq_matrix),
+            'fg_matrix': torch.from_numpy(fg_matrix),
             'pred_dist': torch.from_numpy(pred_dist).float(),
+            'obj_classes': self.ind_to_classes,
+            'rel_classes': self.ind_to_predicates,
+            'predicate_new_order': predicate_new_order,
+            'predicate_new_order_count': predicate_new_order_count,
+            'pred_freq': pred_prop,
+            'triplet_freq': triplet_freq,
         }
-        if result['pred_dist'].isnan().any():
-            print('check pred_dist: nan')
-        return result
 
-    def get_freq_matrix(self):
+        return result
+    
+    def get_PSG_statistics(self):
         num_obj_classes = len(self.CLASSES)
         num_rel_classes = len(self.PREDICATES)
 
-        freq_matrix = np.zeros(
-            (num_obj_classes, num_obj_classes, num_rel_classes + 1),
-            dtype=np.float)
-        progbar = mmcv.ProgressBar(len(self.data))
+        fg_matrix = np.zeros((num_obj_classes, num_obj_classes, num_rel_classes), dtype=np.int64)
+        bg_matrix = np.zeros((num_obj_classes, num_obj_classes), dtype=np.int64)
 
-        for d in self.data:
-            segments = d['segments_info']
-            relations = d['relations']
+        for d in tqdm(self.data):
+            gt_classes = np.array([a['category_id'] for a in d['annotations']])
+            gt_relations = d['relations']
+            gt_boxes = np.array([a['bbox'] for a in d['annotations']])
 
-            for rel in relations:
-                object_index = segments[rel[0]]['category_id']
-                subject_index = segments[rel[1]]['category_id']
-                relation_index = rel[2]
+            # For the foreground, we'll just look at everything
+            o1o2 = gt_classes[gt_relations[:, :2]]
+            for (o1, o2), gtr in zip(o1o2, gt_relations[:,2]):
+                fg_matrix[o1, o2, gtr] += 1
+            # For the background, get all of the things that overlap.
+            o1o2_total = gt_classes[np.array(box_filter(gt_boxes, must_overlap=True), dtype=int)]
+            for (o1, o2) in o1o2_total:
+                bg_matrix[o1, o2] += 1
+        
+        # for GCL only
+        stats_pred = {i: 0 for i in range(num_rel_classes)}
+        for k in fg_matrix:
+            for p in k:
+                for i, x in enumerate(p):
+                    stats_pred[i] += x
+        # compute proportion of each predicate
+        total_pred = sum(stats_pred.values())
+        pred_prop = [v / total_pred for k, v in stats_pred.items()] # this will replace cfg.MODEL.REL_PROP
+        # pop first item
+        pred_prop.pop(0)
+        assert len(pred_prop) == num_rel_classes - 1
 
-                freq_matrix[object_index, subject_index, relation_index] += 1
+        # add background value
+        stats_pred[0] = len(bg_matrix.flatten())
+        stats_pred = dict(sorted(stats_pred.items(), key=lambda x: x[1], reverse=True))
+        predicate_new_order = list(stats_pred.keys())
+        predicate_new_order_count = list(stats_pred.values())
 
-            progbar.update()
+        triplet_freq = {}
 
-        return freq_matrix
+        # Compute the total count of all triplets
+        total_count = fg_matrix.sum()
+        # Loop over each element in the fg_matrix
+        for i in range(fg_matrix.shape[0]):
+            for j in range(fg_matrix.shape[1]):
+                for k in range(fg_matrix.shape[2]):
+                    # The triplet is (i, j, k)
+                    triplet = (i, j, k)
+                    # The frequency is the value in the fg_matrix divided by the total count
+                    freq = fg_matrix[i, j, k] / total_count
+                    # Add the triplet and its frequency to the dictionary
+                    triplet_freq[triplet] = freq
+
+        return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq    
+
+def box_filter(boxes, must_overlap=False):
+    """ Only include boxes that overlap as possible relations. 
+    If no overlapping boxes, use all of them."""
+
+    overlaps = bbox_overlaps(boxes.astype(float), boxes.astype(float), to_move=0) > 0
+    np.fill_diagonal(overlaps, 0)
+
+    all_possib = np.ones_like(overlaps, dtype=bool)
+    np.fill_diagonal(all_possib, 0)
+
+    if must_overlap:
+        possible_boxes = np.column_stack(np.where(overlaps))
+
+        if possible_boxes.size == 0:
+            possible_boxes = np.column_stack(np.where(all_possib))
+    else:
+        possible_boxes = np.column_stack(np.where(all_possib))
+    return possible_boxes
+
+def bbox_overlaps(boxes1, boxes2, to_move=1):
+    """
+    boxes1 : numpy, [num_obj, 4] (x1,y1,x2,y2)
+    boxes2 : numpy, [num_obj, 4] (x1,y1,x2,y2)
+    """
+
+    num_box1 = boxes1.shape[0]
+    num_box2 = boxes2.shape[0]
+    lt = np.maximum(boxes1.reshape([num_box1, 1, -1])[:,:,:2], boxes2.reshape([1, num_box2, -1])[:,:,:2]) # [N,M,2]
+    rb = np.minimum(boxes1.reshape([num_box1, 1, -1])[:,:,2:], boxes2.reshape([1, num_box2, -1])[:,:,2:]) # [N,M,2]
+
+    wh = (rb - lt + to_move).clip(min=0)  # [N,M,2]
+    inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
+
+    return inter

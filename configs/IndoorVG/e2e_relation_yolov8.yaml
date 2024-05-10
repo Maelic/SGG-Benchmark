@@ -131,7 +131,7 @@ SOLVER:
     MAX_DECAY_STEP: 3
 OUTPUT_DIR: './output/relation_baseline'
 TEST:
-  ALLOW_LOAD_FROM_CACHE: False
+  ALLOW_LOAD_FROM_CACHE: True
   INFORMATIVE: True
   RELATION:
     SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem

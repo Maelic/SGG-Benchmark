@@ -18,27 +18,27 @@ import time
 
 from abc import ABC, abstractmethod
 
-sim = 'glove'
-sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
-if sim not in sim_options:
-    raise ValueError('sim must be in %s' % sim_options)
-similarity = sim
+# sim = 'glove'
+# sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
+# if sim not in sim_options:
+#     raise ValueError('sim must be in %s' % sim_options)
+# similarity = sim
 
-# load embeddings according to similarity value
-if similarity == 'glove':
-    sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
-elif similarity == 'uae_large':
-    sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
-elif similarity == 'bert_large':
-    sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
-elif similarity == 'minilm':
-    sim_model = SentenceTransformer('all-MiniLM-L6-v2')
-elif similarity == "mpnet":
-    sim_model = SentenceTransformer('all-mpnet-base-v2')
-elif similarity == "clip":
-    from transformers import AutoTokenizer, CLIPTextModelWithProjection
-    sim_model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
-    tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+# # load embeddings according to similarity value
+# if similarity == 'glove':
+#     sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
+# elif similarity == 'uae_large':
+#     sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
+# elif similarity == 'bert_large':
+#     sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
+# elif similarity == 'minilm':
+#     sim_model = SentenceTransformer('all-MiniLM-L6-v2')
+# elif similarity == "mpnet":
+#     sim_model = SentenceTransformer('all-mpnet-base-v2')
+# elif similarity == "clip":
+#     from transformers import AutoTokenizer, CLIPTextModelWithProjection
+#     sim_model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
+#     tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
     
 class SceneGraphEvaluation(ABC):
     def __init__(self, result_dict):
@@ -761,8 +761,8 @@ def _triplet(relations, classes, boxes, predicate_scores=None, class_scores=None
     return triplets, triplet_boxes, triplet_scores
 
 
-def _compute_pred_matches2(gt_triplets, pred_triplets,
-                 gt_boxes, pred_boxes, iou_thres, phrdet=False):
+def _compute_pred_matches(gt_triplets, pred_triplets,
+                 gt_boxes, pred_boxes, iou_thres, global_container, phrdet=False):
     """
     Given a set of predicted triplets, return the list of matching GT's for each of the
     given predictions
@@ -800,7 +800,7 @@ def _compute_pred_matches2(gt_triplets, pred_triplets,
             pred_to_gt[i].append(int(gt_ind))
     return pred_to_gt
 
-def _compute_pred_matches(gt_triplets, pred_triplets,
+def _compute_pred_matches2(gt_triplets, pred_triplets,
                  gt_boxes, pred_boxes, iou_thres, global_container, phrdet=False, sim='clip', threshold=0.9):
 
     """

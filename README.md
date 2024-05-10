@@ -16,11 +16,11 @@ This codebase also focuses on real-time and real-world usage of Scene Graph Gene
 
 ## Recent Updates
 
-- [ ] TODO: Change Dataloader to COCO format (urgent).
+- [ ] TODO: Change Dataloader to COCO format (in progress).
 - [ ] TODO: Add support for [DT2-ACBS](https://github.com/a-lakh/DT2-ACBS/tree/main).
-- [ ] TODO: Add support for OpenImage and PSG datasets.
+- [X] 10.05.2024: Added support for the [PSG Dataset](https://github.com/Jingkang50/OpenPSG)
 - [X] 03.04.2024: Added support for the IETrans method for data augmentation on the Visual Genome dataset, please check it out! [IETrans](./process_data/data_augmentation/README.md).
-- [X] 03.04.2024: Update the demo, now working with any models, check [DEMO.md](./demo/DEMO.md).
+- [X] 03.04.2024: Update the demo, now working with any models, check [DEMO.md](./demo/).
 - [X] 01.04.2024: Added support for Wandb for better visualization during training, tutorial coming soon.
 
 ## Contents
@@ -38,7 +38,7 @@ This codebase also focuses on real-time and real-world usage of Scene Graph Gene
 8. [Training on Scene Graph Generation](#perform-training-on-scene-graph-generation)
 9. [Evaluation on Scene Graph Generation](#Evaluation)
 <!-- 9. [**Detect Scene Graphs on Your Custom Images** :star2:](#SGDet-on-custom-images) -->
-10. [**Visualize Detected Scene Graphs of Custom Images** :star2:](#Visualize-Detected-SGs-of-Custom-Images)
+<!-- 10. [**Visualize Detected Scene Graphs of Custom Images** :star2:](#Visualize-Detected-SGs-of-Custom-Images) -->
 11. [Other Options that May Improve the SGG](#other-options-that-may-improve-the-SGG)
 <!-- 11. [Tips and Tricks for TDE on any Unbiased Task](#tips-and-Tricks-for-any-unbiased-taskX-from-biased-training) -->
 12. [Frequently Asked Questions](#frequently-asked-questions)

@@ -151,7 +151,7 @@ class PoolerYOLO(nn.Module):
         dtype, device = x[0].dtype, x[0].device
 
         if reduce:
-            # perfrom a conv 1x1 on all the feature maps one by one to reduce the channels
+            # perform a conv 1x1 on all the feature maps one by one to reduce the channels
             for i in range(self.num_features):
                 if x[i].shape[1] != self.out_channels:
                     x[i] = nn.Conv2d(x[i].shape[1], self.out_channels, kernel_size=1, stride=1, padding=0, device=device)(x[i])

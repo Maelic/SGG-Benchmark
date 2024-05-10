@@ -1,16 +1,13 @@
 INPUT:
-  MIN_SIZE_TRAIN: (640,)
-  MAX_SIZE_TRAIN: 640
-  MIN_SIZE_TEST: 640
-  MAX_SIZE_TEST: 640
+  MIN_SIZE_TRAIN: 600
+  MAX_SIZE_TRAIN: 1000
+  MIN_SIZE_TEST: 600
+  MAX_SIZE_TEST: 1000
 MODEL:
-  META_ARCHITECTURE: "GeneralizedYOLO"
-  WEIGHT: "/home/maelic/Documents/training_/yolov8l_200/weights/best.pt"
+  META_ARCHITECTURE: "GeneralizedRCNN"
+  WEIGHT: "catalog://ImageNetPretrained/FAIR/20171220/X-101-32x8d"
   BACKBONE:
-    TYPE: "yolov8"
-  YOLO:
-    SIZE: "large"
-    OUT_CHANNELS: 576
+    TYPE: "R-101-FPN"
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
     STRIDE_IN_1X1: False
@@ -33,7 +30,6 @@ MODEL:
     FPN_POST_NMS_PER_BATCH: False
     RPN_MID_CHANNEL: 256
   ROI_HEADS:
-    USE_FPN: True
     POSITIVE_FRACTION: 0.5
     BG_IOU_THRESHOLD: 0.3
     BATCH_SIZE_PER_IMAGE: 256
@@ -44,7 +40,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 151                    # 151 for VG, 1201 for GQA
+    NUM_CLASSES: 134                    # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 4096
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
@@ -57,9 +53,9 @@ MODEL:
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
 DATASETS:
-  TRAIN: ("VG_indoor_filtered_train",)
-  VAL: ("VG_indoor_filtered_val",)
-  TEST: ("VG_indoor_filtered_test",)
+  TRAIN: ("PSG_train",)
+  VAL: ("PSG_val",)
+  TEST: ("PSG_test",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
@@ -71,4 +67,5 @@ SOLVER:
   STEPS: (90000, 120000)
   MAX_ITER: 180000
   PRINT_GRAD_FREQ: 5000
-OUTPUT_DIR: 'checkpoints/IndoorVG4/SGDET/penet-yolov8m/'
+OUTPUT_DIR: './output/relation_baseline'
+

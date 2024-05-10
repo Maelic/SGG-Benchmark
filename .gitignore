@@ -21,6 +21,7 @@ wandb/
 !/datasets/
 /datasets/**
 !/datasets/vg/**
+!/datasets/VG150/**
 *.png
 *.jpg
 *.jpeg

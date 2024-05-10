@@ -17,6 +17,11 @@ class DatasetCatalog(object):
             "zeroshot_file": DATA_DIR+"datasets/VG150/zeroshot_triplet.pytorch",
             "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
+        "PSG": {
+            "img_dir": IMG_DIR+"VG_100K",
+            "ann_file": DATA_DIR+"datasets/psg/psg_train_val.json",
+            "informative_file": DATA_DIR+"datasets/informative_sg.json",
+        },
         "VrR-VG_filtered_with_attribute": {
             "img_dir": IMG_DIR+"VG_100K",
             "roidb_file": "VG/VrR-VG/VrR_VG-SGG-with-attri.h5",
@@ -55,17 +60,6 @@ class DatasetCatalog(object):
                 factory="COCODataset",
                 args=args,
             )
-        elif "voc" in name:
-            data_dir = DatasetCatalog.DATA_DIR
-            attrs = DatasetCatalog.DATASETS[name]
-            args = dict(
-                data_dir=os.path.join(data_dir, attrs["data_dir"]),
-                split=attrs["split"],
-            )
-            return dict(
-                factory="PascalVOCDataset",
-                args=args,
-            )
         elif ("VG" in name) or ('GQA' in name):
             # name should be something like VG_stanford_filtered_train
             p = name.rfind("_")
@@ -85,6 +79,20 @@ class DatasetCatalog(object):
             args['custom_path'] = cfg.TEST.CUSTUM_PATH
             return dict(
                 factory="VGDataset",
+                args=args,
+            )
+        elif "PSG" in name:
+            p = name.rfind("_")
+            name, split = name[:p], name[p+1:]
+            assert name in DatasetCatalog.DATASETS and split in {'train', 'val', 'test'}
+            data_dir = DatasetCatalog.DATA_DIR
+            args = copy.deepcopy(DatasetCatalog.DATASETS[name])
+            for k, v in args.items():
+                args[k] = os.path.join(data_dir, v)
+            args['split'] = split
+            args['filter_empty_rels'] = True
+            return dict(
+                factory="PSGDataset",
                 args=args,
             )
 

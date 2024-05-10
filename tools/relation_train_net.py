@@ -154,7 +154,7 @@ def train(cfg, logger, args):
 
     # if there is certain checkpoint in output_dir, load it, else load pretrained detector
     if checkpointer.has_checkpoint():
-        extra_checkpoint_data = checkpointer.load(None, update_schedule=cfg.SOLVER.UPDATE_SCHEDULE_DURING_LOAD)
+        extra_checkpoint_data = checkpointer.load(checkpointer.get_checkpoint_file(), update_schedule=cfg.SOLVER.UPDATE_SCHEDULE_DURING_LOAD)
         arguments.update(extra_checkpoint_data)
     else:
         if "FPN" in cfg.MODEL.BACKBONE.TYPE:

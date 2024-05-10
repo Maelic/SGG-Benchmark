@@ -29,7 +29,55 @@ from sgg_benchmark.utils.miscellaneous import mkdir, save_config
 from sgg_benchmark.utils.metric_logger import MetricLogger
 import wandb
 
-def train(cfg, local_rank, distributed, logger):
+from tqdm import tqdm
+
+def train_one_epoch(model, optimizer, scheduler, data_loader, device, epoch, logger, cfg, scaler, use_wandb=False, use_amp=True):
+    pbar = tqdm(total=len(data_loader))
+
+    for images, targets, _ in data_loader:
+        pbar.update(1)
+        if any(len(target) < 1 for target in targets):
+            logger.error(f"Epoch={epoch} || Image Ids used for training {_} || targets Length={[len(target) for target in targets]}" )
+            continue
+        end = time.time()
+
+        # Note: If mixed precision is not used, this ends up doing nothing
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+            images = images.to(device)
+            targets = [target.to(device) for target in targets]
+
+            loss_dict = model(images, targets)
+
+            losses = sum(loss for loss in loss_dict.values())
+
+        scaler.scale(losses).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        # reduce losses over all GPUs for logging purposes
+        loss_dict_reduced = reduce_loss_dict(loss_dict)
+        losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+
+        if use_wandb:
+            wandb.log({"loss": losses_reduced}, step=epoch)
+
+        optimizer.zero_grad()
+
+        optimizer.step()
+        scheduler.step()
+
+        end = time.time()
+
+        # get memory used from cuda
+        if torch.cuda.is_available():
+            max_mem = torch.cuda.max_memory_allocated() / 1024.0 / 1024.0
+
+        pbar.set_description(f"Epoch={epoch} | Loss={losses_reduced.item():.2f} | Mem={max_mem:.2f}MB")
+
+    return losses_reduced
+
+
+def train(cfg, local_rank, distributed, logger, use_wandb=False):
     model = build_detection_model(cfg)
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
@@ -65,7 +113,6 @@ def train(cfg, local_rank, distributed, logger):
         cfg,
         mode='train',
         is_distributed=distributed,
-        start_iter=arguments["iteration"],
     )
     val_data_loaders = make_data_loader(
         cfg,
@@ -78,104 +125,49 @@ def train(cfg, local_rank, distributed, logger):
         run_val(cfg, model, val_data_loaders, distributed)
 
     logger.info("Start training")
-    meters = MetricLogger(delimiter="  ")
     max_iter = len(train_data_loader)
-    start_iter = arguments["iteration"]
     start_training_time = time.time()
-    end = time.time()
+    print(len(train_data_loader))
 
     val_result = 0
     best_metric = 0
     best_epoch = ""
     best_checkpoint = None
 
-    for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
+    max_epoch = cfg.SOLVER.MAX_EPOCH
+
+    logger.info("Start training for {} epochs".format(max_epoch))
+    start_training_time = time.time()
+
+    for epoch in range(0, max_epoch):
 
         model.train()
-        
-        if any(len(target) < 1 for target in targets):
-            logger.error(f"Iteration={iteration + 1} || Image Ids used for training {_} || targets Length={[len(target) for target in targets]}" )
-            continue
-        data_time = time.time() - end
-        iteration = iteration + 1
-        arguments["iteration"] = iteration
 
-        # Note: If mixed precision is not used, this ends up doing nothing
-        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
-            images = images.to(device)
-            targets = [target.to(device) for target in targets]
+        start_epoch_time = time.time()
+        loss = train_one_epoch(model, optimizer, scheduler, train_data_loader, device, epoch, logger, cfg, scaler, use_wandb=use_wandb, use_amp=use_amp)
+        logger.info("Epoch {} training time: {:.2f} s".format(epoch, time.time() - start_epoch_time))
 
-            loss_dict = model(images, targets)
+        val_result = None # used for scheduler updating
+        logger.info("Start validating")
 
-            losses = sum(loss for loss in loss_dict.values())
+        val_result = run_val(cfg, model, val_data_loaders, distributed)
 
-        scaler.scale(losses).backward()
-        scaler.step(optimizer)
-        scaler.update()
-
-        # reduce losses over all GPUs for logging purposes
-        loss_dict_reduced = reduce_loss_dict(loss_dict)
-        losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-        meters.update(loss=losses_reduced, **loss_dict_reduced)
-
-        optimizer.zero_grad()
-
-        optimizer.step()
-        scheduler.step()
-
-        batch_time = time.time() - end
-        end = time.time()
-        meters.update(time=batch_time, data=data_time)
-
-        eta_seconds = meters.time.global_avg * (max_iter - iteration)
-        eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-
-        if iteration % 200 == 0 or iteration == max_iter:
-            logger.info(
-                meters.delimiter.join(
-                    [
-                        "eta: {eta}",
-                        "iter: {iter}",
-                        "{meters}",
-                        "lr: {lr:.6f}",
-                        "max mem: {memory:.0f}",
-                    ]
-                ).format(
-                    eta=eta_string,
-                    iter=iteration,
-                    meters=str(meters),
-                    lr=optimizer.param_groups[0]["lr"],
-                    memory=torch.cuda.max_memory_allocated() / 1024.0 / 1024.0,
-                )
-            )
-
-        if (cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0) or iteration == max_iter:
-            logger.info("Start validating")
-            val_result = run_val(cfg, model, val_data_loaders, distributed)
-
-            if val_result > best_metric:
-                best_epoch = iteration
-                best_metric = val_result
-                
-                to_remove = best_checkpoint
-                checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
-                best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_{:07d}".format(iteration))
-
-                # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
-                #if to_remove is not None:
-                #    os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
-                
-            logger.info("Now best epoch in mAP is : {}, with value {}".format(best_epoch, best_metric))
+        if val_result > best_metric:
+            best_epoch = epoch
+            best_metric = val_result
             
+            to_remove = best_checkpoint
+            checkpointer.save("best_model_epoch_{}".format(epoch), **arguments)
+            best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_epoch_{}".format(epoch))
+
+            # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
+            if to_remove is not None:
+                os.remove(to_remove+".pth")
+                logger.info("New best model saved at iteration {}".format(epoch))
+            
+        logger.info("Now best epoch in mAP is : {}, with value {}".format(best_epoch, best_metric))
+        if use_wandb:
             wandb.log({"mAp": val_result})
-
-        # if iteration % checkpoint_period == 0:
-        #     checkpointer.save("model_{:07d}".format(iteration), **arguments)
-        # if iteration == max_iter:
-        #     checkpointer.save("model_final", **arguments)
-
-        wandb.log({"loss": losses_reduced})
-
 
     total_training_time = time.time() - start_training_time
     total_time_str = str(datetime.timedelta(seconds=total_training_time))
@@ -310,6 +302,7 @@ def main():
         if args.distributed:
             wandb.init(project="scene-graph-benchmark", entity="maelic", group="DDP", name=run_name, config=cfg)
         wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
+        use_wandb = True
         
     logger = setup_logger("sgg_benchmark", output_dir, get_rank())
     logger.info("Using {} GPUs".format(num_gpus))
@@ -329,7 +322,7 @@ def main():
     # save overloaded model config in the output directory
     save_config(cfg, output_config_path)
 
-    model = train(cfg, args.local_rank, args.distributed, logger)
+    model = train(cfg, args.local_rank, args.distributed, logger, use_wandb=use_wandb)
 
     if not args.skip_test:
         run_test(cfg, model, args.distributed)
