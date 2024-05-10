@@ -127,7 +127,6 @@ def train(cfg, local_rank, distributed, logger, use_wandb=False):
     logger.info("Start training")
     max_iter = len(train_data_loader)
     start_training_time = time.time()
-    print(len(train_data_loader))
 
     val_result = 0
     best_metric = 0

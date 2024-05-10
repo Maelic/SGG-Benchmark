@@ -25,6 +25,8 @@ def evaluate(cfg, dataset, dataset_name, predictions, output_folder, logger, **k
         return voc_evaluation(**args)
     elif isinstance(dataset, datasets.VGDataset):
         return vg_evaluation(**args)
+    elif isinstance(dataset, datasets.PSGDataset):
+        return vg_evaluation(**args)
     else:
         dataset_name = dataset.__class__.__name__
         raise NotImplementedError("Unsupported dataset type {}.".format(dataset_name))
