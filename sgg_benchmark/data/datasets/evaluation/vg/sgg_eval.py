@@ -435,7 +435,10 @@ class SGZeroShotRecall(SceneGraphEvaluation):
         sub_id, ob_id, pred_label = gt_rels[:, 0], gt_rels[:, 1], gt_rels[:, 2]
         gt_triplets = np.column_stack((gt_classes[sub_id], gt_classes[ob_id], pred_label))  # num_rel, 3
 
-        self.zeroshot_idx = np.where( intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0 )[0].tolist()
+        if len(zeroshot_triplets) == 0: # no zero shot triplets
+            self.zeroshot_idx = []
+        else:
+            self.zeroshot_idx = np.where( intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0 )[0].tolist()
 
     def calculate_recall(self, global_container, local_container, mode):
         pred_to_gt = local_container['pred_to_gt']
@@ -478,7 +481,10 @@ class SGNGZeroShotRecall(SceneGraphEvaluation):
         sub_id, ob_id, pred_label = gt_rels[:, 0], gt_rels[:, 1], gt_rels[:, 2]
         gt_triplets = np.column_stack((gt_classes[sub_id], gt_classes[ob_id], pred_label))  # num_rel, 3
 
-        self.zeroshot_idx = np.where( intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0 )[0].tolist()
+        if len(zeroshot_triplets) == 0: # no zero shot triplets
+            self.zeroshot_idx = []
+        else:
+            self.zeroshot_idx = np.where( intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0 )[0].tolist()
 
     def calculate_recall(self, global_container, local_container, mode):
         pred_to_gt = local_container['nogc_pred_to_gt']

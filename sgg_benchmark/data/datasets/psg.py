@@ -70,7 +70,7 @@ class PSGDataset(torch.utils.data.Dataset):
         elif split == 'val':
             self.data = [
                 d for d in dataset['data']
-                if d['image_id'] in dataset['test_image_ids']
+                if d['image_id'] not in dataset['test_image_ids']
             ]
             self.data = self.data[:1000]
 
@@ -242,15 +242,15 @@ class PSGDataset(torch.utils.data.Dataset):
         return result
     
     def get_PSG_statistics(self):
-        num_obj_classes = len(self.CLASSES)
-        num_rel_classes = len(self.PREDICATES)
+        num_obj_classes = len(self.CLASSES)+1
+        num_rel_classes = len(self.PREDICATES)+1
 
         fg_matrix = np.zeros((num_obj_classes, num_obj_classes, num_rel_classes), dtype=np.int64)
         bg_matrix = np.zeros((num_obj_classes, num_obj_classes), dtype=np.int64)
 
         for d in tqdm(self.data):
             gt_classes = np.array([a['category_id'] for a in d['annotations']])
-            gt_relations = d['relations']
+            gt_relations =np.array(d['relations'])
             gt_boxes = np.array([a['bbox'] for a in d['annotations']])
 
             # For the foreground, we'll just look at everything

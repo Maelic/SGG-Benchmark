@@ -28,8 +28,11 @@ def do_vg_evaluation(
     # get zeroshot triplet
     if "relations" in iou_types:
         data_dir = DatasetCatalog.DATA_DIR
-        zero_shot_file = DatasetCatalog.DATASETS[dataset_name]['zeroshot_file']
-        zeroshot_triplet = torch.load(os.path.join(data_dir, zero_shot_file), map_location=torch.device("cpu")).long().numpy()
+        try:
+            zero_shot_file = DatasetCatalog.DATASETS[dataset_name]['zeroshot_file']
+            zeroshot_triplet = torch.load(os.path.join(data_dir, zero_shot_file), map_location=torch.device("cpu")).long().numpy()
+        except KeyError:
+            zeroshot_triplet = np.array([])
 
     #attribute_on = cfg.MODEL.ATTRIBUTE_ON
     #num_attributes = cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES

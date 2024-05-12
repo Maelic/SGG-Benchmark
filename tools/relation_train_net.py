@@ -95,8 +95,8 @@ def train(cfg, logger, args):
         import wandb
         run_name = cfg.OUTPUT_DIR.split('/')[-1]
         if args['distributed']:
-            wandb.init(project="sgg-indoorvg-4", entity="maelic", group="DDP", name=run_name, config=cfg)
-        wandb.init(project="sgg-indoorvg-4", entity="maelic", name=run_name, config=cfg)
+            wandb.init(project="PSG-sgdet", entity="maelic", group="DDP", name=run_name, config=cfg)
+        wandb.init(project="PSG-sgdet", entity="maelic", name=run_name, config=cfg)
 
     # modules that should be always set in eval mode
     # their eval() method should be called after model.train() is called
