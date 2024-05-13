@@ -61,20 +61,21 @@ class RelationFeatureExtractor(nn.Module):
             union_proposals.append(union_proposal)
 
             # use range to construct rectangle, sized (rect_size, rect_size)
-            num_rel = len(rel_pair_idx)
+            num_rel = rel_pair_idx.size(0)
             dummy_x_range = torch.arange(self.rect_size, device=device).view(1, 1, -1).expand(num_rel, self.rect_size, self.rect_size)
             dummy_y_range = torch.arange(self.rect_size, device=device).view(1, -1, 1).expand(num_rel, self.rect_size, self.rect_size)
             # resize bbox to the scale rect_size
             head_proposal = head_proposal.resize((self.rect_size, self.rect_size))
             tail_proposal = tail_proposal.resize((self.rect_size, self.rect_size))
-            head_rect = ((dummy_x_range >= head_proposal.bbox[:,0].floor().view(-1,1,1).long()) & \
-                        (dummy_x_range <= head_proposal.bbox[:,2].ceil().view(-1,1,1).long()) & \
-                        (dummy_y_range >= head_proposal.bbox[:,1].floor().view(-1,1,1).long()) & \
-                        (dummy_y_range <= head_proposal.bbox[:,3].ceil().view(-1,1,1).long())).float()
-            tail_rect = ((dummy_x_range >= tail_proposal.bbox[:,0].floor().view(-1,1,1).long()) & \
-                        (dummy_x_range <= tail_proposal.bbox[:,2].ceil().view(-1,1,1).long()) & \
-                        (dummy_y_range >= tail_proposal.bbox[:,1].floor().view(-1,1,1).long()) & \
-                        (dummy_y_range <= tail_proposal.bbox[:,3].ceil().view(-1,1,1).long())).float()
+            head_rect = ((dummy_x_range >= head_proposal.bbox[:,0].floor().view(-1,1,1).long()).bool() & \
+                         (dummy_x_range <= head_proposal.bbox[:,2].ceil().view(-1,1,1).long()).bool() & \
+                         (dummy_y_range >= head_proposal.bbox[:,1].floor().view(-1,1,1).long()).bool() & \
+                         (dummy_y_range <= head_proposal.bbox[:,3].ceil().view(-1,1,1).long()).bool()).float()
+
+            tail_rect = ((dummy_x_range >= tail_proposal.bbox[:,0].floor().view(-1,1,1).long()).bool() & \
+                         (dummy_x_range <= tail_proposal.bbox[:,2].ceil().view(-1,1,1).long()).bool() & \
+                         (dummy_y_range >= tail_proposal.bbox[:,1].floor().view(-1,1,1).long()).bool() & \
+                         (dummy_y_range <= tail_proposal.bbox[:,3].ceil().view(-1,1,1).long()).bool()).float()
 
             rect_input = torch.stack((head_rect, tail_rect), dim=1) # (num_rel, 4, rect_size, rect_size)
             rect_inputs.append(rect_input)

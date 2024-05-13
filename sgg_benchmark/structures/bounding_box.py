@@ -246,7 +246,7 @@ class BoxList(object):
         bbox_copy[:, 3] = bbox_copy[:, 3].clamp(min=0, max=self.size[1])
         self.bbox = bbox_copy
         if remove_empty:
-            keep = (bbox_copy[:, 3] > bbox_copy[:, 1]) & (bbox_copy[:, 2] > bbox_copy[:, 0])
+            keep = ((bbox_copy[:, 3] > bbox_copy[:, 1]).bool() & (bbox_copy[:, 2] > bbox_copy[:, 0]).bool())
             return self[keep]
         return self
 

@@ -35,9 +35,9 @@ class RelationSampling(object):
             cand_matrix = torch.ones((n, n), device=device) - torch.eye(n, device=device)
             # mode==sgdet and require_overlap
             if (not self.use_gt_box) and self.test_overlap:
-                cand_matrix = cand_matrix.byte() & boxlist_iou(p, p).gt(0).byte()
+                cand_matrix = (cand_matrix.byte().bool() & boxlist_iou(p, p).gt(0).byte().bool())
             idxs = torch.nonzero(cand_matrix).view(-1,2)
-            if len(idxs) > 0:
+            if idxs.size(0) > 0:
                 rel_pair_idxs.append(idxs)
             else:
                 # if there is no candidate pairs, give a placeholder of [[0, 0]]
@@ -116,11 +116,11 @@ class RelationSampling(object):
             tgt_rel_matrix = target.get_field("relation") # [tgt, tgt]
             # IoU matching
             ious = boxlist_iou(target, proposal)  # [tgt, prp]
-            is_match = (tgt_lab[:,None] == prp_lab[None]) & (ious > self.fg_thres) # [tgt, prp]
+            is_match = ((tgt_lab[:,None] == prp_lab[None]).bool() & (ious > self.fg_thres).bool())
             # Proposal self IoU to filter non-overlap
             prp_self_iou = boxlist_iou(proposal, proposal)  # [prp, prp]
             if self.require_overlap and (not self.use_gt_box):
-                rel_possibility = (prp_self_iou > 0) & (prp_self_iou < 1)  # not self & intersect
+                rel_possibility = ((prp_self_iou > 0).bool() & (prp_self_iou < 1).bool())
             else:
                 num_prp = prp_box.shape[0]
                 rel_possibility = torch.ones((num_prp, num_prp), device=device).long() - torch.eye(num_prp, device=device).long()

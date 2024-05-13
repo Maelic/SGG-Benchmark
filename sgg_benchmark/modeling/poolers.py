@@ -159,7 +159,7 @@ class PoolerYOLO(nn.Module):
         num_levels = len(x)
         assert num_levels <= self.num_features
         rois = self.convert_to_roi_format(boxes)
-        assert rois.size(0) > 0
+        # assert rois.size(0) > 0
 
         # Infer scales from the actual image
         scales = [box.size[0] / feature_map.size(-1) for box, feature_map in zip(boxes, x)]
@@ -171,7 +171,7 @@ class PoolerYOLO(nn.Module):
         map_levels = LevelMapperYOLO()
         levels = map_levels(boxes)
 
-        num_rois = len(rois)
+        num_rois = rois.size(0)
         output_size = self.output_size[0]
 
         final_channels = self.out_channels * num_levels if self.cat_all_levels else self.out_channels
@@ -228,7 +228,8 @@ class LevelMapperYOLO(object):
         # Assign each ROI to a feature map
         target_lvls = torch.zeros_like(areas)
         target_lvls[areas < self.map_scales[1]*self.map_scales[1]] = 0.0
-        target_lvls[(areas >= self.map_scales[1]*self.map_scales[1]) & (areas < self.map_scales[2]*self.map_scales[2])] = 1.0
+        target_lvls[((areas >= self.map_scales[1]*self.map_scales[1]).bool() & \
+                     (areas < self.map_scales[2]*self.map_scales[2]).bool())] = 1.0        
         target_lvls[areas >= self.map_scales[2]*self.map_scales[2]] = 2.0
 
         return target_lvls

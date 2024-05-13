@@ -59,7 +59,6 @@ class BasePredictor(nn.Module):
         # freq 
         if self.use_bias:
             self.freq_bias = FrequencyBias(self.cfg, self.statistics)
-        
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None):
         raise NotImplementedError
@@ -253,7 +252,7 @@ class MotifPredictor(BasePredictor):
             rel_pair_idxs (list[Tensor]): (num_rel, 2) index of subject and object
             union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
         """
-
+        num_objs = [len(b) for b in proposals]
         # encode context infomation
         if self.attribute_on:
             obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
@@ -271,7 +270,6 @@ class MotifPredictor(BasePredictor):
         tail_rep = edge_rep[:, 1].contiguous().view(-1, self.hidden_dim)
 
         num_rels = [r.shape[0] for r in rel_pair_idxs]
-        num_objs = [len(b) for b in proposals]
         assert len(num_rels) == len(num_objs)
 
         head_reps = head_rep.split(num_objs, dim=0)
@@ -974,7 +972,6 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         obj_pre_rep_for_pred = self.lin_obj_cyx(cat([roi_features, obj_embed, pos_embed], -1))
 
         if not self.obj_decode:
-            obj_labels = obj_labels.long()
             obj_preds = obj_labels
             obj_dists = to_onehot(obj_preds, self.num_obj_classes)
         else:

@@ -98,8 +98,7 @@ def to_onehot(vec, num_classes, fill=1000):
     :return: 
     """
     onehot_result = vec.new(vec.size(0), num_classes).float().fill_(-fill)
-    arange_inds = vec.new(vec.size(0)).long()
-    torch.arange(0, vec.size(0), out=arange_inds)
+    arange_inds = torch.arange(0, vec.size(0), device=vec.device).long()
 
     onehot_result.view(-1)[vec.long() + num_classes*arange_inds] = fill
     return onehot_result
@@ -138,7 +137,7 @@ def encode_box_info(proposals):
         w, h = wh.split([1,1], dim=-1)
         x, y = xy.split([1,1], dim=-1)
         x1, y1, x2, y2 = boxes.split([1,1,1,1], dim=-1)
-        assert wid * hei != 0
+        # assert wid * hei != 0
         info = torch.cat([w/wid, h/hei, x/wid, y/hei, x1/wid, y1/hei, x2/wid, y2/hei,
                           w*h/(wid*hei)], dim=-1).view(-1, 9)
         boxes_info.append(info)

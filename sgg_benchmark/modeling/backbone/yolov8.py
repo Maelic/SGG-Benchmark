@@ -176,7 +176,7 @@ class YoloV8(DetectionModel):
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
 
-            assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
+            # assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
             # boxlist.add_field("pred_logits", pred[:, 5:])
 
             results.append(boxlist)

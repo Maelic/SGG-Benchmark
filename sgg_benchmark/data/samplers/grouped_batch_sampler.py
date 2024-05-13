@@ -55,7 +55,7 @@ class GroupedBatchSampler(BatchSampler):
         mask = order >= 0
 
         # find the elements that belong to each individual cluster
-        clusters = [(self.group_ids == i) & mask for i in self.groups]
+        clusters = [((self.group_ids == i) & mask).bool() for i in self.groups]
         # get relative order of the elements inside each cluster
         # that follows the order from the sampler
         relative_order = [order[cluster] for cluster in clusters]

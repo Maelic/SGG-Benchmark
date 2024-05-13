@@ -22,12 +22,15 @@ class PSGDataset(torch.utils.data.Dataset):
             transforms=None,
             informative_file=None,
             all_bboxes: bool = True,  # load all bboxes (thing, stuff) for SG
+            box_size=(640,640),
     ):
         self.ann_file = ann_file
         self.transforms = transforms
         self.filter_empty_rels = filter_empty_rels
         self.filter_duplicate_rels = filter_duplicate_rels
         self.img_prefix = img_dir
+
+        self.box_size = box_size
 
         self.all_bboxes = all_bboxes
         self.split = split        
@@ -119,13 +122,20 @@ class PSGDataset(torch.utils.data.Dataset):
         return len(self.data_infos)
     
     def __getitem__(self, index):
-        data = self.data_infos[index]
-        img_path = self.img_prefix + '/' + data['id']+ '.jpg'
+        img_path = self.img_prefix + '/' + self.img_ids[index]+ '.jpg'
         
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+        # reshape img to scale
+        scale = self.box_size[0] / max(img.shape[1], img.shape[0])
+        new_h, new_w = int(img.shape[0] * scale), int(img.shape[1] * scale)
+        img = cv2.resize(img, (new_w, new_h))
+
         target = self.get_groundtruth(index)
+
+        # assert size similar
+        assert (img.shape[1], img.shape[0]) == target.size, ((img.shape[1], img.shape[0]), target.size)
 
         if self.transforms is not None:
             img, target = self.transforms(img, target)
@@ -168,6 +178,10 @@ class PSGDataset(torch.utils.data.Dataset):
 
         # add 1 for bg
         gt_labels += 1
+
+        # recover original boxes size from scaled image
+        scale = self.box_size[0] / max(w, h)
+        gt_bboxes[:, 0] = gt_bboxes[:, 0] * scale
 
         gt_bboxes = torch.from_numpy(gt_bboxes).reshape(-1, 4)
 

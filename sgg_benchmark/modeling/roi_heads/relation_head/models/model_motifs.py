@@ -300,8 +300,7 @@ class LSTMContext_RNN(nn.Module):
         perm, inv_perm, ls_transposed = self.sort_rois(proposals)
         # Pass object features, sorted by score, into the encoder LSTM
         # Assuming obj_feats is a 2D tensor
-        num_features = self.obj_dim+self.embed_dim + 128  # The number of features the RNN is expecting
-        obj_inp_rep = obj_feats[perm, :num_features].contiguous()
+        obj_inp_rep = obj_feats[perm].contiguous()
         input_packed = PackedSequence(obj_inp_rep, ls_transposed)
         encoder_rep = self.obj_ctx_rnn(input_packed)[0][0]
         encoder_rep = self.lin_obj_h(encoder_rep) # map to hidden_dim
@@ -318,7 +317,7 @@ class LSTMContext_RNN(nn.Module):
             self.untreated_dcd_feat = self.moving_average(self.untreated_dcd_feat, decoder_inp)
         
         # Decode in order
-        if obj_labels is None and self.mode != 'predcls':
+        if self.mode != 'predcls':
             decoder_inp = PackedSequence(decoder_inp, ls_transposed)
             obj_dists, obj_preds = self.decoder_rnn(
                 decoder_inp, #obj_dists[perm],
