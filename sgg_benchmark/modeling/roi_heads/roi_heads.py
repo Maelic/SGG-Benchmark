@@ -60,8 +60,6 @@ def build_roi_heads(cfg, in_channels):
     # individually create the heads, that will be combined together
     # afterwards
     roi_heads = []
-    if cfg.MODEL.RETINANET_ON:
-        return []
 
     if cfg.MODEL.BOX_HEAD and not cfg.MODEL.RPN_ONLY:
         roi_heads.append(("box", build_roi_box_head(cfg, in_channels)))

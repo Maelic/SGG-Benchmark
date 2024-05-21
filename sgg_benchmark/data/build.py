@@ -66,6 +66,7 @@ def get_dataset_statistics(cfg):
         'predicate_new_order_count': statistics[0]['predicate_new_order_count'],
         'pred_freq': statistics[0]['pred_freq'],
         'triplet_freq': statistics[0]['triplet_freq'],
+        'pred_weight': statistics[0]['pred_weight'],
     }
     logger.info('Save data statistics to: ' + str(save_file))
     logger.info('-'*100)

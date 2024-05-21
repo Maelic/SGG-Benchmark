@@ -25,9 +25,6 @@ CONFIG_FILES = [
     "gn_baselines/e2e_faster_rcnn_R_50_FPN_1x_gn.yaml",
     # TODO: fail to run for random model due to empty head input
     # "gn_baselines/e2e_mask_rcnn_R_50_FPN_Xconv1fc_1x_gn.yaml",
-	
-    # retinanet
-    "retinanet/retinanet_R-50-FPN_1x.yaml",
 
     # rpn only
     "rpn_R_50_C4_1x.yaml",

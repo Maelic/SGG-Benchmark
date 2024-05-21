@@ -124,7 +124,7 @@ class VGDataset(torch.utils.data.Dataset):
 
 
     def get_statistics(self):
-        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
+        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weight = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
                                                 image_file=self.image_file, zeroshot_file=self.zeroshot_file, must_overlap=True)
         eps = 1e-3
         bg_matrix += 1
@@ -140,6 +140,7 @@ class VGDataset(torch.utils.data.Dataset):
             'predicate_new_order_count': predicate_new_order_count,
             'pred_freq': pred_prop,
             'triplet_freq': triplet_freq,
+            'pred_weight': pred_weight, # pred_weights,
             #'att_classes': self.ind_to_attributes,
         }
 
@@ -242,7 +243,24 @@ class VGDataset(torch.utils.data.Dataset):
         else:
             target = target.clip_to_image(remove_empty=True)
             return target
-
+    # original from ietrans, replaced by pred_weights in get_VG_statistics
+    # def _get_reweighting_dic(self):
+    #     """
+    #     weights for each predicate
+    #     weight is the inverse frequency normalized by the median
+    #     Returns:
+    #         {1: f1, 2: f2, ... 50: f50}
+    #     """
+    #     rels = [x["relations"][:, 2] for x in self.data]
+    #     rels = [int(y) for x in rels for y in x]
+    #     rels = Counter(rels)
+    #     rels = dict(rels)
+    #     rels = [rels[i] for i in sorted(rels.keys())]
+    #     vals = sorted(rels)
+    #     rels = torch.tensor([-1.]+rels)
+    #     rels = (1./rels) * np.median(vals)
+    #     return rels
+    
     def __len__(self):
         if self.custom_eval:
             return len(self.custom_files)
@@ -278,12 +296,18 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
         for p in k:
             for i, x in enumerate(p):
                 stats_pred[i] += x
-    # compute proportion of each predicate
-    total_pred = sum(stats_pred.values())
-    pred_prop = [v / total_pred for k, v in stats_pred.items()] # this will replace cfg.MODEL.REL_PROP
-    # pop first item
-    pred_prop.pop(0)
-    assert len(pred_prop) == num_rel_classes - 1
+    # we want the diversity of predicate, i.e. the number of different pair for each predicate
+    pred_prop = np.zeros(num_rel_classes)
+    for i in range(num_rel_classes):
+        pred_prop[i] = np.sum(fg_matrix[:, :, i] > 0)
+
+    assert len(pred_prop) == num_rel_classes
+    
+    # get weight using pred_prop, weight is the inverse frequency normalized by the median
+    pred_weights = torch.tensor(np.sum(fg_matrix, axis=(0, 1)))
+    pred_weights[0] = -1.0
+    pred_weights = (1./pred_weights) * torch.median(pred_weights)
+    pred_weights = pred_weights.numpy()
 
     # add background value
     stats_pred[0] = len(bg_matrix.flatten())
@@ -302,13 +326,13 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
                 # The triplet is (i, j, k)
                 triplet = (i, j, k)
                 # The frequency is the value in the fg_matrix divided by the total count
-                freq = fg_matrix[i, j, k] / total_count
+                freq = fg_matrix[i, j, k]
                 # Add the triplet and its frequency to the dictionary
                 triplet_freq[triplet] = freq
 
     # Now triplet_freq is a dictionary where the keys are the triplets and the values are the frequencies
 
-    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq
+    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weights
     
 
 def box_filter(boxes, must_overlap=False):
@@ -382,13 +406,6 @@ def load_info(dict_file, add_bg=True):
     #ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
 
     return ind_to_classes, ind_to_predicates #, ind_to_attributes
-
-    # if "attribute_to_idx" in info.keys():
-    #     attribute_to_ind = info['attribute_to_idx']
-    #     ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
-    #     return ind_to_classes, ind_to_predicates, ind_to_attributes
-    
-    return ind_to_classes, ind_to_predicates
 
 def load_image_filenames(img_dir, image_file):
     """

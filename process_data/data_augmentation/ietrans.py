@@ -10,11 +10,11 @@ from sgg_benchmark.data import make_data_loader
 from sgg_benchmark.modeling.detector import build_detection_model
 from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
 from sgg_benchmark.utils.logger import setup_logger, logger_step
-from sgg_benchmark.utils.miscellaneous import mkdir
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 
+import pickle
 
-def process(path, output_file=None):
+def process(path, output_file=None, categories=False):
     config_file = path
 
     cfg.merge_from_file(config_file)
@@ -37,24 +37,6 @@ def process(path, output_file=None):
     logger.info("Loading best checkpoint from {}...".format(last_check))
     _ = checkpointer.load(last_check)
 
-    dataset_names = cfg.DATASETS.TEST
-
-    # This variable enables the script to run the test on any dataset split.
-    if cfg.DATASETS.TO_TEST:
-        assert cfg.DATASETS.TO_TEST in {'train', 'val', 'test', None}
-        if cfg.DATASETS.TO_TEST == 'train':
-            dataset_names = cfg.DATASETS.TRAIN
-        elif cfg.DATASETS.TO_TEST == 'val':
-            dataset_names = cfg.DATASETS.VAL
-
-    output_folders = [None] * len(cfg.DATASETS.TEST)
-
-    if cfg.OUTPUT_DIR:
-        for idx, dataset_name in enumerate(dataset_names):
-            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
-            mkdir(output_folder)
-            output_folders[idx] = output_folder
-
     # dataset_to_test can be customize to test or val to perform data-transfer on the rest of the data
     data_loader_train = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed, dataset_to_test='train')
     data_loader_train = data_loader_train[0]
@@ -72,8 +54,18 @@ def process(path, output_file=None):
 
     device = torch.device(cfg.MODEL.DEVICE)
 
-    # show the number of triplets that ahev a frequency higher than 0
+    # show the number of triplets that have a frequency higher than 0 (not 0-shot triplet)
     print('triplet_freq: ', len([k for k, v in stats['triplet_freq'].items() if v > 0]))
+
+    # triplet cat
+    if categories:
+        triplet_cat_path = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/process_data/data_augmentation/triplets_categories.pkl"
+        with open(triplet_cat_path, 'rb') as f:
+            triplet_cat = pickle.load(f)
+
+        # transfer rules
+        # {'functional': 0, 'topological': 1, 'attribute': 2, 'part-whole': 3}
+        transfer_rules = {0: [0], 1: [1, 0], 2: [2, 3], 3: [3, 2]}
 
     pbar = tqdm(total=len(data_loader_train))
     for batch in data_loader_train:
@@ -117,8 +109,8 @@ def process(path, output_file=None):
 
         # get pred
         pd_rels = predictions.get_field('rel_pair_idxs')
-        pd_rel_dists = predictions.get_field('pred_rel_scores').tolist()
-        pd_labels = predictions.get_field('pred_labels').tolist()
+        pd_rel_dists = predictions.get_field('pred_rel_scores')
+        pd_labels = predictions.get_field('pred_labels')
         
         # get iou between gt and pd
         ious = boxlist_iou(gt, predictions)
@@ -128,87 +120,90 @@ def process(path, output_file=None):
         ##################
         gt_rels_count += gt_rels.shape[0]
         for i in range(gt_rels.shape[0]):
-            gt_s_idx = gt_rels[i][0]
-            gt_o_idx = gt_rels[i][1]
-            gt_r_label = gt_rels[i][2]-1
+            gt_s_idx, gt_o_idx, gt_r_label = gt_rels[i]
             gt_s_label = gt_labels[gt_s_idx]
             gt_o_label = gt_labels[gt_o_idx]
-            pd_r_dists_list = []
-            for j in range(pd_rels.shape[0]):
-                pd_s_idx = pd_rels[j][0]
-                pd_o_idx = pd_rels[j][1]
-                pd_s_label = int(pd_labels[pd_s_idx])
-                pd_o_label = int(pd_labels[pd_o_idx])
-                pd_r_dists = pd_rel_dists[j]
-                s_iou = ious[gt_s_idx, pd_s_idx]
-                o_iou = ious[gt_o_idx, pd_o_idx]
-                if gt_s_label == pd_s_label and gt_o_label == pd_o_label and \
-                    s_iou > 0.5 and o_iou > 0.5:
-                    pd_r_dists_list.append(pd_r_dists[1:])
-            if len(pd_r_dists_list) > 0:
-                pd_r_dists = np.stack(pd_r_dists_list, axis=0)
-                pd_r_dists = pd_r_dists.mean(axis=0)
 
-                if gt_r_label != np.argmax(pd_r_dists):
-                    r_sort = np.argsort(pd_r_dists)[::-1]
-                    gt_r_idx = np.where(r_sort == gt_r_label.item())[0].item()
+            pd_s_labels = pd_labels[pd_rels[:, 0]]
+            pd_o_labels = pd_labels[pd_rels[:, 1]]
+            s_ious = ious[gt_s_idx, pd_rels[:, 0]]
+            o_ious = ious[gt_o_idx, pd_rels[:, 1]]
+
+            mask = (gt_s_label == pd_s_labels) & (gt_o_label == pd_o_labels) & (s_ious > 0.5) & (o_ious > 0.5)
+            pd_r_dists_list = pd_rel_dists[mask]
+
+            if pd_r_dists_list.size(0) > 0:
+                pd_r_dists = pd_r_dists_list.mean(axis=0)
+
+                if gt_r_label != torch.argmax(pd_r_dists):
+                    r_sort = torch.argsort(pd_r_dists, descending=True)
+                    gt_r_idx = (r_sort == gt_r_label.item()).nonzero(as_tuple=True)[0].item()
 
                     confusion_r_labels = r_sort[:gt_r_idx]
-                    # we get then ratio of frequence of the triplet in original data over the frequence of the relation                    
-                    ori_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), gt_r_label.item()+1)] / stats['pred_freq'][gt_r_label.item()]
+                    # we get then ratio of frequence of the triplet in original data over the frequence of the predicate alone              
+                    if stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), gt_r_label.item())] > 0:      
+                        ori_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), gt_r_label.item())] / stats['pred_freq'][gt_r_label.item()]
+                    else:
+                        ori_attr = 0.0
 
                     for c_r_label in confusion_r_labels:
                         if c_r_label != 0:
-                            if stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label+1)] == 0:
-                                continue
-                            new_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label+1)] / stats['pred_freq'][c_r_label]
+                            if stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label.item())] > 0: # zero-shot triplet
+                                new_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label.item())] / stats['pred_freq'][c_r_label.item()]
+                                if new_attr > ori_attr:
+                                    # check transfer rules
+                                    if categories:
+                                        ori_cat = triplet_cat[(gt_s_label.item(), gt_o_label.item(), gt_r_label.item())]
+                                        new_cat = triplet_cat[(gt_s_label.item(), gt_o_label.item(), c_r_label.item())]
 
-                            if new_attr < ori_attr:
-                                out_data[img_name].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label+1)])
-                                internal_trans_count += 1
+                                        if new_cat in transfer_rules[ori_cat]:
+                                            out_data[img_name].append([gt_s_idx.item(), gt_o_idx.item(), c_r_label.item()])
+                                            internal_trans_count += 1
+                                            break
+                                    else:
+                                        out_data[img_name].append([gt_s_idx.item(), gt_o_idx.item(), c_r_label.item()])
+                                        internal_trans_count += 1
+                                        break
 
-        ##################
-        # external trans #
-        ##################
-        for i in range(gt_no_rels.shape[0]):
-            gt_s_idx = gt_no_rels[i][0]
-            gt_o_idx = gt_no_rels[i][1]
-            gt_r_label = gt_no_rels[i][2]
+        if len(gt_no_rels) > 0: # it is possible that there is no no-rels
+            gt_s_idx = gt_no_rels[:, 0]
+            gt_o_idx = gt_no_rels[:, 1]
+            gt_r_label = gt_no_rels[:, 2]
             gt_s_label = gt_labels[gt_s_idx]
             gt_o_label = gt_labels[gt_o_idx]
-            pd_r_dists_list = []
-            for j in range(pd_rels.shape[0]):
-                pd_s_idx = pd_rels[j][0]
-                pd_o_idx = pd_rels[j][1]
-                pd_s_label = pd_labels[pd_s_idx]
-                pd_o_label = pd_labels[pd_o_idx]
-                pd_r_dists = pd_rel_dists[j]
-                s_iou = ious[gt_s_idx, pd_s_idx]
-                o_iou = ious[gt_o_idx, pd_o_idx]
-                if gt_s_label == pd_s_label and gt_o_label == pd_o_label and \
-                    s_iou > 0.5 and o_iou > 0.5:
-                    # get iou between gt_s_idx and gt_o_idx
-                    if ious[gt_s_idx, pd_o_idx] > 0.1:
-                        pd_r_dists_list.append(pd_r_dists)
-            if len(pd_r_dists_list) > 0:
-                pd_r_dists = np.stack(pd_r_dists_list, axis=0)
-                # TODO: use weighted average
-                pd_r_dists = pd_r_dists.mean(axis=0)
-                if gt_r_label != np.argmax(pd_r_dists):
-                    r_sort = np.argsort(pd_r_dists)[::-1]
-                    gt_r_idx = np.where(r_sort == gt_r_label.item())[0].item()
-                    confusion_r_labels = r_sort[:gt_r_idx]
-                    # re-ranking by attraction
-                    attr_sort = [stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), r_label)] / stats['pred_freq'][r_label-1] for r_label in confusion_r_labels]
-                    confusion_r_labels = [x for _, x in sorted(zip(attr_sort, confusion_r_labels), key=lambda pair: pair[0], reverse=True)]
 
-                    for i, c_r_label in enumerate(confusion_r_labels):
-                        if c_r_label != 0:
-                            new_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label)]
-                            if new_attr > 0:
-                                out_data[img_name].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label)])
-                                external_trans_count += 1
-                                break
+            pd_s_idx = pd_rels[:, 0]
+            pd_o_idx = pd_rels[:, 1]
+            pd_s_label = pd_labels[pd_s_idx]
+            pd_o_label = pd_labels[pd_o_idx]
+            pd_r_dists = pd_rel_dists
+
+            s_iou = ious[gt_s_idx[:, None], pd_s_idx]
+            o_iou = ious[gt_o_idx[:, None], pd_o_idx]
+
+            # Vectorize operations
+            mask = (gt_s_label[:, None] == pd_s_label) & (gt_o_label[:, None] == pd_o_label) & (s_iou > 0.5) & (o_iou > 0.5) & (ious[gt_s_idx[:, None], pd_o_idx] > 0.1)
+            
+            pd_r_dists_list = [pd_r_dists[m] for m in mask]
+
+            for i, pd_r_dists in enumerate(pd_r_dists_list):
+                if len(pd_r_dists) > 0:
+                    pd_r_dists = pd_r_dists.mean(axis=0)
+                    if gt_r_label[i] != torch.argmax(pd_r_dists):
+                        r_sort = torch.argsort(pd_r_dists, descending=True)
+                        gt_r_idx = (r_sort == gt_r_label[i].item()).nonzero(as_tuple=True)[0].item()
+                        confusion_r_labels = r_sort[:gt_r_idx]
+
+                        attr_sort = [stats['triplet_freq'][(gt_s_label[i].item(), gt_o_label[i].item(), r_label.item())] / stats['pred_freq'][r_label.item()]  if stats['pred_freq'][r_label.item()] > 0 else 0.0 for r_label in confusion_r_labels]
+
+                        confusion_r_labels = [x for _, x in sorted(zip(attr_sort, confusion_r_labels), key=lambda pair: pair[0], reverse=False)]
+                        for c_r_label in confusion_r_labels:
+                            if c_r_label.item() != 0:
+                                new_attr = stats['triplet_freq'][(gt_s_label[i].item(), gt_o_label[i].item(), c_r_label.item())]
+                                if new_attr > 3: # we discard the triplets that have a count lower than 3, because it is most likely to be annotations noise
+                                    out_data[img_name].append([gt_s_idx[i].item(), gt_o_idx[i].item(), c_r_label.item()])
+                                    external_trans_count += 1
+                                    break
 
         pbar.set_description('int: %d, ext: %d' % (internal_trans_count, external_trans_count))
 
@@ -222,5 +217,6 @@ def process(path, output_file=None):
 if __name__ == '__main__':
     config_file = sys.argv[1]
     output_file = sys.argv[2]
+    categories = False
 
-    process(config_file, output_file)
+    process(config_file, output_file, categories)

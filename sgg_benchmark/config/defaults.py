@@ -24,7 +24,6 @@ _C.MODEL = CN()
 _C.MODEL.FLIP_AUG = False
 _C.MODEL.RPN_ONLY = False
 _C.MODEL.MASK_ON = False
-_C.MODEL.RETINANET_ON = False
 _C.MODEL.ATTRIBUTE_ON = False
 _C.MODEL.RELATION_ON = False
 _C.MODEL.DEVICE = "cuda"
@@ -302,6 +301,8 @@ _C.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM = 4096
 _C.MODEL.ROI_RELATION_HEAD.CONTEXT_OBJ_LAYER = 1  # assert >= 1
 _C.MODEL.ROI_RELATION_HEAD.CONTEXT_REL_LAYER = 1  # assert >= 1
 
+_C.MODEL.ROI_RELATION_HEAD.LOSS = "ReweightingCE" # can be "CrossEntropy", "FocalLoss", "ReweightingCE"
+
 _C.MODEL.ROI_RELATION_HEAD.TRANSFORMER = CN()
 # for TransformerPredictor only
 _C.MODEL.ROI_RELATION_HEAD.TRANSFORMER.DROPOUT_RATE = 0.1   
@@ -373,67 +374,6 @@ _C.MODEL.RESNETS.STEM_OUT_CHANNELS = 64
 _C.MODEL.RESNETS.STAGE_WITH_DCN = (False, False, False, False)
 _C.MODEL.RESNETS.WITH_MODULATED_DCN = False
 _C.MODEL.RESNETS.DEFORMABLE_GROUPS = 1
-
-
-# ---------------------------------------------------------------------------- #
-# RetinaNet Options (Follow the Detectron version)
-# ---------------------------------------------------------------------------- #
-_C.MODEL.RETINANET = CN()
-
-# This is the number of foreground classes and background.
-_C.MODEL.RETINANET.NUM_CLASSES = 81
-
-# Anchor aspect ratios to use
-_C.MODEL.RETINANET.ANCHOR_SIZES = (32, 64, 128, 256, 512)
-_C.MODEL.RETINANET.ASPECT_RATIOS = (0.5, 1.0, 2.0)
-_C.MODEL.RETINANET.ANCHOR_STRIDES = (8, 16, 32, 64, 128)
-_C.MODEL.RETINANET.STRADDLE_THRESH = 0
-
-# Anchor scales per octave
-_C.MODEL.RETINANET.OCTAVE = 2.0
-_C.MODEL.RETINANET.SCALES_PER_OCTAVE = 3
-
-# Use C5 or P5 to generate P6
-_C.MODEL.RETINANET.USE_C5 = True
-
-# Convolutions to use in the cls and bbox tower
-# NOTE: this doesn't include the last conv for logits
-_C.MODEL.RETINANET.NUM_CONVS = 4
-
-# Weight for bbox_regression loss
-_C.MODEL.RETINANET.BBOX_REG_WEIGHT = 4.0
-
-# Smooth L1 loss beta for bbox regression
-_C.MODEL.RETINANET.BBOX_REG_BETA = 0.11
-
-# During inference, #locs to select based on cls score before NMS is performed
-# per FPN level
-_C.MODEL.RETINANET.PRE_NMS_TOP_N = 1000
-
-# IoU overlap ratio for labeling an anchor as positive
-# Anchors with >= iou overlap are labeled positive
-_C.MODEL.RETINANET.FG_IOU_THRESHOLD = 0.5
-
-# IoU overlap ratio for labeling an anchor as negative
-# Anchors with < iou overlap are labeled negative
-_C.MODEL.RETINANET.BG_IOU_THRESHOLD = 0.4
-
-# Focal loss parameter: alpha
-_C.MODEL.RETINANET.LOSS_ALPHA = 0.25
-
-# Focal loss parameter: gamma
-_C.MODEL.RETINANET.LOSS_GAMMA = 2.0
-
-# Prior prob for the positives at the beginning of training. This is used to set
-# the bias init for the logits layer
-_C.MODEL.RETINANET.PRIOR_PROB = 0.01
-
-# Inference cls score threshold, anchors with score > INFERENCE_TH are
-# considered for inference
-_C.MODEL.RETINANET.INFERENCE_TH = 0.05
-
-# NMS threshold used in RetinaNet
-_C.MODEL.RETINANET.NMS_TH = 0.4
 
 
 # ---------------------------------------------------------------------------- #

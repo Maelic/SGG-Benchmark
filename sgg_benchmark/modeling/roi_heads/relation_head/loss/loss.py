@@ -11,6 +11,11 @@ from sgg_benchmark.modeling.matcher import Matcher
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.modeling.utils import cat
 
+from .reweight_loss import ReweightingCE, CEForSoftLabel
+
+# import sentence transformers
+from sentence_transformers import SentenceTransformer
+
 class RelationLossComputation(object):
     """
     Computes the loss for relation triplet.
@@ -24,8 +29,8 @@ class RelationLossComputation(object):
         max_num_attri,
         attribute_sampling,
         attribute_bgfg_ratio,
-        use_label_smoothing,
-        predicate_proportion,
+        rel_loss,
+        pred_weight,
     ):
         """
         Arguments:
@@ -37,12 +42,18 @@ class RelationLossComputation(object):
         self.max_num_attri = max_num_attri
         self.attribute_sampling = attribute_sampling
         self.attribute_bgfg_ratio = attribute_bgfg_ratio
-        self.use_label_smoothing = use_label_smoothing
-        self.pred_weight = (1.0 / torch.FloatTensor([0.5,] + predicate_proportion)).cuda()
 
-        if self.use_label_smoothing:
+        self.criterion_loss_obj = nn.CrossEntropyLoss()
+
+        if rel_loss == "LabelSmoothingRegression":
             self.criterion_loss = Label_Smoothing_Regression(e=0.01)
-        else:
+        elif rel_loss == 'BCEWithLogitsLoss':
+            self.criterion_loss = nn.BCEWithLogitsLoss()
+        elif rel_loss == 'CEForSoftLabel':
+            self.criterion_loss = CEForSoftLabel()
+        elif rel_loss == "ReweightingCE":
+            self.criterion_loss = ReweightingCE(pred_weight)
+        elif rel_loss == "CrossEntropyLoss":
             self.criterion_loss = nn.CrossEntropyLoss()
 
 
@@ -78,7 +89,7 @@ class RelationLossComputation(object):
 
         if refine_obj_logits is not None:
             refine_obj_logits = cat(refine_obj_logits, dim=0)
-            loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
+            loss_refine_obj = self.criterion_loss_obj(refine_obj_logits, fg_labels.long())
 
         # The following code is used to calculate sampled attribute loss
         if self.attri_on:
@@ -172,8 +183,6 @@ class FocalLossFGBGNormalization(nn.Module):
         self.gamma = gamma
         self.focal_loss = FocalLoss(alpha, gamma, logits, reduce=False)
 
-
-
     def forward(self, inputs, targets, reduce=True):
         loss = self.focal_loss(inputs, targets)
         
@@ -181,49 +190,3 @@ class FocalLossFGBGNormalization(nn.Module):
         loss /= (len(torch.nonzero(targets)) + 1)
 
         return loss.mean(-1)
-    
-class InformativeLoss(nn.Module):
-    """
-    Computes the loss for informative relation.
-    Also supports FPN
-    """
-
-    def __init__(
-        self,
-        use_label_smoothing,
-    ):
-        """
-        Arguments:
-            bbox_proposal_matcher (Matcher)
-            rel_fg_bg_sampler (RelationPositiveNegativeSampler)
-        """
-        self.use_label_smoothing = use_label_smoothing
-
-        if self.use_label_smoothing:
-            self.criterion_loss = Label_Smoothing_Regression(e=0.01)
-        else:
-            self.criterion_loss = nn.CrossEntropyLoss()
-
-
-    def __call__(self, proposals, targets, relation_logits, refine_logits=None):
-        """
-        Computes the loss for relation triplet.
-        This requires that the subsample method has been called beforehand.
-
-        Arguments:
-            relation_logits (list[Tensor])
-            refine_obj_logits (list[Tensor])
-
-        Returns:
-            predicate_loss (Tensor)
-            finetune_obj_loss (Tensor)
-        """
-
-        relation_logits = cat(relation_logits, dim=0)
-
-        rel_labels = cat(rel_labels, dim=0)
-
-        loss_relation = self.criterion_loss(relation_logits, rel_labels.long())
-
-  
-        return loss_relation, None

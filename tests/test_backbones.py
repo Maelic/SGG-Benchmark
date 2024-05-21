@@ -15,8 +15,6 @@ BACKBONE_CFGS = {
     "R-50-FPN": "e2e_faster_rcnn_R_50_FPN_1x.yaml",
     "R-101-FPN": "e2e_faster_rcnn_R_101_FPN_1x.yaml",
     "R-152-FPN": "e2e_faster_rcnn_R_101_FPN_1x.yaml",
-    "R-50-FPN-RETINANET": "retinanet/retinanet_R-50-FPN_1x.yaml",
-    "R-101-FPN-RETINANET": "retinanet/retinanet_R-101-FPN_1x.yaml",
 }
 
 

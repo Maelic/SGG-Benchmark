@@ -5,7 +5,6 @@ from torch import nn
 
 from sgg_benchmark.modeling import registry
 from sgg_benchmark.modeling.box_coder import BoxCoder
-from sgg_benchmark.modeling.rpn.retinanet.retinanet import build_retinanet
 from .loss import make_rpn_loss_evaluator
 from .anchor_generator import make_anchor_generator
 from .inference import make_rpn_postprocessor
@@ -201,7 +200,4 @@ def build_rpn(cfg, in_channels):
     """
     This gives the gist of it. Not super important because it doesn't change as much
     """
-    if cfg.MODEL.RETINANET_ON:
-        return build_retinanet(cfg, in_channels)
-
     return RPNModule(cfg, in_channels)
