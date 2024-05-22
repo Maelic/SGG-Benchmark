@@ -32,7 +32,7 @@ class YoloV8World(WorldModel):
         self.nc = nc
         self.max_det = cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG
 
-    def forward(self, x, profile=False, visualize=False, embed=None):
+    def forward(self, x, profile=False, txt_feats=None, visualize=False, embed=None):
         txt_feats = (self.txt_feats if txt_feats is None else txt_feats).to(device=x.device, dtype=x.dtype)
         if len(txt_feats) != len(x):
             txt_feats = txt_feats.repeat(len(x), 1, 1)
