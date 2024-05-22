@@ -9,12 +9,22 @@ from . import fpn as fpn_module
 from . import resnet
 from . import vgg
 from .yolov8 import YoloV8
+from .yolov8world import YoloV8World
 
 @registry.BACKBONES.register("yolov8")
 def build_yolov8_backbone(cfg):
     nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
 
     model = YoloV8(cfg, nc=nc)
+    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS
+
+    return model
+
+@registry.BACKBONES.register("yolov8world")
+def build_yolov8world_backbone(cfg):
+    nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
+
+    model = YoloV8World(cfg, nc=nc)
     model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS
 
     return model

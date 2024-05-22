@@ -217,6 +217,6 @@ def process(path, output_file=None, categories=False):
 if __name__ == '__main__':
     config_file = sys.argv[1]
     output_file = sys.argv[2]
-    categories = False
+    categories = True
 
     process(config_file, output_file, categories)

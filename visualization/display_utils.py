@@ -35,12 +35,16 @@ def draw_single_box(draw, box, label, color='red'):
 
 def draw_boxes(pic, boxes, obj_labels):
     draw = ImageDraw.Draw(pic)
+    font = ImageFont.truetype(font_file_path, 11)
     assert(len(boxes) == len(obj_labels))
     for i, box in enumerate(boxes):
         x1,y1,x2,y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
         draw.rectangle(((x1, y1), (x2, y2)), outline='red')
-        draw.rectangle(((x1, y1), (x1+50, y1+10)), fill='red')
-        draw.text((x1, y1), obj_labels[i])
+        
+        text_width, text_height = draw.textsize(obj_labels[i], font=font)
+        draw.rectangle(((x1, y1), (x1 + text_width, y1 + text_height)), fill='red')
+        
+        draw.text((x1, y1), obj_labels[i], font=font)
 
 def get_images_rel(vg_sgg, vg_sgg_dicts, img_idx):
     idx_to_label = vg_sgg_dicts['idx_to_label']
@@ -172,9 +176,9 @@ def show_all_boxes_on_image(image_data, vg_sgg, vg_sgg_dicts, img_idx, vg_img_pa
     ith_s = vg_sgg['img_to_first_rel'][img_idx]
     ith_e = vg_sgg['img_to_last_rel'][img_idx]
     res = []
+    img_to_first_box = vg_sgg['img_to_first_box'][img_idx]
     for rel_idx in range(ith_s, ith_e): 
         objs = vg_sgg['relationships'][rel_idx]
-        label = vg_sgg['labels'][objs[0]]
         pred = vg_sgg['predicates'][rel_idx]
 
         res.append([idx_to_label[str(int(vg_sgg['labels'][objs[0]]))], \
@@ -186,8 +190,8 @@ def show_all_boxes_on_image(image_data, vg_sgg, vg_sgg_dicts, img_idx, vg_img_pa
 
         box1 = vg_sgg['boxes_1024'][objs[0]]
         box2 = vg_sgg['boxes_1024'][objs[1]]
-        label1=idx_to_label[str(int(vg_sgg['labels'][objs[0]]))]
-        label2=idx_to_label[str(int(vg_sgg['labels'][objs[1]]))]
+        label1 = str(objs[0]-img_to_first_box)+'_'+idx_to_label[str(int(vg_sgg['labels'][objs[0]]))]
+        label2 = str(objs[1]-img_to_first_box)+'_'+idx_to_label[str(int(vg_sgg['labels'][objs[1]]))]
         pred_label =idx_to_predicate[str(int(pred))]
 
         box1[:2] = box1[:2] - box1[2:] / 2
