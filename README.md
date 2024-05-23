@@ -18,6 +18,7 @@ This codebase also focuses on real-time and real-world usage of Scene Graph Gene
 
 - [ ] TODO: Change Dataloader to COCO format (in progress).
 - [ ] TODO: Add support for [DT2-ACBS](https://github.com/a-lakh/DT2-ACBS/tree/main).
+- [X] 23.05.2024: Added support for the [YOLO-World](https://www.yoloworld.cc/) backbone for Open-Vocabulary object detection!
 - [X] 10.05.2024: Added support for the [PSG Dataset](https://github.com/Jingkang50/OpenPSG)
 - [X] 03.04.2024: Added support for the IETrans method for data augmentation on the Visual Genome dataset, please check it out! [IETrans](./process_data/data_augmentation/README.md).
 - [X] 03.04.2024: Update the demo, now working with any models, check [DEMO.md](./demo/).
@@ -72,7 +73,7 @@ Check [DATASET.md](DATASET.md) for instructions regarding dataset preprocessing.
 
 ## DEMO
 
-I made a small demo code to try SGDET with your webcam in the [demo folder](./demo/), feel free to have a look! You will need a trained model in SGDET mode for the demo.
+I made a small demo code to try SGDET with your webcam in the [demo folder](./demo/README.md), feel free to have a look! You will need a trained model in SGDET mode for the demo.
 
 ## Supported Models
 
@@ -84,8 +85,11 @@ One-stage approaches are learning both the object and relation features in the s
 
 We proposed different object detection backbones that can be plugged with any relation prediction head, depending on the use case.
 
-- [x] YOLOV9: SOTA in real-time object detection.
-- [x] YOLOV8: SOTA in real-time object detection.
+:rocket: NEW! No need to train a backbone anymore, we support Yolo-World for fast and easy open-vocabulary inference. Please check it out!
+
+- [x] [YOLOV8-World](https://docs.ultralytics.com/models/yolo-world/): SOTA in real-time open-vocabulary object detection!
+- [x] [YOLOV9](https://docs.ultralytics.com/models/yolov9/): SOTA in real-time object detection.
+- [x] [YOLOV8](https://docs.ultralytics.com/models/yolov8/): SOTA in real-time object detection.
 - [x] Faster-RCNN: This is the original backbone used in most SGG approaches. It is based on a ResNeXt-101 feature extractor and an RPN for regression and classification. See [the original paper for reference](https://arxiv.org/pdf/1506.01497.pdf). Performance is 38.52/26.35/28.14 mAp on VG train/val/test set respectively. You can find the original pretrained model by Kaihua [here](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw).
 
 ### Relation Heads

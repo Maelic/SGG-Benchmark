@@ -303,11 +303,10 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
 
     assert len(pred_prop) == num_rel_classes
     
-    # get weight using pred_prop, weight is the inverse frequency normalized by the median
+    # weight is the inverse frequency normalized by the median
     pred_weights = torch.tensor(np.sum(fg_matrix, axis=(0, 1)))
     pred_weights[0] = -1.0
     pred_weights = (1./pred_weights) * torch.median(pred_weights)
-    pred_weights = pred_weights.numpy()
 
     # add background value
     stats_pred[0] = len(bg_matrix.flatten())

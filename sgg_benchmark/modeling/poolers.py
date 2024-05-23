@@ -142,7 +142,7 @@ class PoolerYOLO(nn.Module):
         self.cat_all_levels = cat_all_levels
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.num_features = 3                   # features map size for YOLOV8 is 3, with size 20x20x256, 40x40x512, 80x80x512
+        self.num_features = 3                   # features map depth, for YOLOV8m is 3, with size 20x20x256, 40x40x512, 80x80x512
 
         self.reduce_channel = make_conv3x3(self.out_channels * self.num_features, self.out_channels, dilation=1, stride=1, use_relu=True)
 
@@ -168,7 +168,9 @@ class PoolerYOLO(nn.Module):
         if num_levels == 1:
             return poolers[0](x[0], rois)
         
-        map_levels = LevelMapperYOLO()
+        map_size = [x[i].shape[2] for i in range(self.num_features)]
+        # map_size = map_size[::-1]
+        map_levels = LevelMapperYOLO(map_size)
         levels = map_levels(boxes)
 
         num_rois = rois.size(0)
@@ -211,8 +213,8 @@ class LevelMapperYOLO(object):
     on a specific heuristic.
     """
 
-    def __init__(self):
-        self.map_scales = [20,40,80] # ideally this should be passed as an arg somewhere
+    def __init__(self, map_size=[20,40,80]):
+        self.map_scales = map_size
 
     def __call__(self, boxlists):
         """

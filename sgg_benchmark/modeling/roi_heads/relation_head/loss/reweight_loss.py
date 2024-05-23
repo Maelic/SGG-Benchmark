@@ -56,7 +56,7 @@ class ReweightingCE(nn.Module):
 
         """
         final_target = torch.zeros_like(target)
-        final_target[torch.arange(0, target.size(0)), target.argmax(1)] = 1.
+        final_target[torch.arange(0, target.size(0)), target.argmax(0)] = 1.
         idxs = (target[:, 0] != 1).nonzero().squeeze()
         # add weight to the target
         weights = torch.ones_like(target[:, 0])

@@ -301,7 +301,7 @@ _C.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM = 4096
 _C.MODEL.ROI_RELATION_HEAD.CONTEXT_OBJ_LAYER = 1  # assert >= 1
 _C.MODEL.ROI_RELATION_HEAD.CONTEXT_REL_LAYER = 1  # assert >= 1
 
-_C.MODEL.ROI_RELATION_HEAD.LOSS = "ReweightingCE" # can be "CrossEntropy", "FocalLoss", "ReweightingCE"
+_C.MODEL.ROI_RELATION_HEAD.LOSS = "CrossEntropyLoss" # can be "CrossEntropyLoss", "FocalLoss", "ReweightingCE"
 
 _C.MODEL.ROI_RELATION_HEAD.TRANSFORMER = CN()
 # for TransformerPredictor only

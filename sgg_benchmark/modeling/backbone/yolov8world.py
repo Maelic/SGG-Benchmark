@@ -56,11 +56,11 @@ class YoloV8World(WorldModel):
             """
             We extract features from the following layers:
             15: 80x80
-            19: 40x40
-            22: 20x20
+            18: 40x40
+            21: 20x20
             For different object scales, as in original YOLOV8 implementation.
             """
-            if embed and m.i in {15, 19, 22}: # if current layer is one of the feature extraction layers
+            if embed and m.i in {15, 18, 21}: # if current layer is one of the feature extraction layers
                 feature_maps.append(x)
         if embed:
             return x, feature_maps
@@ -80,6 +80,7 @@ class YoloV8World(WorldModel):
 
         if weights:
             super().load(weights)
+        self.txt_feats = weights.txt_feats
 
     def prepare_input(self, image, input_shape=(640,640), stride=32, auto=True):
         not_tensor = not isinstance(image, torch.Tensor)
