@@ -30,14 +30,15 @@ class ROIRelationHead(torch.nn.Module):
         else:
             self.box_feature_extractor = make_roi_box_feature_extractor(cfg, in_channels)
             feat_dim = self.box_feature_extractor.out_channels
-        statistics = get_dataset_statistics(cfg)
-        pred_prop = statistics['pred_freq']
-        pred_weight = statistics['pred_weight']
-        self.rel_classes = statistics['rel_classes']
-        self.obj_classes = statistics['obj_classes']
+        
+        if not cfg.TEST.CUSTUM_EVAL:
+            statistics = get_dataset_statistics(cfg)
+            pred_prop = statistics['pred_freq']
+            pred_weight = statistics['pred_weight']
+            self.loss_evaluator = make_roi_relation_loss_evaluator(cfg, pred_prop, pred_weight)
+
         self.predictor = make_roi_relation_predictor(cfg, feat_dim)
         self.post_processor = make_roi_relation_post_processor(cfg)
-        self.loss_evaluator = make_roi_relation_loss_evaluator(cfg, pred_prop, pred_weight)
         self.samp_processor = make_roi_relation_samp_processor(cfg)
 
         # parameters
@@ -106,30 +107,6 @@ class ROIRelationHead(torch.nn.Module):
         output_losses.update(add_losses)
 
         return roi_features, proposals, output_losses
-
-    def results_to_str(self, results):
-        # this function extract the top 1 rel for each pair
-
-        # results is a list of BoxList, one for each image
-        # each BoxList contains the object and relation predictions for the corresponding image
-        # each BoxList has the following fields:
-        #   - pred_rel_scores: Tensor of shape (N, num_rel_classes) giving the score for each object pair
-        #   - rel_pair_idxs: Tensor of shape (N, 2) giving the indices of the object pairs
-        #   - pred_rel_labels: Tensor of shape (N) giving the label for each object pair
-
-        rels = []
-        for result in results:
-            box_labels = result.get_field("labels")
-            pred_rel_scores = result.get_field("pred_rel_scores")
-            pred_rel_labels = result.get_field("pred_rel_labels")
-            rel_pair_idxs = result.get_field("rel_pair_idxs")
-            for t in range(rel_pair_idxs):
-                triplet = (box_labels[rel_pair_idxs[t][0]], pred_rel_labels[t], box_labels[rel_pair_idxs[t][1]])
-                # to str
-                triplet = self.obj_classes[triplet[0]] + ' ' + self.rel_classes[triplet[1]] + ' ' + self.obj_classes[triplet[2]]
-                rels.append(triplet)
-
-        return rels
 
 def build_roi_relation_head(cfg, in_channels):
     """
