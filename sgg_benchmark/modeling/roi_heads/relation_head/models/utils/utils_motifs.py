@@ -9,6 +9,8 @@ from tqdm import tqdm
 import sys
 from sgg_benchmark.modeling.utils import cat
 
+import clip
+
 def normalize_sigmoid_logits(orig_logits):
     orig_logits = torch.sigmoid(orig_logits)
     orig_logits = orig_logits / (orig_logits.sum(1).unsqueeze(-1) + 1e-12)
@@ -144,8 +146,29 @@ def encode_box_info(proposals):
 
     return torch.cat(boxes_info, dim=0)
 
-
 def obj_edge_vectors(names, wv_dir, wv_type='glove.6B', wv_dim=300):
+    model = clip.load("ViT-B/32")[0]
+    device = next(model.parameters()).device
+    text_token = clip.tokenize(names).to(device)
+    txt_feats = [model.encode_text(token).detach() for token in text_token.split(80)]
+    txt_feats = txt_feats[0] if len(txt_feats) == 1 else torch.cat(txt_feats, dim=0)
+    txt_feats = txt_feats / txt_feats.norm(p=2, dim=-1, keepdim=True)
+    # txt_feats = txt_feats.reshape(-1, len(names), txt_feats.shape[-1])
+
+    return txt_feats
+
+def rel_vectors(names, wv_dir, wv_type='glove.6B', wv_dim=300):
+    model = clip.load("ViT-B/32")[0]
+    device = next(model.parameters()).device
+    text_token = clip.tokenize(names).to(device)
+    txt_feats = [model.encode_text(token).detach() for token in text_token.split(80)]
+    txt_feats = txt_feats[0] if len(txt_feats) == 1 else torch.cat(txt_feats, dim=0)
+    txt_feats = txt_feats / txt_feats.norm(p=2, dim=-1, keepdim=True)
+    # txt_feats = txt_feats.reshape(-1, len(names), txt_feats.shape[-1])
+
+    return txt_feats
+
+def obj_edge_vectors_glove(names, wv_dir, wv_type='glove.6B', wv_dim=300):
     wv_dict, wv_arr, wv_size = load_word_vectors(wv_dir, wv_type, wv_dim)
 
     vectors = torch.Tensor(len(names), wv_dim)
@@ -165,7 +188,7 @@ def obj_edge_vectors(names, wv_dir, wv_type='glove.6B', wv_dim=300):
 
     return vectors
 
-def rel_vectors(names, wv_dir, wv_type='glove.6B', wv_dim=300):
+def rel_vectors_glove(names, wv_dir, wv_type='glove.6B', wv_dim=300):
     wv_dict, wv_arr, wv_size = load_word_vectors(wv_dir, wv_type, wv_dim)
 
     vectors = torch.Tensor(len(names), wv_dim)  # 51, 200

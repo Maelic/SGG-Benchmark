@@ -14,6 +14,7 @@ from sgg_benchmark.data.build import build_transforms
 from sgg_benchmark.utils.logger import setup_logger
 
 import cv2
+import matplotlib.pyplot as plt
 
 class SGG_Model(object):
     def __init__(self, config, dict_classes, weights, tracking=False, rel_conf=0.1, box_conf=0.5) -> None:
@@ -61,6 +62,8 @@ class SGG_Model(object):
         self.model.eval()
 
     def load_model(self):
+        print(self.cfg.TEST.CUSTUM_EVAL)
+
         self.model = build_detection_model(self.cfg)
         self.model.to(self.cfg.MODEL.DEVICE)
 
@@ -68,9 +71,11 @@ class SGG_Model(object):
         # last_check = self.checkpointer.get_checkpoint_file()
         # if last_check == "":
         #     last_check = self.cfg.MODEL.WEIGHT
-
-        _ = self.checkpointer.load(self.model_weights)
+        ckpt = self.checkpointer.load(self.model_weights)
         self.device = torch.device(self.cfg.MODEL.DEVICE)
+
+        if self.cfg.MODEL.BACKBONE.TYPE == "yolov8world":
+            self.model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
 
     def predict(self, image, visu=False):
         out_img = image.copy()
@@ -111,7 +116,7 @@ class SGG_Model(object):
                 if 'track_id' in predictions:
                     cv2.putText(out_img, f"{predictions['track_id'][i]}_{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
                 else:
-                    cv2.putText(out_img, f"{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
+                    cv2.putText(out_img, f"{str(i)}_{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
                 # show fps
                 cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 2)
             img_graph = self.visualize_graph(predictions)
@@ -126,8 +131,8 @@ class SGG_Model(object):
                 subj = f"{predictions['track_id'][r[0]]}_{predictions['bbox_labels'][r[0]]}"
                 obj = f"{predictions['track_id'][r[1]]}_{predictions['bbox_labels'][r[1]]}"
             else:
-                subj = predictions['bbox_labels'][r[0]]
-                obj = predictions['bbox_labels'][r[1]]
+                subj = str(r[0])+'_'+predictions['bbox_labels'][r[0]]
+                obj = str(r[1])+'_'+predictions['bbox_labels'][r[1]]
             G.add_edge(str(subj), str(obj), label=r_label)
 
         # draw networkx graph with graphviz, display edge labels
@@ -145,6 +150,25 @@ class SGG_Model(object):
         img_graph = cv2.imdecode(np.fromstring(img_graph, np.uint8), cv2.IMREAD_COLOR)
 
         return img_graph
+    
+    def nice_plot(self, img, graph):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        graph = cv2.cvtColor(graph, cv2.COLOR_BGR2RGB)
+
+        # rescale img to 640 width by keeping ratio
+        if img.shape[1] > 640:
+            ratio = 640 / img.shape[1]
+            img = cv2.resize(img, (640, int(img.shape[0]*ratio)))
+        else:
+            img = cv2.resize(img, (640, img.shape[0]))
+
+        # merge both images side by side
+        h, w, _ = img.shape
+        graph = cv2.resize(graph, (w, h))
+        img = np.concatenate((img, graph), axis=1)
+
+        return img
+
 
     def _pre_processing(self, image):
         # to cv2 format
@@ -161,7 +185,7 @@ class SGG_Model(object):
 
         return image_list, target
     
-    def _post_process(self, boxlist, rel_threshold=0.1, box_thres=0.5, orig_size=(640,640)):
+    def _post_process(self, boxlist, rel_threshold=0.1, box_thres=0.1, orig_size=(640,640)):
         height, width = orig_size
         boxlist = boxlist.resize((width, height))
 

@@ -61,7 +61,6 @@ class VGDataset(torch.utils.data.Dataset):
 
         self.ind_to_classes, self.ind_to_predicates = load_info(dict_file) # self.ind_to_attributes
         self.categories = {i : self.ind_to_classes[i] for i in range(len(self.ind_to_classes))}
-
         self.custom_eval = custom_eval
         if self.custom_eval:
             self.get_custom_imgs(custom_path)
@@ -175,7 +174,8 @@ class VGDataset(torch.utils.data.Dataset):
             # check if there is images in the directory
             files = os.listdir(path)
             img = ['.jpg', '.jpeg', '.png']
-            if not any([f.endswith(tuple(img)) for f in files]): # for webcam demo
+            # check if there is images in the directory
+            if not any([f.endswith(tuple(img)) for f in files]):
                 return
             for file_name in tqdm(os.listdir(path)):
                 self.custom_files.append(os.path.join(path, file_name))
