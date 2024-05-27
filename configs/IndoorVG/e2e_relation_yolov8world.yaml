@@ -14,7 +14,7 @@ MODEL:
     NMS_THRESH: 0.001
     FREEZE: True
   YOLO:
-    SIZE: "yolov8x-world"
+    SIZE: "yolov8x-worldv2"
     OUT_CHANNELS: 320 # 192 for yolov8m, 256 for yolov8l, 320 for yolov8x
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
@@ -64,6 +64,7 @@ MODEL:
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
+    EMBED_DIM: 512
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap

@@ -6,7 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from sgg_benchmark.modeling.utils import cat
-from .utils.utils_motifs import obj_edge_vectors, to_onehot, encode_box_info
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
+from .utils.utils_motifs import to_onehot, encode_box_info
 from .utils.utils_relation import nms_overlaps
 
 class ScaledDotProductAttention(nn.Module):
@@ -218,7 +219,7 @@ class TransformerContext(nn.Module):
 
 
         # the following word embedding layer should be initalize by glove.6B before using
-        embed_vecs = obj_edge_vectors(self.obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
+        embed_vecs = obj_edge_vectors(self.obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
         self.obj_embed1 = nn.Embedding(self.num_obj_cls, self.embed_dim)
         self.obj_embed2 = nn.Embedding(self.num_obj_cls, self.embed_dim)
         with torch.no_grad():

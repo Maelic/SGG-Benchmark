@@ -4,7 +4,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
-from .utils.utils_motifs import obj_edge_vectors, to_onehot, get_dropout_mask, encode_box_info
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
+from .utils.utils_motifs import to_onehot, get_dropout_mask, encode_box_info
 from .utils.utils_vctree import generate_forest, arbForest_to_biForest, get_overlap_info
 from .utils.utils_treelstm import TreeLSTM_IO, MultiLayer_BTreeLSTM, BiTreeLSTM_Backward, BiTreeLSTM_Foreward
 from .utils.utils_relation import layer_init
@@ -31,7 +32,7 @@ class DecoderTreeLSTM(torch.nn.Module):
         self.nms_thresh = 0.5
         self.dropout = dropout
         # generate embed layer
-        embed_vecs = obj_edge_vectors(['start'] + self.classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=embed_dim)
+        embed_vecs = obj_edge_vectors(['start'] + self.classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=embed_dim)
         self.obj_embed = nn.Embedding(len(self.classes) + 1, embed_dim)
         with torch.no_grad():
             self.obj_embed.weight.copy_(embed_vecs, non_blocking=True)
@@ -83,7 +84,7 @@ class VCTreeLSTMContext(nn.Module):
 
         # word embedding
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
-        obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
+        obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
         self.obj_embed1 = nn.Embedding(self.num_obj_classes, self.embed_dim)
         self.obj_embed2 = nn.Embedding(self.num_obj_classes, self.embed_dim)
         with torch.no_grad():

@@ -146,6 +146,12 @@ _C.MODEL.YOLO.OUT_CHANNELS = 256 # dim for the last layer of the YOLOv8 head
 _C.MODEL.BOX_HEAD = True # for Yolov8 we do not need box head
 
 # ---------------------------------------------------------------------------- #
+# Text Embeddings options (for object and relation encoding)
+# ---------------------------------------------------------------------------- #
+
+_C.MODEL.TEXT_EMBEDDING = "clip" # clip, glove
+
+# ---------------------------------------------------------------------------- #
 # RPN options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.RPN = CN()

@@ -8,7 +8,8 @@ from torch.nn import functional as F
 from sgg_benchmark.data import get_dataset_statistics
 from sgg_benchmark.modeling.make_layers import make_fc
 from sgg_benchmark.structures.boxlist_ops import squeeze_tensor
-from .utils.utils_motifs import obj_edge_vectors, encode_box_info
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
+from .utils.utils_motifs import encode_box_info
 from .utils.utils_relation import get_box_pair_info, get_box_info, layer_init
 from sgg_benchmark.modeling.utils import cat
 
@@ -583,7 +584,7 @@ class PairwiseFeatureExtractor(nn.Module):
 
         self.word_embed_feats_on = True
         if self.word_embed_feats_on:
-            obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
+            obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING,  wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
             self.obj_embed_on_prob_dist = nn.Embedding(self.num_obj_classes, self.embed_dim)
             self.obj_embed_on_pred_label = nn.Embedding(self.num_obj_classes, self.embed_dim)
             with torch.no_grad():

@@ -6,7 +6,8 @@ from torch import nn
 from torch.nn.utils.rnn import PackedSequence
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
-from .utils.utils_motifs import obj_edge_vectors, center_x, sort_by_score, to_onehot, get_dropout_mask, encode_box_info, generate_attributes_target, normalize_sigmoid_logits
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
+from .utils.utils_motifs import center_x, sort_by_score, to_onehot, get_dropout_mask, encode_box_info, generate_attributes_target, normalize_sigmoid_logits
 from .utils.utils_relation import nms_overlaps
 
 class AttributeDecoderRNN(nn.Module):
@@ -19,8 +20,8 @@ class AttributeDecoderRNN(nn.Module):
         self.max_num_attri = config.MODEL.ROI_ATTRIBUTE_HEAD.MAX_ATTRIBUTES
         self.num_attri_cat = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
 
-        obj_embed_vecs = obj_edge_vectors(['start'] + self.obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=embed_dim)
-        att_embed_vecs = obj_edge_vectors(self.att_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=embed_dim)
+        obj_embed_vecs = obj_edge_vectors(['start'] + self.obj_classes,wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=embed_dim)
+        att_embed_vecs = obj_edge_vectors(self.att_classes,  wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=embed_dim)
         self.obj_embed = nn.Embedding(len(self.obj_classes)+1, embed_dim)
         self.att_embed = nn.Embedding(len(self.att_classes), embed_dim)
         with torch.no_grad():
@@ -203,8 +204,8 @@ class AttributeLSTMContext(nn.Module):
 
         # word embedding
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
-        obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
-        att_embed_vecs = obj_edge_vectors(self.att_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
+        obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
+        att_embed_vecs = obj_edge_vectors(self.att_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
         self.obj_embed1 = nn.Embedding(self.num_obj_classes, self.embed_dim)
         self.obj_embed2 = nn.Embedding(self.num_obj_classes, self.embed_dim)
         self.att_embed1 = nn.Embedding(self.num_att_classes, self.embed_dim)

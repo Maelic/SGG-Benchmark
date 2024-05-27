@@ -9,6 +9,7 @@ from ultralytics.utils import ops
 from ultralytics.engine.results import Results
 
 from sgg_benchmark.structures.bounding_box import BoxList
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
 
 import numpy as np
 import cv2
@@ -23,6 +24,7 @@ from ultralytics.nn.modules import (
 class YoloV8World(WorldModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
         yolo_cfg = cfg.MODEL.YOLO.SIZE+'.yaml'
+        self.cfg = cfg
         super().__init__(yolo_cfg, nc=nc, verbose=verbose)
         # self.features_layers = [len(self.model) - 2]
         self.conf_thres = cfg.MODEL.BACKBONE.NMS_THRESH
@@ -81,6 +83,11 @@ class YoloV8World(WorldModel):
         if weights:
             super().load(weights)
         self.txt_feats = weights.txt_feats
+
+    def load_txt_feats(self, names):
+        txt_feats = obj_edge_vectors(names, wv_type=self.cfg.MODEL.TEXT_EMBEDDING)
+        txt_feats = txt_feats / txt_feats.norm(p=2, dim=-1, keepdim=True)
+        self.txt_feats = txt_feats.reshape(-1, len(names), txt_feats.shape[-1])
 
     def prepare_input(self, image, input_shape=(640,640), stride=32, auto=True):
         not_tensor = not isinstance(image, torch.Tensor)

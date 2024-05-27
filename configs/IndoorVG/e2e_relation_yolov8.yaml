@@ -7,11 +7,11 @@ INPUT:
 MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
-  WEIGHT: "/home/maelic/Downloads/2024-04-09 17:19:13.329/best.pt"
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Downloads/2024-04-09 17:19:13.329/best.pt"
+  WEIGHT: ""
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/Backbones/yolov8m/best.pt"
   BACKBONE:
     TYPE: "yolov8"
-    NMS_THRESH: 0.5
+    NMS_THRESH: 0.001
     FREEZE: True
   YOLO:
     SIZE: "yolov8m"
@@ -64,6 +64,7 @@ MODEL:
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
+    LOSS: ReweightingCE
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap
@@ -76,6 +77,7 @@ MODEL:
     POOLING_ALL_LEVELS: True
     LABEL_SMOOTHING_LOSS: False
     FEATURE_EXTRACTOR: "RelationFeatureExtractor"
+    EMBED_DIM: 512
     #################### Select Relationship Model ####################
     #PREDICTOR: "MotifPredictor"
     #PREDICTOR: "VCTreePredictor"

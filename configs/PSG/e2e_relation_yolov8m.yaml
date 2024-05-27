@@ -8,7 +8,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/VG150/Backbones/yolov8m/weights/best.pt"
+  PRETRAINED_DETECTOR_CKPT: "checkpoints/PSG/BACKBONE/YOLOV8m/best.pt"
   BACKBONE:
     TYPE: "yolov8"
     NMS_THRESH: 0.001
@@ -31,14 +31,13 @@ MODEL:
     POOLER_RESOLUTION: 7
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
-    NUM_CLASSES: 151              # 151 for VG, 1201 for GQA
+    NUM_CLASSES: 134              # 151 for VG, 1201 for GQA
   ROI_RELATION_HEAD:
-    EMBED_DIM: 512
     USE_GT_BOX: False
     USE_GT_OBJECT_LABEL: False
     REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
-    NUM_CLASSES: 51                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
+    NUM_CLASSES: 57                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
     BATCH_SIZE_PER_IMAGE: 256      # sample as much as possible
     POSITIVE_FRACTION: 0.25
     CONTEXT_POOLING_DIM: 2048
@@ -73,15 +72,15 @@ MODEL:
       VAL_DIM: 64
       INNER_DIM: 2048 
 DATASETS:
-  TRAIN: ("VG150_train",)
-  VAL: ("VG150_val",)
-  TEST: ("VG150_test",)
+  TRAIN: ("PSG_train",)
+  VAL: ("PSG_val",)
+  TEST: ("PSG_test",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   MAX_EPOCH: 20
   BIAS_LR_FACTOR: 1
-  BASE_LR: 0.005
+  BASE_LR: 0.01
   WARMUP_FACTOR: 0.1
   WEIGHT_DECAY: 0.0001
   MOMENTUM: 0.9

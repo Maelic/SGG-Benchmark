@@ -14,8 +14,7 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 from sgg_benchmark.modeling.poolers import Pooler
 from sgg_benchmark.structures.bounding_box import BoxList
-from sgg_benchmark.modeling.roi_heads.relation_head.models.utils.utils_motifs import obj_edge_vectors
-from sgg_benchmark.data import get_dataset_statistics
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
 
 from .utils_simrel_old import *
 
@@ -595,8 +594,7 @@ class obj_feature_fuser(nn.Module):
         if word_embed_weight_path == '':
             embed_vecs = None
         else:
-            embed_vecs = obj_edge_vectors(obj_classes_list, \
-                wv_dir=word_embed_weight_path, wv_dim=obj_word_embed_dim)
+            embed_vecs = obj_edge_vectors(obj_classes_list, wv_type=self.cfg.MODEL.TEXT_EMBEDDING,  wv_dir=word_embed_weight_path, wv_dim=obj_word_embed_dim)
         
         if posi_encode_dim is not None:
             self.posi_encoding = PositionalEncoding(posi_encode_dim)

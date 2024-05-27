@@ -8,6 +8,7 @@ from sgg_benchmark.layers import Label_Smoothing_Regression
 from sgg_benchmark.layers import MLP
 from sgg_benchmark.layers import fusion_func
 from sgg_benchmark.modeling.utils import cat
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors, rel_vectors
 from ..models.model_msg_passing import IMPContext
 from ..models.model_vtranse import VTransEFeature
 from ..models.model_vctree import VCTreeLSTMContext
@@ -17,7 +18,7 @@ from ..models.model_transformer import TransformerContext, nms_per_cls
 from ..models.model_gpsnet import GPSNetContext
 from ..models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info, nms_overlaps
 from ..models.utils.classifiers import build_classifier
-from ..models.utils.utils_motifs import to_onehot, obj_edge_vectors, rel_vectors, encode_box_info
+from ..models.utils.utils_motifs import to_onehot, encode_box_info
 from ..models.utils.utils_relation import obj_prediction_nms
 from sgg_benchmark.modeling.make_layers import make_fc
 
@@ -781,8 +782,8 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
         dropout_p = 0.2 
         
-        obj_embed_vecs = obj_edge_vectors(obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)  # load Glove for objects
-        rel_embed_vecs = rel_vectors(rel_classes, wv_dir=config.GLOVE_DIR, wv_dim=self.embed_dim)   # load Glove for predicates
+        obj_embed_vecs = obj_edge_vectors(obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)  # load Glove for objects
+        rel_embed_vecs = rel_vectors(rel_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=config.GLOVE_DIR, wv_dim=self.embed_dim)   # load Glove for predicates
         self.obj_embed = nn.Embedding(self.num_obj_cls, self.embed_dim)
         self.rel_embed = nn.Embedding(self.num_rel_cls, self.embed_dim)
         with torch.no_grad():

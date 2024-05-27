@@ -17,6 +17,7 @@ from sgg_benchmark.utils.comm import synchronize, get_rank
 from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir
 from sgg_benchmark.utils.parser import default_argument_parser
+from sgg_benchmark.data import get_dataset_statistics
 
 def assert_mode(cfg, task):
     cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
@@ -59,7 +60,6 @@ def main():
 
     model = build_detection_model(cfg)
     model.to(cfg.MODEL.DEVICE)
-    model.backbone.eval()
 
     enable_inplace_relu(model)
 
@@ -73,6 +73,16 @@ def main():
     logger.info("Loading last checkpoint from {}...".format(last_check))
     _ = checkpointer.load(last_check)
 
+    if "world" in cfg.MODEL.BACKBONE.TYPE:
+        stats = get_dataset_statistics(cfg)
+        obj_classes = stats['obj_classes'][1:]
+        # for debugging
+        #print("Loading txt embeddings for object classes: ", obj_classes)
+        model.backbone.load_txt_feats(obj_classes)
+
+    model.backbone.eval()
+    model.roi_heads.eval()
+    
     iou_types = ("bbox",)
     if cfg.MODEL.RELATION_ON:
         logger.info("Evaluate relations")
@@ -91,7 +101,6 @@ def main():
             dataset_names = cfg.DATASETS.TRAIN
         elif cfg.DATASETS.TO_TEST == 'val':
             dataset_names = cfg.DATASETS.VAL
-
 
     if cfg.OUTPUT_DIR:
         for idx, dataset_name in enumerate(dataset_names):

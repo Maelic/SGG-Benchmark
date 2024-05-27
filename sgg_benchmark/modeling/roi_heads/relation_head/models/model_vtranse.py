@@ -6,7 +6,8 @@ from torch import nn
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
 from sgg_benchmark.modeling.make_layers import make_fc
-from .utils.utils_motifs import obj_edge_vectors, encode_box_info
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
+from .utils.utils_motifs import encode_box_info
 
 class VTransEFeature(nn.Module):
     def __init__(self, config, obj_classes, rel_classes, in_channels):
@@ -27,7 +28,7 @@ class VTransEFeature(nn.Module):
 
         # word embedding
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
-        obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
+        obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
         self.obj_embed1 = nn.Embedding(self.num_obj_classes, self.embed_dim)
         self.obj_embed2 = nn.Embedding(self.num_obj_classes, self.embed_dim)
         with torch.no_grad():
