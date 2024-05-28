@@ -3,21 +3,28 @@
 [![LICENSE](https://img.shields.io/badge/license-MIT-green)](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch/blob/master/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 ![PyTorch](https://img.shields.io/badge/pytorch-2.2.1-%237732a8)
+[![arXiv](https://img.shields.io/badge/arXiv-2405.16116-b31b1b.svg)](https://arxiv.org/abs/2405.16116)
 
-### DISCLAIMER
+## :rocket: [REAL-TIME SCENE GRAPH GENERATION](https://arxiv.org/abs/2405.16116) :rocket:
 
-This codebase is actually a work-in-progress, do not expect everything to work properly on the first run. If you find any bugs, please feel free to post an issue or contribute with a PR.
+Our latest paper on Real-Time Scene Graph Generation is finally available! Please have a look if you're interested: [https://arxiv.org/abs/2405.16116](https://arxiv.org/abs/2405.16116). We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8. Here are the main results:
+
+![real_time_sgg](visualization/real_time_sgg.png)
+
 
 ## Background
 
 This implementation is a new benchmark for the task of Scene Graph Generation, based on a fork of the [SGG Benchmark by Kaihua Tang](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch). The implementation by Kaihua is a good starting point however it is very outdated and is missing a lot of new development for the task.
 My goal with this new codebase is to provide an up-to-date and easy-to-run implementation of common approaches in the field of Scene Graph Generation. 
 This codebase also focuses on real-time and real-world usage of Scene Graph Generation with dedicated dataset tools and a large choice of object detection backbones.
+This codebase is actually a work-in-progress, do not expect everything to work properly on the first run. If you find any bugs, please feel free to post an issue or contribute with a PR.
 
 ## Recent Updates
 
+
 - [ ] TODO: Change Dataloader to COCO format (in progress).
 - [ ] TODO: Add support for [DT2-ACBS](https://github.com/a-lakh/DT2-ACBS/tree/main).
+- [X] 28.05.2024: Official release of our [Real-Time Scene Graph Generation](https://arxiv.org/abs/2405.16116) implementation.
 - [X] 23.05.2024: Added support for the [YOLO-World](https://www.yoloworld.cc/) backbone for Open-Vocabulary object detection!
 - [X] 10.05.2024: Added support for the [PSG Dataset](https://github.com/Jingkang50/OpenPSG)
 - [X] 03.04.2024: Added support for the IETrans method for data augmentation on the Visual Genome dataset, please check it out! [IETrans](./process_data/data_augmentation/README.md).
@@ -140,7 +147,11 @@ The following command can be used to train your own Faster R-CNN model:
 CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch --master_port 10001 --nproc_per_node=4 tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" SOLVER.MAX_ITER 50000 SOLVER.STEPS "(30000, 45000)" SOLVER.VAL_PERIOD 2000 SOLVER.CHECKPOINT_PERIOD 2000 MODEL.RELATION_ON False OUTPUT_DIR /home/kaihua/checkpoints/pretrained_faster_rcnn SOLVER.PRE_VAL False
 ```
 where ```CUDA_VISIBLE_DEVICES``` and ```--nproc_per_node``` represent the id of GPUs and number of GPUs you use, ```--config-file``` means the config we use, where you can change other parameters. ```SOLVER.IMS_PER_BATCH``` and ```TEST.IMS_PER_BATCH``` are the training and testing batch size respectively, ```DTYPE "float16"``` enables Automatic Mixed Precision, ```SOLVER.MAX_ITER``` is the maximum iteration, ```SOLVER.STEPS``` is the steps where we decay the learning rate, ```SOLVER.VAL_PERIOD``` and ```SOLVER.CHECKPOINT_PERIOD``` are the periods of conducting val and saving checkpoint, ```MODEL.RELATION_ON``` means turning on the relationship head or not (since this is the pretraining phase for Faster R-CNN only, we turn off the relationship head),  ```OUTPUT_DIR``` is the output directory to save checkpoints and log (considering `/home/username/checkpoints/pretrained_faster_rcnn`), ```SOLVER.PRE_VAL``` means whether we conduct validation before training or not.
+ 
+## YOLOV8 Backbone
 
+If you want to use YoloV8 as a backbone instead of Faster-RCNN, you need to first train a model using the official [ultralytics implementation](https://github.com/ultralytics/ultralytics). Once you have a model, you can modify [this config file](configs/VG150/e2e_relation_yolov8m.yaml) and change the path `PRETRAINED_DETECTOR_CKPT` to your model weights. Please note that you will also need to change the variable `SIZE` and `OUT_CHANNELS` accordingly if you use another variant of YoloV8 (nano, small or large for instance). 
+For training an SGG model with YOLOV8 as a backbone, you need to modify the `META_ARCHITECTURE` variable in the same config file to `GeneralizedYOLO`. You can then follow the standard procedure for PREDCLS, SGCLS or SGDET training below.
 
 ## Perform training on Scene Graph Generation
 
@@ -283,10 +294,12 @@ The counterfactual inference is not only applicable to SGG. Actually, my collegu
 If you find this project helps your research, please kindly consider citing our project or papers in your publications.
 
 ```
-@misc{tang2020sggcode,
-title = {A Scene Graph Generation Codebase in PyTorch},
-author = {Tang, Kaihua},
-year = {2020},
-note = {\url{https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch}},
+@misc{neau2024realtime,
+      title={Real-Time Scene Graph Generation}, 
+      author={Maëlic Neau and Paulo E. Santos and Karl Sammut and Anne-Gwenn Bosser and Cédric Buche},
+      year={2024},
+      eprint={2405.16116},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
 }
 ```

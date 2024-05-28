@@ -149,7 +149,7 @@ _C.MODEL.BOX_HEAD = True # for Yolov8 we do not need box head
 # Text Embeddings options (for object and relation encoding)
 # ---------------------------------------------------------------------------- #
 
-_C.MODEL.TEXT_EMBEDDING = "clip" # clip, glove
+_C.MODEL.TEXT_EMBEDDING = "glove.6B" # clip, glove.6B
 
 # ---------------------------------------------------------------------------- #
 # RPN options

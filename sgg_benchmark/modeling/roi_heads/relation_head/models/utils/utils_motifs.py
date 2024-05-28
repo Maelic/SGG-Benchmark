@@ -145,13 +145,3 @@ def encode_box_info(proposals):
         boxes_info.append(info)
 
     return torch.cat(boxes_info, dim=0)
-
-def reporthook(t):
-    """https://github.com/tqdm/tqdm"""
-    last_b = [0]
-    def inner(b=1, bsize=1, tsize=None):
-        if tsize is not None:
-            t.total = tsize
-        t.update((b - last_b[0]) * bsize)
-        last_b[0] = b
-    return inner

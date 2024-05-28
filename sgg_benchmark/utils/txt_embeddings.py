@@ -2,9 +2,14 @@ import clip
 import torch
 import array
 import os
+from tqdm import tqdm
+import zipfile
+import six
+import torch
+from six.moves.urllib.request import urlretrieve
 
 def obj_edge_vectors(names, wv_dir='', wv_type='glove', wv_dim=300, use_cache=False):
-    if wv_type == 'glove':
+    if 'glove' in wv_type:
         wv_dict, wv_arr, wv_size = load_word_vectors(wv_dir, wv_type, wv_dim)
 
         vectors = torch.Tensor(len(names), wv_dim)
@@ -49,7 +54,7 @@ def obj_edge_vectors(names, wv_dir='', wv_type='glove', wv_dim=300, use_cache=Fa
     return txt_feats
 
 def rel_vectors(names, wv_dir='', wv_type='clip', wv_dim=300, use_cache=False):
-    if wv_type == "glove":
+    if 'glove' in wv_type:
         wv_dict, wv_arr, wv_size = load_word_vectors(wv_dir, wv_type, wv_dim)
 
         vectors = torch.Tensor(len(names), wv_dim)  # 51, 200
@@ -216,3 +221,13 @@ def load_word_vectors(root, wv_type, dim):
     ret = (wv_dict, wv_arr, wv_size)
     torch.save(ret, fname + '.pt')
     return ret
+
+def reporthook(t):
+    """https://github.com/tqdm/tqdm"""
+    last_b = [0]
+    def inner(b=1, bsize=1, tsize=None):
+        if tsize is not None:
+            t.total = tsize
+        t.update((b - last_b[0]) * bsize)
+        last_b[0] = b
+    return inner

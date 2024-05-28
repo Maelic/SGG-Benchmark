@@ -85,7 +85,7 @@ class YoloV8World(WorldModel):
         self.txt_feats = weights.txt_feats
 
     def load_txt_feats(self, names):
-        txt_feats = obj_edge_vectors(names, wv_type=self.cfg.MODEL.TEXT_EMBEDDING)
+        txt_feats = obj_edge_vectors(names, wv_type='clip')
         txt_feats = txt_feats / txt_feats.norm(p=2, dim=-1, keepdim=True)
         self.txt_feats = txt_feats.reshape(-1, len(names), txt_feats.shape[-1])
 
