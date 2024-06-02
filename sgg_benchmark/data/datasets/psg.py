@@ -86,7 +86,7 @@ class PSGDataset(torch.utils.data.Dataset):
                 'width': d['width'],
                 'id': d['image_id'],
             })
-        self.img_ids = [d['id'] for d in self.data_infos]
+        self.img_ids = [d['filename'] for d in self.data_infos]
 
         # Define classes, 0-index
         # NOTE: Class ids should range from 0 to (num_classes - 1)
@@ -108,7 +108,7 @@ class PSGDataset(torch.utils.data.Dataset):
         if informative_file is not None:
             self.informative_graphs = json.load(open(informative_file, 'r'))
         else:
-            self.informative_graphs = {img: [] for img in self.img_ids}
+            self.informative_graphs = {img: [] for img in self.img_ids.split('/')[-1]}
     
     def get_img_info(self, index):
         return self.data_infos[index]
@@ -122,20 +122,12 @@ class PSGDataset(torch.utils.data.Dataset):
         return len(self.data_infos)
     
     def __getitem__(self, index):
-        img_path = self.img_prefix + '/' + self.img_ids[index]+ '.jpg'
+        img_path = self.img_prefix + '/' + self.img_ids[index]
         
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        # reshape img to scale
-        scale = self.box_size[0] / max(img.shape[1], img.shape[0])
-        new_h, new_w = int(img.shape[0] * scale), int(img.shape[1] * scale)
-        img = cv2.resize(img, (new_w, new_h))
-
         target = self.get_groundtruth(index)
-
-        # assert size similar
-        assert (img.shape[1], img.shape[0]) == target.size, ((img.shape[1], img.shape[0]), target.size)
 
         if self.transforms is not None:
             img, target = self.transforms(img, target)
@@ -178,10 +170,6 @@ class PSGDataset(torch.utils.data.Dataset):
 
         # add 1 for bg
         gt_labels += 1
-
-        # recover original boxes size from scaled image
-        scale = self.box_size[0] / max(w, h)
-        gt_bboxes[:, 0] = gt_bboxes[:, 0] * scale
 
         gt_bboxes = torch.from_numpy(gt_bboxes).reshape(-1, 4)
 
@@ -236,7 +224,7 @@ class PSGDataset(torch.utils.data.Dataset):
             return target
         
     def get_statistics(self):
-        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq = self.get_PSG_statistics()
+        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weight = self.get_PSG_statistics()
         eps = 1e-3
         bg_matrix += 1
         fg_matrix[:, :, 0] = bg_matrix
@@ -251,6 +239,7 @@ class PSGDataset(torch.utils.data.Dataset):
             'predicate_new_order_count': predicate_new_order_count,
             'pred_freq': pred_prop,
             'triplet_freq': triplet_freq,
+            'pred_weight': pred_weight
         }
 
         return result
@@ -282,12 +271,17 @@ class PSGDataset(torch.utils.data.Dataset):
             for p in k:
                 for i, x in enumerate(p):
                     stats_pred[i] += x
-        # compute proportion of each predicate
-        total_pred = sum(stats_pred.values())
-        pred_prop = [v / total_pred for k, v in stats_pred.items()] # this will replace cfg.MODEL.REL_PROP
-        # pop first item
-        pred_prop.pop(0)
-        assert len(pred_prop) == num_rel_classes - 1
+        # we want the diversity of predicate, i.e. the number of different pair for each predicate
+        pred_prop = np.zeros(num_rel_classes)
+        for i in range(num_rel_classes):
+            pred_prop[i] = np.sum(fg_matrix[:, :, i] > 0)
+
+        assert len(pred_prop) == num_rel_classes
+        
+        # weight is the inverse frequency normalized by the median
+        pred_weights = torch.tensor(np.sum(fg_matrix, axis=(0, 1)))
+        pred_weights[0] = -1.0
+        pred_weights = (1./pred_weights) * torch.median(pred_weights)
 
         # add background value
         stats_pred[0] = len(bg_matrix.flatten())
@@ -310,7 +304,7 @@ class PSGDataset(torch.utils.data.Dataset):
                     # Add the triplet and its frequency to the dictionary
                     triplet_freq[triplet] = freq
 
-        return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq    
+        return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weights
 
 def box_filter(boxes, must_overlap=False):
     """ Only include boxes that overlap as possible relations. 

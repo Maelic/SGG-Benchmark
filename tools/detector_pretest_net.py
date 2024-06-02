@@ -127,7 +127,11 @@ def main():
     output_dir = cfg.OUTPUT_DIR
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
     if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
-        checkpointer.load(cfg.MODEL.WEIGHT)
+        last_check = checkpointer.get_checkpoint_file()
+        if last_check == "":
+            last_check = cfg.MODEL.WEIGHT
+        logger.info("Loading last checkpoint from {}...".format(last_check))
+        checkpointer.load(last_check)
     else:
         model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
 

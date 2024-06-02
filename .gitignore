@@ -22,6 +22,7 @@ wandb/
 /datasets/**
 !/datasets/vg/**
 !/datasets/VG150/**
+!/datasets/psg/obj_classes.txt
 *.png
 *.jpg
 *.jpeg

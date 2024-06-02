@@ -63,9 +63,11 @@ class GeneralizedYOLO(nn.Module):
             return proposals
 
         if self.roi_heads:
-            if self.predcls and self.roi_heads.training: # in predcls mode, we pass the targets as proposals
+            if self.predcls: # in predcls mode, we pass the targets as proposals
                 for t in targets:
                     t.remove_field("image_path")
+                    t.add_field("pred_labels", t.get_field("labels"))
+                    t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
                 x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, targets)
             else:
                 x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
