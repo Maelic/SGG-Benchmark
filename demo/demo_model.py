@@ -17,14 +17,15 @@ import cv2
 import matplotlib.pyplot as plt
 
 class SGG_Model(object):
-    def __init__(self, config, dict_classes, weights, tracking=False, rel_conf=0.1, box_conf=0.5) -> None:
+    def __init__(self, config, dict_classes, weights, tracking=False, rel_conf=0.1, box_conf=0.5, show_fps=True) -> None:
         cfg.merge_from_file(config)
         cfg.TEST.CUSTUM_EVAL = True
         # to force SGDET mode /!\ careful though, if the model hasn't been trained in sgdet mode, this will break the code
         cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = False
         cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
-        cfg.freeze()
+        # cfg.freeze()
         self.cfg = cfg
+        self.show_fps = show_fps
 
         self.stats = json.load(open(dict_classes, 'r'))
 
@@ -118,7 +119,8 @@ class SGG_Model(object):
                 else:
                     cv2.putText(out_img, f"{str(i)}_{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
                 # show fps
-                cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 2)
+                if self.show_fps:
+                    cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 2)
             img_graph = self.visualize_graph(predictions)
             return out_img, img_graph
         return predictions
