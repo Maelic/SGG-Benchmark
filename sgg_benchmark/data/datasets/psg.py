@@ -90,9 +90,15 @@ class PSGDataset(torch.utils.data.Dataset):
 
         # Define classes, 0-index
         # NOTE: Class ids should range from 0 to (num_classes - 1)
-        self.THING_CLASSES = dataset['thing_classes']
-        self.STUFF_CLASSES = dataset['stuff_classes']
-        self.CLASSES = self.THING_CLASSES + self.STUFF_CLASSES
+        # original, with -merged and -other
+        # self.THING_CLASSES = dataset['thing_classes']
+        # self.STUFF_CLASSES = dataset['stuff_classes']
+        # self.CLASSES = self.THING_CLASSES + self.STUFF_CLASSES
+
+        # new, without -merged and -other
+        with open('datasets/psg/obj_classes.txt', 'r') as f:
+            self.CLASSES = f.read().splitlines()
+        
         self.PREDICATES = dataset['predicate_classes']
 
         label_to_idx = {label: idx+1 for idx, label in enumerate(self.CLASSES)}

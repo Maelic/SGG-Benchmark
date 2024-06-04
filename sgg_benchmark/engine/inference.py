@@ -182,13 +182,15 @@ def inference(
                 total_time_str, total_time * num_devices / len(dataset), num_devices
             )
         )
-        mean_syn = np.mean(timings)
-        mean_std = np.std(timings)
+        # get batch size
+        batch_size = int(cfg.TEST.IMS_PER_BATCH)
+        mean_syn = np.mean(timings) / batch_size
+        mean_std = np.std(timings) / batch_size
         logger.info(
-            "Average latency per image: {}s".format(mean_syn)
+            "Average latency per image: {}ms".format(mean_syn)
         )
         logger.info(
-            "Standard deviation of latency: {}s".format(mean_std)
+            "Standard deviation of latency: {}ms".format(mean_std)
         )
 
     if not load_prediction_from_cache:

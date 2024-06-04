@@ -28,7 +28,7 @@ This data split is proposed by us in a [recent approach](https://link.springer.c
 ## PSG
 
 The PSG dataset is a new approach originally targeting the [Panoptic Scene Graph Generation](https://arxiv.org/abs/2207.11247) task. However, its annotations can also be used for traditional SGG. It is composed of images from COCO and VG which have been re-annotated aiming at fixing biases from Visual Genome. The data (images + graphs) can be downloaded using [the authors link](https://entuedu-my.sharepoint.com/:f:/g/personal/jingkang001_e_ntu_edu_sg/EgQzvsYo3t9BpxgMZ6VHaEMBDAb7v0UgI8iIAExQUJq62Q?e=fIY3zh).
-Note that for efficient encoding of the class labels it is necessary to change some names (i.e. removed "-merged" or "-other" suffixes), please see our pre-process class names in [datasets/PSG/obj_classes.txt](datasets/PSG/obj_classes.txt)
+Note that for efficient encoding of the class labels it is necessary to change some names (i.e. removed "-merged" or "-other" suffixes), please see our pre-process class names in [datasets/psg/obj_classes.txt](datasets/psg/obj_classes.txt)
 
 # YOLO Format:
 

@@ -18,7 +18,7 @@ class DatasetCatalog(object):
             "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "PSG": {
-            "img_dir": IMG_DIR+"VG_100K",
+            "img_dir": "/home/maelic/Documents/Datasets/COCO/",
             "ann_file": DATA_DIR+"datasets/psg/psg_train_val.json",
             "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
@@ -31,7 +31,7 @@ class DatasetCatalog(object):
         },
         "VG_indoor_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/IndoorVG_4/VG-SGG.h5",
+            "roidb_file": DATA_DIR+"datasets/IndoorVG_4/VG-SGG-augmented-vctree.h5",
             "dict_file": DATA_DIR+"datasets/IndoorVG_4/VG-SGG-dicts.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
             "zeroshot_file": DATA_DIR+"datasets/IndoorVG_4/zero_shot_triplets.pytorch",
