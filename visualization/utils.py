@@ -1,5 +1,16 @@
 from PIL import Image, ImageDraw, ImageFont
 
+import os
+
+# Define the font paths for Windows and Linux
+font_path_windows = r"C:\Windows\Fonts\DejaVuSans.ttf"
+font_path_linux = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+
+# Check the operating system and set the font path accordingly
+if os.name == 'nt':  # Windows
+    font_path = font_path_windows
+else:  # Linux and others
+    font_path = font_path_linux
 
 def draw_single_box(pic, box, color='red', draw_info=None):
     draw = ImageDraw.Draw(pic)
@@ -55,7 +66,7 @@ def get_size(image_size):
 def draw_single_label(pic, box, label, color=(255,0,255,128)):
     draw = ImageDraw.Draw(pic)
     font_size = 30
-    font = ImageFont.truetype("/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/analysis_diagrams/gidole/GidoleFont/Gidole-Regular.ttf", size=font_size)
+    font = ImageFont.truetype(font_path, size=font_size)
     x1,y1,x2,y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
     p1 = (x1, y1)
     p2 = (x2, y2)
@@ -69,7 +80,7 @@ def draw_single_label(pic, box, label, color=(255,0,255,128)):
 def draw_rel(pic, c1,c2, label, color=(0,255,255,128)):
     draw = ImageDraw.Draw(pic)
     font_size = 30
-    font = ImageFont.truetype("/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/analysis_diagrams/gidole/GidoleFont/Gidole-Regular.ttf", size=font_size)
+    font = ImageFont.truetype(font_path, size=font_size)
     draw.line((c1, c2), width=3, fill=color)
     bb_center = (c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2
     bbox = draw.textbbox(bb_center, label, font=font)
