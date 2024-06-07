@@ -197,7 +197,7 @@ class VGDataset(torch.utils.data.Dataset):
         # correct_img_info(self.img_dir, self.image_file)
         return self.img_info[index]
 
-    def get_groundtruth(self, index, evaluation=False, flip_img=False, informative=False):
+    def get_groundtruth(self, index, evaluation=False, flip_img=False):
         img_info = self.get_img_info(index)
         w, h = img_info['width'], img_info['height']
         # important: recover original box from BOX_SCALE
@@ -239,10 +239,10 @@ class VGDataset(torch.utils.data.Dataset):
             target.add_field("relation_tuple", torch.LongTensor(relation)) # for evaluation
             if self.informative_graphs is not None:
                 target.add_field("informative_rels", self.informative_graphs[str(img_info['image_id'])])
-            return target
         else:
-            target = target.clip_to_image(remove_empty=True)
-            return target
+            target = target.clip_to_image(remove_empty=True)        
+
+        return target
     # original from ietrans, replaced by pred_weights in get_VG_statistics
     # def _get_reweighting_dic(self):
     #     """

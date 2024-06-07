@@ -113,8 +113,6 @@ class BoxList(object):
             bbox = BoxList(scaled_box, size, mode=self.mode)
             # bbox._copy_extra_fields(self)
             for k, v in self.extra_fields.items():
-                if not isinstance(v, torch.Tensor):
-                    v = v.resize(size, *args, **kwargs)
                 if k in self.triplet_extra_fields:
                     bbox.add_field(k, v, is_triplet=True)
                 else:
@@ -133,8 +131,8 @@ class BoxList(object):
         bbox = BoxList(scaled_box, size, mode="xyxy")
         # bbox._copy_extra_fields(self)
         for k, v in self.extra_fields.items():
-            if not isinstance(v, torch.Tensor):
-                v = v.resize(size, *args, **kwargs)
+            # if not isinstance(v, torch.Tensor):
+            #     v = v.resize(size, *args, **kwargs)
             if k in self.triplet_extra_fields:
                 bbox.add_field(k, v, is_triplet=True)
             else:

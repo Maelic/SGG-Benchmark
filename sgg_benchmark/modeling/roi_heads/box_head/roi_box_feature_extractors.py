@@ -4,7 +4,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from sgg_benchmark.modeling import registry
-from sgg_benchmark.modeling.backbone import resnet, fbnet, vgg, yolov8
+from sgg_benchmark.modeling.backbone import resnet
 from sgg_benchmark.modeling.poolers import Pooler, PoolerYOLO
 from sgg_benchmark.modeling.make_layers import group_norm
 from sgg_benchmark.modeling.make_layers import make_fc
@@ -127,7 +127,6 @@ class FPN2MLPFeatureExtractor(nn.Module):
     def forward(self, x, proposals):
         x = self.pooler(x, proposals)
         x = x.view(x.size(0), -1)
-
         x = F.relu(self.fc6(x))
         x = F.relu(self.fc7(x))
 

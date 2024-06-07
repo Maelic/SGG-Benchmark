@@ -215,6 +215,5 @@ class MLP(nn.Module):
             x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)  
         return x
     
-    
 def fusion_func(x, y):
     return F.relu(x + y) - (x - y) ** 2
