@@ -8,7 +8,7 @@ import numpy as np
 from sgg_benchmark.modeling.utils import cat
 from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
 from .utils.utils_motifs import to_onehot, encode_box_info
-from .utils.utils_relation import nms_overlaps
+from .utils.utils_relation import nms_per_cls
 
 class ScaledDotProductAttention(nn.Module):
     ''' Scaled Dot-Product Attention '''
@@ -238,9 +238,8 @@ class TransformerContext(nn.Module):
                                                 self.v_dim, self.hidden_dim, self.inner_dim, self.dropout_rate)
         self.context_edge = TransformerEncoder(self.edge_layer, self.num_head, self.k_dim, 
                                                 self.v_dim, self.hidden_dim, self.inner_dim, self.dropout_rate)
-
     
-    def forward(self, roi_features, proposals, logger=None):
+    def forward(self, roi_features, proposals, rel_pair_idx, logger=None):
         # labels will be used in DecoderRNN during training
         use_gt_label = self.training or not self.obj_decode
         obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0) if use_gt_label else None
@@ -281,25 +280,4 @@ class TransformerContext(nn.Module):
         edge_pre_rep = self.lin_edge(edge_pre_rep)
         edge_ctx = self.context_edge(edge_pre_rep, num_objs)
 
-        return obj_dists, obj_preds, edge_ctx
-
-def nms_per_cls(obj_dists, boxes_per_cls, num_objs, nms_thresh=0.7):
-    obj_dists = obj_dists.split(num_objs, dim=0)
-    obj_preds = []
-    for i in range(len(num_objs)):
-        is_overlap = nms_overlaps(boxes_per_cls[i]).cpu().detach().numpy() >= nms_thresh # (#box, #box, #class)
-
-        out_dists_sampled = F.softmax(obj_dists[i], -1).cpu().detach().numpy()
-        out_dists_sampled[:, 0] = -1
-
-        out_label = obj_dists[i].new(num_objs[i]).fill_(0)
-
-        for i in range(num_objs[i]):
-            box_ind, cls_ind = np.unravel_index(out_dists_sampled.argmax(), out_dists_sampled.shape)
-            out_label[int(box_ind)] = int(cls_ind)
-            out_dists_sampled[is_overlap[box_ind,:,cls_ind], cls_ind] = 0.0
-            out_dists_sampled[box_ind] = -1.0 # This way we won't re-sample
-
-        obj_preds.append(out_label.long())
-    obj_preds = torch.cat(obj_preds, dim=0)
-    return obj_preds
+        return obj_dists, obj_preds, edge_ctx, None

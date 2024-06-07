@@ -55,6 +55,8 @@ class ReweightingCE(nn.Module):
         Returns:
 
         """
+        print(target)
+        print(target[0].shape)
         final_target = torch.zeros_like(target)
         final_target[torch.arange(0, target.size(0)), target.argmax(0)] = 1.
         idxs = (target[:, 0] != 1).nonzero().squeeze()

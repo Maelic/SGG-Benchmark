@@ -1,8 +1,8 @@
 INPUT:
-  MIN_SIZE_TRAIN: 640
-  MAX_SIZE_TRAIN: 640
-  MIN_SIZE_TEST: 640
-  MAX_SIZE_TEST: 640
+  MIN_SIZE_TRAIN: 448
+  MAX_SIZE_TRAIN: 448
+  MIN_SIZE_TEST: 448
+  MAX_SIZE_TEST: 448
   PADDING: True
 MODEL:
   TEXT_EMBEDDING: clip
@@ -16,7 +16,7 @@ MODEL:
     FREEZE: True
   YOLO:
     SIZE: "yolov8m"
-    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
+    OUT_CHANNELS: 768 # 192 for yolov8m, 256 for yolov8l
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
     STRIDE_IN_1X1: False
@@ -50,7 +50,7 @@ MODEL:
     POOLER_RESOLUTION: 7
     POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
     POOLER_SAMPLING_RATIO: 2
-    FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
+    FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
     NUM_CLASSES: 85              # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 2048
@@ -65,7 +65,7 @@ MODEL:
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
-    LOSS: ReweightingCE
+    LOSS: CrossEntropyLoss
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap

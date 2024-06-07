@@ -12,6 +12,9 @@ from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
 from .utils.utils_motifs import encode_box_info
 from .utils.utils_relation import get_box_pair_info, get_box_info, layer_init
 from sgg_benchmark.modeling.utils import cat
+from sgg_benchmark.modeling.roi_heads.relation_head.models.utils.classifiers import build_classifier
+from sgg_benchmark.modeling.roi_heads.relation_head.models.utils.utils_motifs import to_onehot
+from sgg_benchmark.modeling.roi_heads.relation_head.models.utils.utils_relation import obj_prediction_nms
 
 class GatingModel(nn.Module):
     def __init__(self, entity_input_dim, union_input_dim, hidden_dim, filter_dim=32):
@@ -196,14 +199,15 @@ class UpdateUnit(nn.Module):
 
 
 class GPSNetContext(nn.Module):
-    def __init__(self, cfg, in_channels, hidden_dim=512, num_iter=2, dropout=False, ):
+    def __init__(self, config, obj_classes, rel_classes, in_channels, hidden_dim=512, num_iter=2, dropout=False, ):
         super(GPSNetContext, self).__init__()
-        self.cfg = cfg
+        self.cfg = config
         self.filter_the_mp_instance = False
         self.relness_weighting_mp = False
-               # mode
-        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-            if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
+
+        # mode
+        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
+            if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
                 self.mode = "predcls"
             else:
                 self.mode = "sgcls"
@@ -215,12 +219,13 @@ class GPSNetContext(nn.Module):
         self.update_step = num_iter
         self.pooling_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
         self.num_rel_cls = self.cfg.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
+        self.num_obj_cls = self.cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES
 
         if self.update_step < 1:
             print(
                 "WARNING: the update_step should be greater than 0, current: ", + self.update_step)
 
-        self.pairwise_feature_extractor = PairwiseFeatureExtractor(cfg, in_channels)
+        self.pairwise_feature_extractor = PairwiseFeatureExtractor(self.cfg, in_channels)
 
         self.pairwise_obj_feat_updim_fc = nn.Sequential(
             make_fc(self.pooling_dim, self.hidden_dim * 2),
@@ -268,6 +273,9 @@ class GPSNetContext(nn.Module):
             nn.ReLU()
         )
 
+        self.obj_classifier = build_classifier(self.pooling_dim, self.num_obj_cls)
+        self.obj_classifier.reset_parameters()
+        self.obj_decode = not (self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE)
 
     def _pre_predciate_classification(self, relatedness_scores, proposals, rel_pair_inds,
                                       refine_iter, refine_rel_feats_each_iters):
@@ -445,13 +453,10 @@ class GPSNetContext(nn.Module):
     def forward(self, inst_features, rel_union_features, proposals, rel_pair_inds, relatedness=None):
         num_inst_proposals = [len(b) for b in proposals]
         # first, augment the entities and predicate features by pairwise results
-        augment_obj_feat, rel_feats = self.pairwise_feature_extractor(inst_features, rel_union_features,
-                                                                      proposals, rel_pair_inds, )
+        augment_obj_feat, rel_feats = self.pairwise_feature_extractor(inst_features, rel_union_features, proposals, rel_pair_inds)
 
-        relatedness_each_iters = []
         refine_rel_feats_each_iters = [rel_feats]
         refine_entit_feats_each_iters = [augment_obj_feat]
-        pre_cls_logits_each_iter = []
 
         rel_graph_iter_feat = []
         obj_graph_iter_feat = []
@@ -459,7 +464,7 @@ class GPSNetContext(nn.Module):
         for _ in range(1):
             valid_inst_idx = []
             curr_iter_relatedness = None
-                # filter the instance
+            # filter the instance
             valid_inst_idx = None
             if self.mode == "sgdet":
                 score_thresh = 0.02
@@ -538,14 +543,26 @@ class GPSNetContext(nn.Module):
             paired_inst_feats = self.pairwise_rel_features(msp_inst_feats_each_iters[-1], batchwise_rel_pair_inds)
             refine_rel_feats_each_iters.append(paired_inst_feats + msp_rel_feats_each_iters[-1])
 
-
-
         refined_inst_features = refine_entit_feats_each_iters[-1]
 
         refined_rel_features = refine_rel_feats_each_iters[-1]
 
-        return refined_inst_features, refined_rel_features, None, None
+        # decode object labels
+        if self.obj_decode:
+            refined_obj_logits = self.obj_classifier(refined_inst_features)
+            boxes_per_cls = cat(
+                [proposal.get_field("boxes_per_cls") for proposal in proposals], dim=0
+            )
+            refined_obj_pred_labels = obj_prediction_nms(
+                boxes_per_cls, refined_obj_logits, nms_thresh=0.5
+            )
+            obj_pred_labels = refined_obj_pred_labels
+        else:
+            obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
+            obj_labels = obj_labels.long()
+            obj_pred_labels = to_onehot(obj_labels, self.num_obj_cls)
 
+        return refined_inst_features, obj_pred_labels, refined_rel_features, None
 
 class PairwiseFeatureExtractor(nn.Module):
     """

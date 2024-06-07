@@ -2,6 +2,7 @@
 from collections import OrderedDict
 
 from torch import nn
+import torch
 
 from sgg_benchmark.modeling import registry
 from sgg_benchmark.modeling.make_layers import conv_with_kaiming_uniform
@@ -10,6 +11,12 @@ from . import resnet
 from . import vgg
 from .yolov8 import YoloV8
 from .yolov8world import YoloV8World
+
+@registry.BACKBONES.register("dinov2")
+def build_dinov2_backbone(cfg):
+    model = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14')
+    model.out_channels = 768
+    return model
 
 @registry.BACKBONES.register("yolov8")
 def build_yolov8_backbone(cfg):

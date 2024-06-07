@@ -12,7 +12,6 @@ from sgg_benchmark.structures.boxlist_ops import cat_boxlist
 from ..backbone import build_backbone
 from ..roi_heads.roi_heads import build_roi_heads
 
-
 class GeneralizedYOLO(nn.Module):
     """
     Main class for Generalized YOLO. Currently supports boxes and masks.
@@ -29,6 +28,14 @@ class GeneralizedYOLO(nn.Module):
         self.predcls = self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL
         self.add_gt = self.cfg.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN
         self.export = False
+
+        # new empty cfg
+        new_cfg = self.cfg.clone()
+        # unfreeze
+        new_cfg.defrost()
+        # set the backbone to dinov2
+        new_cfg.MODEL.BACKBONE.TYPE = "dinov2"
+        self.feat_backbone = build_backbone(new_cfg)
 
     def forward(self, images, targets=None, logger=None):
         """
@@ -47,9 +54,12 @@ class GeneralizedYOLO(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
+        targets = [target.resize((images.image_sizes[0][0], images.image_sizes[0][1])) for target in targets if len(target) > 0]
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, embed=True)
+            # get dino features
             proposals = self.backbone.postprocess(outputs, images.image_sizes)
+            features = self.feat_backbone.get_intermediate_layers(images.tensors, 4, reshape=True)
 
         if self.roi_heads.training and (targets is not None) and self.add_gt:
             proposals = self.add_gt_proposals(proposals,targets)
@@ -73,7 +83,6 @@ class GeneralizedYOLO(nn.Module):
                 x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
         else:
             # RPN-only models don't have roi_heads
-            x = features
             result = proposals
             detector_losses = {}
 

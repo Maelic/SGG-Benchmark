@@ -88,7 +88,6 @@ def sort_by_score(proposals, scores):
 
     return perm, inv_perm, ls_transposed
 
-
 def to_onehot(vec, num_classes, fill=1000):
     """
     Creates a [size, num_classes] torch FloatTensor where
@@ -104,7 +103,6 @@ def to_onehot(vec, num_classes, fill=1000):
 
     onehot_result.view(-1)[vec.long() + num_classes*arange_inds] = fill
     return onehot_result
-
 
 
 def get_dropout_mask(dropout_probability, tensor_shape, device):

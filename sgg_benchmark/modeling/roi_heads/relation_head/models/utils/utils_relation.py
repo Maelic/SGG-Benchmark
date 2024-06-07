@@ -135,3 +135,24 @@ def block_orthogonal(tensor, split_sizes, gain=1.0):
         tensor_copy = tensor.new(max(sizes), max(sizes))
         torch.nn.init.orthogonal_(tensor_copy, gain=gain)
         tensor[block_slice] = tensor_copy[0:sizes[0], 0:sizes[1]]
+
+def nms_per_cls(obj_dists, boxes_per_cls, num_objs, nms_thresh=0.7):
+    obj_dists = obj_dists.split(num_objs, dim=0)
+    obj_preds = []
+    for i in range(len(num_objs)):
+        is_overlap = nms_overlaps(boxes_per_cls[i]).cpu().detach().numpy() >= nms_thresh # (#box, #box, #class)
+
+        out_dists_sampled = F.softmax(obj_dists[i], -1).cpu().detach().numpy()
+        out_dists_sampled[:, 0] = -1
+
+        out_label = obj_dists[i].new(num_objs[i]).fill_(0)
+
+        for i in range(num_objs[i]):
+            box_ind, cls_ind = np.unravel_index(out_dists_sampled.argmax(), out_dists_sampled.shape)
+            out_label[int(box_ind)] = int(cls_ind)
+            out_dists_sampled[is_overlap[box_ind,:,cls_ind], cls_ind] = 0.0
+            out_dists_sampled[box_ind] = -1.0 # This way we won't re-sample
+
+        obj_preds.append(out_label.long())
+    obj_preds = torch.cat(obj_preds, dim=0)
+    return obj_preds

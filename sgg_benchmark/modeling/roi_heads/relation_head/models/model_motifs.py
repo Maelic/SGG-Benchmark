@@ -399,7 +399,6 @@ class LSTMContext_RNN(nn.Module):
 
         return obj_dists, obj_preds, edge_ctx, None
 
-
 class LSTMContext(nn.Module):
     """
     Modified from neural-motifs to encode contexts for each objects
