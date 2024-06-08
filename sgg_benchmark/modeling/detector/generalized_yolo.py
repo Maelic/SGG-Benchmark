@@ -47,6 +47,7 @@ class GeneralizedYOLO(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
+
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, embed=True)
             proposals = self.backbone.postprocess(outputs, images.image_sizes)
