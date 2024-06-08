@@ -54,7 +54,7 @@ class GeneralizedYOLO(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
-        targets = [target.resize((images.image_sizes[0][0], images.image_sizes[0][1])) for target in targets if len(target) > 0]
+
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, embed=True)
             # get dino features
