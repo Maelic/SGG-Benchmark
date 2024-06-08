@@ -599,6 +599,8 @@ class PairwiseFeatureExtractor(nn.Module):
         self.hidden_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
         self.pooling_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
 
+        self.spatial_for_vision = self.cfg.MODEL.ROI_RELATION_HEAD.SPATIAL_FOR_VISION
+
         self.word_embed_feats_on = True
         if self.word_embed_feats_on:
             obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING,  wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
@@ -635,7 +637,6 @@ class PairwiseFeatureExtractor(nn.Module):
         ])
 
         if self.rel_feature_type in ["obj_pair", "fusion"]:
-            self.spatial_for_vision = True
             if self.spatial_for_vision:
                 self.spt_emb = nn.Sequential(*[make_fc(32, self.hidden_dim),
                                                nn.ReLU(inplace=True),

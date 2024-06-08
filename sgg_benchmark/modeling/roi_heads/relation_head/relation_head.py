@@ -22,7 +22,6 @@ class ROIRelationHead(torch.nn.Module):
         # same structure with box head, but different parameters
         # these param will be trained in a slow learning rate, while the parameters of box head will be fixed
         # Note: there is another such extractor in uniton_feature_extractor
-        self.union_feature_extractor = make_roi_relation_feature_extractor(cfg, in_channels)
         if cfg.MODEL.ATTRIBUTE_ON:
             self.box_feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, half_out=True)
             self.att_feature_extractor = make_roi_attribute_feature_extractor(cfg, in_channels, half_out=True)
@@ -42,7 +41,10 @@ class ROIRelationHead(torch.nn.Module):
         self.samp_processor = make_roi_relation_samp_processor(cfg)
 
         # parameters
-        self.use_union_box = self.cfg.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_union_box = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
+
+        if self.use_union_box:
+            self.union_feature_extractor = make_roi_relation_feature_extractor(cfg, in_channels)
 
     def forward(self, features, proposals, targets=None, logger=None):
         """

@@ -30,7 +30,7 @@ class TransformerHierPredictor(nn.Module):
 
         assert in_channels is not None
         num_inputs = in_channels
-        self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_vision = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
         self.use_bias = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS
 
         # load class dict
@@ -152,7 +152,7 @@ class MotifHierarchicalPredictor(nn.Module):
 
         assert in_channels is not None
         num_inputs = in_channels
-        self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_vision = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
         self.use_bias = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS
 
         # load class dict
@@ -415,7 +415,7 @@ class CausalAnalysisHierPredictor(nn.Module):
         super(CausalAnalysisHierPredictor, self).__init__()
         self.cfg = config
         self.attribute_on = config.MODEL.ATTRIBUTE_ON
-        self.spatial_for_vision = config.MODEL.ROI_RELATION_HEAD.CAUSAL.SPATIAL_FOR_VISION
+        self.spatial_for_vision = config.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
         self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
         self.fusion_type = config.MODEL.ROI_RELATION_HEAD.CAUSAL.FUSION_TYPE

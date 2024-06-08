@@ -29,13 +29,13 @@ class GeneralizedYOLO(nn.Module):
         self.add_gt = self.cfg.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN
         self.export = False
 
-        # new empty cfg
-        new_cfg = self.cfg.clone()
-        # unfreeze
-        new_cfg.defrost()
-        # set the backbone to dinov2
-        new_cfg.MODEL.BACKBONE.TYPE = "dinov2"
-        self.feat_backbone = build_backbone(new_cfg)
+        # # new empty cfg
+        # new_cfg = self.cfg.clone()
+        # # unfreeze
+        # new_cfg.defrost()
+        # # set the backbone to dinov2
+        # new_cfg.MODEL.BACKBONE.TYPE = "dinov2"
+        # self.feat_backbone = build_backbone(new_cfg)
 
     def forward(self, images, targets=None, logger=None):
         """
@@ -59,7 +59,7 @@ class GeneralizedYOLO(nn.Module):
             outputs, features = self.backbone(images.tensors, embed=True)
             # get dino features
             proposals = self.backbone.postprocess(outputs, images.image_sizes)
-            features = self.feat_backbone.get_intermediate_layers(images.tensors, 4, reshape=True)
+            # features = self.feat_backbone.get_intermediate_layers(images.tensors, 4, reshape=True)
 
         if self.roi_heads.training and (targets is not None) and self.add_gt:
             proposals = self.add_gt_proposals(proposals,targets)

@@ -40,6 +40,8 @@ class PrototypeEmbeddingNetwork(BasePredictor):
 
         self.mlp_dim = self.cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
+        self.spatial_for_vision = config.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
+        self.use_union = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
 
         self.down_samp = MLP(self.pooling_dim, self.mlp_dim, self.mlp_dim, 2) 
         self.vis2sem = nn.Linear(self.pooling_dim, self.mlp_dim)
@@ -63,10 +65,12 @@ class PrototypeEmbeddingNetwork(BasePredictor):
 
         entity_dists, _, fusion_so, _ = self.context_layer(roi_features, proposals, rel_pair_idxs, logger)
 
-        sem_pred = self.vis2sem(self.down_samp(union_features))  # h(xu)
-        gate_sem_pred = torch.sigmoid(self.gate_pred(cat((fusion_so, sem_pred), dim=-1)))  # gp
-
-        rel_rep = fusion_so - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
+        if self.use_union:
+            sem_pred = self.vis2sem(self.down_samp(union_features))  # h(xu)
+            gate_sem_pred = torch.sigmoid(self.gate_pred(cat((fusion_so, sem_pred), dim=-1)))  # gp
+            rel_rep = fusion_so - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
+        else:
+            rel_rep = fusion_so # - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
         predicate_proto = self.W_pred(self.rel_embed.weight)  # c = Wp x tp  i.e., semantic prototypes
         
         ##### for the model convergence
@@ -89,7 +93,6 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         rel_dists = rel_dists.split(num_rels, dim=0)
 
         if self.training:
-
             ### Prototype Regularization  ---- cosine similarity
             target_rpredicate_proto_norm = predicate_proto_norm.clone().detach() 
             simil_mat = predicate_proto_norm @ target_rpredicate_proto_norm.t()  # Semantic Matrix S = C_norm @ C_norm.T
@@ -132,7 +135,7 @@ class CausalAnalysisPredictor(BasePredictor):
         super().__init__(config, in_channels)
         self.cfg = config
 
-        self.spatial_for_vision = config.MODEL.ROI_RELATION_HEAD.CAUSAL.SPATIAL_FOR_VISION
+        self.spatial_for_vision = config.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
         self.fusion_type = config.MODEL.ROI_RELATION_HEAD.CAUSAL.FUSION_TYPE
         self.separate_spatial = config.MODEL.ROI_RELATION_HEAD.CAUSAL.SEPARATE_SPATIAL
         self.use_vtranse = config.MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER == "vtranse"

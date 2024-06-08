@@ -50,7 +50,7 @@ class BasePredictor(nn.Module):
 
         self.hidden_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
         self.pooling_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
-        self.use_vision = self.cfg.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_vision = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
 
         # mode
         if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
@@ -312,7 +312,6 @@ class MotifPredictor(BasePredictor):
                 return rel_dists, add_losses
             else:
                 return obj_dists, rel_dists, add_losses
-
 
 @registry.ROI_RELATION_PREDICTOR.register("VCTreePredictor")
 class VCTreePredictor(BasePredictor):

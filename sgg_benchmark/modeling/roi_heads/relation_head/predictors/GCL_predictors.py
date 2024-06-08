@@ -29,7 +29,7 @@ class TransLike_GCL(nn.Module):
 
         assert in_channels is not None
         num_inputs = in_channels
-        self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_vision = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
         self.use_bias = config.GLOBAL_SETTING.USE_BIAS
 
         # load class dict
@@ -387,7 +387,7 @@ class MotifsLikePredictor(nn.Module):
 
         assert in_channels is not None
         num_inputs = in_channels
-        self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_vision = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
         self.use_bias = config.GLOBAL_SETTING.USE_BIAS
 
         # load class dict
@@ -503,7 +503,7 @@ class MotifsLike_GCL(nn.Module):
 
         assert in_channels is not None
         num_inputs = in_channels
-        self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_vision = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
         self.use_bias = config.GLOBAL_SETTING.USE_BIAS
 
         # load class dict
@@ -1179,7 +1179,7 @@ class TransLikePredictor(nn.Module):
 
         assert in_channels is not None
         num_inputs = in_channels
-        self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.use_vision = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
         self.use_bias = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS
 
         # load class dict
