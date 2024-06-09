@@ -239,6 +239,10 @@ class TransformerContext(nn.Module):
         self.context_edge = TransformerEncoder(self.edge_layer, self.num_head, self.k_dim, 
                                                 self.v_dim, self.hidden_dim, self.inner_dim, self.dropout_rate)
     
+        self.use_text_features_only = False
+        self.use_visual_features_only = True
+        self.use_pos_embed = True
+
     def forward(self, roi_features, proposals, rel_pair_idx, logger=None):
         # labels will be used in DecoderRNN during training
         use_gt_label = self.training or not self.obj_decode

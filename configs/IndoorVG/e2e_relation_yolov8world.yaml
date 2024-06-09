@@ -68,6 +68,8 @@ MODEL:
     EMBED_DIM: 512
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
+    USE_SPATIAL_FEATURES: True
+    USE_UNION_FEATURES: True
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
     NUM_CLASSES: 38                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
@@ -93,7 +95,6 @@ MODEL:
       FUSION_TYPE: 'sum'              # candicates: 'sum', 'gate'         
       SEPARATE_SPATIAL: False         # separate spatial in union feature
       CONTEXT_LAYER: "motifs"         # candicates: motifs, vctree, vtranse
-      SPATIAL_FOR_VISION: True
       EFFECT_ANALYSIS: True
     ############### Parameters for Transformer Predictor ##############
     TRANSFORMER:

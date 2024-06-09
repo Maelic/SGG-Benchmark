@@ -84,7 +84,7 @@ class LetterBox:
             img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
         )  # add border
 
-        target = target.resize((new_shape[1], new_shape[0])) if target is not None else None
+        # target = target.resize((new_unpad[1], new_unpad[0])) if target is not None else None
 
         return img, target
 

@@ -157,6 +157,9 @@ class SHA_Context(nn.Module):
 
         self.obj_decode = not (self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE)
 
+        self.use_text_features_only = self.cfg.MODEL.ROI_RELATION_HEAD.TEXTUAL_FEATURES_ONLY
+        self.use_visual_features_only = self.cfg.MODEL.ROI_RELATION_HEAD.VISUAL_FEATURES_ONLY
+
     def forward(self, roi_features, proposals, rel_pair_idxs, logger=None):
         obj_labels = None
         if self.obj_decode: # backbone is completely frozen and we consider predictions as GT

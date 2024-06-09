@@ -70,6 +70,9 @@ class PENetContext(nn.Module):
 
         self.obj_decode = not (self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE)
 
+        self.use_text_features_only = self.cfg.MODEL.ROI_RELATION_HEAD.TEXTUAL_FEATURES_ONLY
+        self.use_visual_features_only = self.cfg.MODEL.ROI_RELATION_HEAD.VISUAL_FEATURES_ONLY
+
     def forward(self, roi_features, proposals, rel_pair_idxs, logger=None):
         # refine object labels
         if self.obj_decode:
@@ -83,7 +86,6 @@ class PENetContext(nn.Module):
         sub_rep = entity_rep[:, 1].contiguous().view(-1, self.mlp_dim)    # xs
         obj_rep = entity_rep[:, 0].contiguous().view(-1, self.mlp_dim)    # xo
 
-        entity_embeds = self.obj_embed(entity_preds) # obtaining the word embedding of entities with GloVe 
 
         num_rels = [r.shape[0] for r in rel_pair_idxs]
         num_objs = [len(b) for b in proposals]
@@ -91,24 +93,46 @@ class PENetContext(nn.Module):
 
         sub_reps = sub_rep.split(num_objs, dim=0)
         obj_reps = obj_rep.split(num_objs, dim=0)
+
+        if not self.use_visual_features_only:
+            entity_embeds = self.obj_embed(entity_preds) # obtaining the word embedding of entities with GloVe 
+            entity_embeds = entity_embeds.split(num_objs, dim=0)
+        else:
+            # tensor of zeros of size (num_objs, embed_dim)
+            entity_embeds = torch.zeros((sum(num_objs), self.embed_dim), device=roi_features.device)
+
         entity_preds = entity_preds.split(num_objs, dim=0)
-        entity_embeds = entity_embeds.split(num_objs, dim=0)
 
         fusion_so = []
 
         for pair_idx, sub_rep, obj_rep, entity_embed in zip(rel_pair_idxs, sub_reps, obj_reps, entity_embeds):
-
-            s_embed = self.W_sub(entity_embed[pair_idx[:, 0]])  #  Ws x ts
-            o_embed = self.W_obj(entity_embed[pair_idx[:, 1]])  #  Wo x to
-
-            sem_sub = self.vis2sem(sub_rep[pair_idx[:, 0]])  # h(xs)
-            sem_obj = self.vis2sem(obj_rep[pair_idx[:, 1]])  # h(xo)
             
-            gate_sem_sub = torch.sigmoid(self.gate_sub(cat((s_embed, sem_sub), dim=-1)))  # gs
-            gate_sem_obj = torch.sigmoid(self.gate_obj(cat((o_embed, sem_obj), dim=-1)))  # go
+            if self.use_text_features_only:
+                s_embed = self.W_sub(entity_embed[pair_idx[:, 0]])  #  Ws x ts
+                o_embed = self.W_obj(entity_embed[pair_idx[:, 1]])  #  Wo x to
 
-            sub = s_embed + sem_sub * gate_sem_sub  # s = Ws x ts + gs · h(xs)  i.e., s = Ws x ts + vs
-            obj = o_embed + sem_obj * gate_sem_obj  # o = Wo x to + go · h(xo)  i.e., o = Wo x to + vo
+                sub = s_embed  # s = Ws x ts
+                obj = o_embed  # o = Wo x to
+
+            elif self.use_visual_features_only:
+                sem_sub = self.vis2sem(sub_rep[pair_idx[:, 0]])  # h(xs)
+                sem_obj = self.vis2sem(obj_rep[pair_idx[:, 1]])  # h(xo)
+  
+                sub = sem_sub
+                obj = sem_obj
+
+            else: # original full model
+                s_embed = self.W_sub(entity_embed[pair_idx[:, 0]])  #  Ws x ts
+                o_embed = self.W_obj(entity_embed[pair_idx[:, 1]])  #  Wo x to
+
+                sem_sub = self.vis2sem(sub_rep[pair_idx[:, 0]])
+                sem_obj = self.vis2sem(obj_rep[pair_idx[:, 1]])
+
+                gate_sem_sub = torch.sigmoid(self.gate_sub(cat((s_embed, sem_sub), dim=-1)))
+                gate_sem_obj = torch.sigmoid(self.gate_obj(cat((o_embed, sem_obj), dim=-1)))
+
+                sub = s_embed + sem_sub * gate_sem_sub  # s = Ws x ts + gs · h(xs)  i.e., s = Ws x ts + vs
+                obj = o_embed + sem_obj * gate_sem_obj  # o = Wo x to + go · h(xo)  i.e., o = Wo x to + vo
 
             ##### for the model convergence
             sub = self.norm_sub(self.dropout_sub(torch.relu(self.linear_sub(sub))) + sub)
