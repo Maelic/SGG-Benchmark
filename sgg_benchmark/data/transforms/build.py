@@ -38,7 +38,7 @@ def build_transforms(cfg, is_train=True):
         transform = T.Compose(
             [
                 color_jitter,
-                T.LetterBox(new_shape=(min_size, max_size)),
+                # T.LetterBox(new_shape=(min_size, max_size)),
                 T.ToTensorYOLO(),
             ]
         )
@@ -46,7 +46,7 @@ def build_transforms(cfg, is_train=True):
         transform = T.Compose(
             [
                 color_jitter,
-                T.LetterBox(new_shape=(min_size, max_size)),
+                T.Resize(min_size, max_size),
                 T.RandomHorizontalFlip(flip_horizontal_prob),
                 T.RandomVerticalFlip(flip_vertical_prob),
                 T.ToTensor(),
