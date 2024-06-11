@@ -233,15 +233,15 @@ class TransformerContext(nn.Module):
         ])
         self.lin_obj = nn.Linear(self.in_channels + self.embed_dim + 128, self.hidden_dim)
         self.lin_edge = nn.Linear(self.embed_dim + self.hidden_dim + self.in_channels, self.hidden_dim)
+        self.lin_edge_text = nn.Linear(self.embed_dim, self.hidden_dim)
         self.out_obj = nn.Linear(self.hidden_dim, self.num_obj_cls)
         self.context_obj = TransformerEncoder(self.obj_layer, self.num_head, self.k_dim, 
                                                 self.v_dim, self.hidden_dim, self.inner_dim, self.dropout_rate)
         self.context_edge = TransformerEncoder(self.edge_layer, self.num_head, self.k_dim, 
                                                 self.v_dim, self.hidden_dim, self.inner_dim, self.dropout_rate)
     
-        self.use_text_features_only = False
-        self.use_visual_features_only = True
-        self.use_pos_embed = True
+        self.use_text_features_only = self.cfg.MODEL.ROI_RELATION_HEAD.TEXTUAL_FEATURES_ONLY
+        self.use_visual_features_only = self.cfg.MODEL.ROI_RELATION_HEAD.VISUAL_FEATURES_ONLY
 
     def forward(self, roi_features, proposals, rel_pair_idx, logger=None):
         # labels will be used in DecoderRNN during training
@@ -269,7 +269,6 @@ class TransformerContext(nn.Module):
         if not self.obj_decode:
             obj_preds = obj_labels
             obj_dists = to_onehot(obj_preds, self.num_obj_cls)
-            edge_pre_rep = cat((roi_features, obj_feats, self.obj_embed2(obj_labels)), dim=-1)
         else:
             obj_dists = self.out_obj(obj_feats)
             use_decoder_nms = self.obj_decode and not self.training
@@ -278,6 +277,14 @@ class TransformerContext(nn.Module):
                 obj_preds = nms_per_cls(obj_dists, boxes_per_cls, num_objs, self.nms_thresh)
             else:
                 obj_preds = obj_dists[:, 1:].max(1)[1] + 1
+
+        if self.use_text_features_only:
+            edge_pre_rep = self.obj_embed2(obj_preds)
+            edge_pre_rep = self.lin_edge_text(edge_pre_rep)
+            return obj_dists, obj_preds, edge_pre_rep, None
+        elif self.use_visual_features_only:
+            edge_pre_rep = cat((roi_features, obj_feats), dim=-1)
+        else:
             edge_pre_rep = cat((roi_features, obj_feats, self.obj_embed2(obj_preds)), dim=-1)
 
         # edge context
@@ -285,3 +292,4 @@ class TransformerContext(nn.Module):
         edge_ctx = self.context_edge(edge_pre_rep, num_objs)
 
         return obj_dists, obj_preds, edge_ctx, None
+        

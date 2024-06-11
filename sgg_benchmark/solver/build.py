@@ -30,7 +30,6 @@ def make_optimizer(cfg, model, logger, slow_heads=None, slow_ratio=5.0, rl_facto
         raise ValueError("Invalid Optimizer Type")
     return optimizer
 
-
 def make_lr_scheduler(cfg, optimizer, logger=None):
     if cfg.SOLVER.SCHEDULE.TYPE == "WarmupMultiStepLR":
         return WarmupMultiStepLR(

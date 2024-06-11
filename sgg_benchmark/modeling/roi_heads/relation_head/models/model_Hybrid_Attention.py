@@ -186,8 +186,7 @@ class SHA_Context(nn.Module):
         if not self.obj_decode:
             obj_preds = obj_labels
             obj_dists = to_onehot(obj_preds, self.num_obj_cls)
-            edge_pre_rep_vis = cat((roi_features, obj_feats), dim=-1)
-            edge_pre_rep_txt = self.obj_embed2(obj_labels)
+
         else:
             obj_dists = self.out_obj(obj_feats)
             use_decoder_nms = self.mode == 'sgdet' and not self.training
@@ -196,8 +195,9 @@ class SHA_Context(nn.Module):
                 obj_preds = nms_per_cls(obj_dists, boxes_per_cls, num_objs)
             else:
                 obj_preds = obj_dists[:, 1:].max(1)[1] + 1
-            edge_pre_rep_vis = cat((roi_features, obj_feats), dim=-1)
-            edge_pre_rep_txt = self.obj_embed2(obj_preds)
+        
+        edge_pre_rep_vis = cat((roi_features, obj_feats), dim=-1)
+        edge_pre_rep_txt = self.obj_embed2(obj_preds)
 
         # edge context
         edge_pre_rep_vis = self.lin_edge_visual(edge_pre_rep_vis)

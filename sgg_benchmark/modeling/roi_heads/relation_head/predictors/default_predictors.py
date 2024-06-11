@@ -160,9 +160,9 @@ class TransformerPredictor(BasePredictor):
             union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
         """
         if self.attribute_on:
-            obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
+            obj_dists, obj_preds, att_dists, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
         else:
-            obj_dists, obj_preds, edge_ctx = self.context_layer(roi_features, proposals, logger)
+            obj_dists, obj_preds, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
 
         # post decode
         edge_rep = self.post_emb(edge_ctx)
@@ -196,7 +196,9 @@ class TransformerPredictor(BasePredictor):
             else:
                 visual_rep = ctx_gate * union_features
 
-        rel_dists = self.rel_compress(visual_rep) + self.ctx_compress(prod_rep)
+            rel_dists = self.rel_compress(visual_rep) + self.ctx_compress(prod_rep)
+        else:
+            rel_dists = self.ctx_compress(prod_rep)
                 
         # use frequence bias
         if self.use_bias:

@@ -3,13 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sgg_benchmark.layers import fusion_func
 from sgg_benchmark.modeling.utils import cat
-from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors, rel_vectors
+from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
 from sgg_benchmark.layers import MLP
 from sgg_benchmark.modeling.make_layers import make_fc
 from ..models.utils.utils_motifs import to_onehot, encode_box_info
 from .utils.utils_relation import nms_per_cls
-
-import numpy as np
 
 class PENetContext(nn.Module):
     def __init__(self, config, obj_classes, rel_classes, in_channels, dropout_p=0.2):
@@ -86,7 +84,6 @@ class PENetContext(nn.Module):
         sub_rep = entity_rep[:, 1].contiguous().view(-1, self.mlp_dim)    # xs
         obj_rep = entity_rep[:, 0].contiguous().view(-1, self.mlp_dim)    # xo
 
-
         num_rels = [r.shape[0] for r in rel_pair_idxs]
         num_objs = [len(b) for b in proposals]
         assert len(num_rels) == len(num_objs)
@@ -106,7 +103,6 @@ class PENetContext(nn.Module):
         fusion_so = []
 
         for pair_idx, sub_rep, obj_rep, entity_embed in zip(rel_pair_idxs, sub_reps, obj_reps, entity_embeds):
-            
             if self.use_text_features_only:
                 s_embed = self.W_sub(entity_embed[pair_idx[:, 0]])  #  Ws x ts
                 o_embed = self.W_obj(entity_embed[pair_idx[:, 1]])  #  Wo x to

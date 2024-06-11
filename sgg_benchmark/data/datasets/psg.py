@@ -5,8 +5,8 @@ import numpy as np
 import torch
 
 import json
-from PIL import Image
 import cv2
+import os
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from tqdm import tqdm
@@ -96,7 +96,9 @@ class PSGDataset(torch.utils.data.Dataset):
         # self.CLASSES = self.THING_CLASSES + self.STUFF_CLASSES
 
         # new, without -merged and -other
-        with open('datasets/psg/obj_classes.txt', 'r') as f:
+        # get path of ann_file
+        anno_path = os.path.dirname(ann_file)
+        with open(os.path.join(anno_path, 'obj_classes.txt'), 'r') as f:
             self.CLASSES = f.read().splitlines()
         
         self.PREDICATES = dataset['predicate_classes']

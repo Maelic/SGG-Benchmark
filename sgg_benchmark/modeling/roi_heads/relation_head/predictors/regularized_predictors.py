@@ -229,10 +229,10 @@ class CausalAnalysisPredictor(BasePredictor):
             if self.use_vtranse:
                 ctx_reps.append( head_rep[pair_idx[:,0]] - tail_rep[pair_idx[:,1]] )
             else:
-                ctx_reps.append( torch.cat((head_rep[pair_idx[:,0]], tail_rep[pair_idx[:,1]]), dim=-1) )
-            pair_preds.append( torch.stack((obj_pred[pair_idx[:,0]], obj_pred[pair_idx[:,1]]), dim=1) )
-            pair_obj_probs.append( torch.stack((obj_prob[pair_idx[:,0]], obj_prob[pair_idx[:,1]]), dim=2) )
-            pair_bboxs_info.append( get_box_pair_info(obj_box[pair_idx[:,0]], obj_box[pair_idx[:,1]]) )
+                ctx_reps.append(torch.cat((head_rep[pair_idx[:,0]], tail_rep[pair_idx[:,1]]), dim=-1))
+            pair_preds.append(torch.stack((obj_pred[pair_idx[:,0]], obj_pred[pair_idx[:,1]]), dim=1))
+            pair_obj_probs.append(torch.stack((obj_prob[pair_idx[:,0]], obj_prob[pair_idx[:,1]]), dim=2))
+            pair_bboxs_info.append(get_box_pair_info(obj_box[pair_idx[:,0]], obj_box[pair_idx[:,1]]))
         pair_obj_probs = cat(pair_obj_probs, dim=0)
         pair_bbox = cat(pair_bboxs_info, dim=0)
         pair_pred = cat(pair_preds, dim=0)
