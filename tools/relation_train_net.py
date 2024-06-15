@@ -166,6 +166,16 @@ def train(cfg, logger, args):
             # load backbone weights
             logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
     
+    trained_params = [n for n, p in model.named_parameters() if p.requires_grad]
+    pretrain_mask = (cfg.MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.PRETRAIN_MASK and cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == "SquatPredictor")
+    if pretrain_mask:
+        STOP_ITER = cfg.MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.PRETRAIN_MASK_EPOCH
+        for n, p in model.named_parameters(): 
+            if p.requires_grad and 'mask_predictor' not in n: 
+                p.requires_grad = False
+    else:
+        STOP_ITER = -1
+
     mode = get_mode(cfg)
 
     logger_step(logger, 'Building checkpointer')
@@ -195,6 +205,10 @@ def train(cfg, logger, args):
     start_training_time = time.time()
 
     for epoch in range(0, max_epoch):
+        if pretrain_mask and epoch == STOP_ITER:
+            for n, p in model.named_parameters(): 
+                if n in trained_params: 
+                    p.requires_grad = True
 
         if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
             model.train()
@@ -205,7 +219,7 @@ def train(cfg, logger, args):
             model.backbone.eval()
 
         start_epoch_time = time.time()
-        loss = train_one_epoch(model, optimizer, train_data_loader, device, epoch, logger, cfg, scaler, args['use_wandb'], use_amp)
+        _ = train_one_epoch(model, optimizer, train_data_loader, device, epoch, logger, cfg, scaler, args['use_wandb'], use_amp)
         logger.info("Epoch {} training time: {:.2f} s".format(epoch, time.time() - start_epoch_time))
 
         if not args['save_best']:

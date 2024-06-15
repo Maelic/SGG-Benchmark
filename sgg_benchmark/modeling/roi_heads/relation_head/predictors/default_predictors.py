@@ -4,11 +4,7 @@ from sgg_benchmark.modeling import registry
 from torch import nn
 from torch.nn import functional as F
 
-from sgg_benchmark.layers import Label_Smoothing_Regression
-from sgg_benchmark.layers import MLP
-from sgg_benchmark.layers import fusion_func
 from sgg_benchmark.modeling.utils import cat
-from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors, rel_vectors
 
 from ..models.model_msg_passing import IMPContext
 from ..models.model_vtranse import VTransEFeature
@@ -18,15 +14,14 @@ from ..models.model_motifs_with_attribute import AttributeLSTMContext
 from ..models.model_transformer import TransformerContext
 from ..models.model_gpsnet import GPSNetContext
 from ..models.model_penet import PENetContext
+from ..models.model_squat import SquatContext
 
 from ..models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info
 from ..models.utils.classifiers import build_classifier
 from ..models.utils.utils_motifs import to_onehot
 from ..models.utils.utils_relation import obj_prediction_nms
-from sgg_benchmark.modeling.make_layers import make_fc
 
 from sgg_benchmark.data import get_dataset_statistics
-
 class BasePredictor(nn.Module):
     def __init__(self, config, in_channels):
         super(BasePredictor, self).__init__()
@@ -62,8 +57,8 @@ class BasePredictor(nn.Module):
             self.mode = "sgdet"
 
         self.freeze_backbone = self.cfg.MODEL.BACKBONE.FREEZE
+        self.obj_decode = not (self.freeze_backbone or self.mode == "predcls")
 
-        # freq 
         if self.use_bias:
             self.freq_bias = FrequencyBias(self.cfg, self.statistics)
 
@@ -454,11 +449,7 @@ class GPSNetPredictor(BasePredictor):
             union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
         """
 
-        _, obj_pred_labels, rel_feats = self.context_layer(roi_features, union_features, inst_proposals, rel_pair_idxs, rel_binarys)
-
-        # if relatedness is not None:
-        #     for idx, prop in enumerate(inst_proposals):
-        #         prop.add_field("relness_mat", relatedness[idx])
+        obj_pred_logits, obj_pred_labels, rel_feats = self.context_layer(roi_features, union_features, inst_proposals, rel_pair_idxs, rel_binarys)
 
         rel_cls_logits = self.rel_classifier(rel_feats)
 
@@ -484,5 +475,264 @@ class GPSNetPredictor(BasePredictor):
         add_losses = {}
 
         return obj_pred_logits, rel_cls_logits, add_losses
-    
 
+@registry.ROI_RELATION_PREDICTOR.register("SquatPredictor")
+class SquatPredictor(BasePredictor): 
+    def __init__(self, config, in_channels):
+        super().__init__(config, in_channels)
+
+        self.loss_coef = 1.0
+
+        # self.split_context_model4inst_rel = config.MODEL.ROI_RELATION_HEAD.GRCNN_MODULE.SPLIT_GRAPH4OBJ_REL
+
+        self.context_layer = SquatContext(config, in_channels, hidden_dim=self.hidden_dim)
+
+        self.obj_recls_logits_update_manner = "replace"
+        assert self.obj_recls_logits_update_manner in ["replace", "add"]
+
+        # freq
+        if self.use_bias:
+            statistics = get_dataset_statistics(config)
+            self.freq_bias = FrequencyBias(config, statistics)
+            self.statistics = statistics
+        
+    def forward(self, inst_proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None): 
+        """
+        :param inst_proposals:
+        :param rel_pair_idxs:
+        :param rel_labels:
+        :param rel_binarys:
+            the box pairs with that match the ground truth [num_prp, num_prp]
+        :param roi_features:
+        :param union_features:
+        :param logger:
+
+        Returns:
+            obj_dists (list[Tensor]): logits of object label distribution
+            rel_dists (list[Tensor])
+            rel_pair_idxs (list[Tensor]): (num_rel, 2) index of subject and object
+            union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
+        """
+        score_obj, score_rel, masks = self.context_layer(
+            roi_features, inst_proposals, union_features, rel_pair_idxs, rel_binarys
+        ) # masks : [list[Tensor]]
+        rel_cls_logits = score_rel
+        
+        if not self.obj_decode:
+            obj_labels = cat(
+                [proposal.get_field("labels") for proposal in inst_proposals], dim=0
+            )
+            refined_obj_logits = to_onehot(obj_labels, self.num_obj_cls)
+        else:
+            refined_obj_logits = score_obj
+
+        num_objs = [len(b) for b in inst_proposals]
+        num_rels = [r.shape[0] for r in rel_pair_idxs]
+        assert len(num_rels) == len(num_objs)
+        
+        # using the object results, update the pred label and logits
+        if self.obj_decode:
+            obj_pred_logits = cat(
+                [each_prop.get_field("predict_logits") for each_prop in inst_proposals], dim=0
+            )
+
+            boxes_per_cls = cat(
+                [proposal.get_field("boxes_per_cls") for proposal in inst_proposals], dim=0
+            )  # comes from post process of box_head
+            # here we use the logits refinements by adding
+            if self.obj_recls_logits_update_manner == "add":
+                obj_pred_logits = refined_obj_logits + obj_pred_logits
+            if self.obj_recls_logits_update_manner == "replace":
+                obj_pred_logits = refined_obj_logits
+            refined_obj_pred_labels = obj_prediction_nms(
+                boxes_per_cls, obj_pred_logits, nms_thresh=0.5
+            )
+            obj_pred_labels = refined_obj_pred_labels
+        else:
+            obj_pred_labels = cat(
+                [each_prop.get_field("pred_labels") for each_prop in inst_proposals], dim=0
+            )
+            obj_pred_logits = refined_obj_logits
+            
+        if self.use_bias:
+            obj_pred_labels = obj_pred_labels.split(num_objs, dim=0)
+            pair_preds = []
+            for pair_idx, obj_pred in zip(rel_pair_idxs, obj_pred_labels):
+                pair_preds.append(
+                    torch.stack((obj_pred[pair_idx[:, 0]], obj_pred[pair_idx[:, 1]]), dim=1)
+                )
+            pair_pred = cat(pair_preds, dim=0)
+            rel_cls_logits = rel_cls_logits + self.freq_bias.index_with_labels(
+                pair_pred.long()
+            )
+        
+        add_losses = {}
+        losses = []
+
+        if self.training:
+            masks_q, masks_e2e, masks_n2e = masks 
+
+            for mask, rel_binary, rel_pair_idx in zip(masks_q, rel_binarys, rel_pair_idxs):
+                target = rel_binary[rel_pair_idx[:, 0], rel_pair_idx[:, 1]]
+                target = target.float()
+                loss = F.binary_cross_entropy_with_logits(mask, target)
+                losses.append(loss)
+            losses = sum(losses) / len(losses)
+            add_losses['loss_mask_query'] = losses / 3. * self.loss_coef
+            
+            losses = []
+            for mask, rel_binary, rel_pair_idx in zip(masks_e2e, rel_binarys, rel_pair_idxs):
+                target = rel_binary[rel_pair_idx[:, 0], rel_pair_idx[:, 1]]
+                target = target.float()
+                loss = F.binary_cross_entropy_with_logits(mask, target)
+                losses.append(loss)
+            losses = sum(losses) / len(losses)
+            add_losses['loss_mask_e2e'] = losses / 3. * self.loss_coef
+            
+            losses = []
+            for mask, rel_binary, rel_pair_idx in zip(masks_n2e, rel_binarys, rel_pair_idxs):
+                target = rel_binary[rel_pair_idx[:, 0], rel_pair_idx[:, 1]]
+                target = target.float()
+                loss = F.binary_cross_entropy_with_logits(mask, target)
+                losses.append(loss)
+            losses = sum(losses) / len(losses)
+            add_losses['loss_mask_n2e'] = losses / 3. * self.loss_coef
+            
+        obj_pred_logits = obj_pred_logits.split(num_objs, dim=0)
+        rel_cls_logits = rel_cls_logits.split(num_rels, dim=0)
+        
+        return obj_pred_logits, rel_cls_logits, add_losses
+    
+@registry.ROI_RELATION_PREDICTOR.register("VETOPredictor")
+class VETOPredictor(BasePredictor):
+    def __init__(self, config, in_channels):
+        super().__init__(config, in_channels)
+
+        self.use_norm = False
+        self.pcpl = False
+
+        self.FC_SIZE_CLASS = self.cfg.MODEL.ROI_RELATION_HEAD.VETOTRANSFORMER.T_INPUT_DIM
+        self.FC_SIZE_LOC = self.cfg.MODEL.ROI_RELATION_HEAD.VETOTRANSFORMER.T_INPUT_DIM
+        self.LOC_INPUT_SIZE = 256
+        self.obj_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
+        self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
+        self.use_embed = False
+        self.obj_embed2 = nn.Embedding(self.num_obj_cls, self.embed_dim)
+        # post decoding
+        self.hidden_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
+        self.pooling_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
+
+        embed_vecs = obj_edge_vectors(self.obj_classes, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)
+        self.obj_embed = nn.Embedding(len(self.obj_classes), self.embed_dim)
+        classme_input_dim = 200  # 151 #self.embed_dim if self.use_embed else len(self.obj_classes)
+        self.class_projection = nn.Sequential(
+            nn.Linear(classme_input_dim * 2, self.FC_SIZE_CLASS),
+            nn.ReLU(inplace=True))
+
+        with torch.no_grad():
+            self.obj_embed.weight.copy_(embed_vecs, non_blocking=True)
+        # self.decoder_lin = nn.Linear(self.obj_dim * 2 + self.embed_dim + 128, len(self.obj_classes))
+
+        # position embedding
+        self.bbox_embed = nn.Sequential(*[
+            nn.Linear(9, 32), nn.ReLU(inplace=True), nn.Dropout(0.1),
+            nn.Linear(32, 128), nn.ReLU(inplace=True), nn.Dropout(0.1),
+        ])
+
+        self.pos_embed = nn.Sequential(*[
+            nn.BatchNorm1d(4, momentum=0.001),
+            nn.Linear(4, 128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+        ])
+
+        self.location_projection = nn.Sequential(
+            nn.Linear(self.LOC_INPUT_SIZE, self.FC_SIZE_LOC),
+            nn.ReLU(inplace=True))
+
+        self.fusion_transformer = VETOTransformer(config=config, in_channels=256)
+        features_size = self.cfg.MODEL.ROI_RELATION_HEAD.VETOTRANSFORMER.T_INPUT_DIM
+        # -- Final FC layer which predicts the relations
+        self.rel_out = xavier_init(nn.Linear(features_size, self.num_rel_cls, bias=True))
+        self.beta_loss = self.cfg.GLOBAL_SETTING.BETA_LOSS
+        if self.beta_loss:
+            rel_counts = self.statistics['pred_freq']
+            rel_counts[::-1].sort()
+            beta = 0.999  # (class_volume - 1.0) / class_volume
+            rel_class_weights = (1.0 - beta) / (1 - (beta ** rel_counts))
+            rel_class_weights *= float(self.num_rel_cls) / np.sum(rel_class_weights)
+            rel_class_weights = torch.FloatTensor(rel_class_weights).cuda()
+        else:
+            rel_class_weights = np.ones((self.num_rel_cls,))
+            rel_class_weights = torch.from_numpy(rel_class_weights).float()
+        self.criterion_loss_rel = nn.CrossEntropyLoss(weight=rel_class_weights)
+        self.criterion_loss = nn.CrossEntropyLoss()
+
+
+    def forward(self, proposals,
+                    rel_pair_idxs,
+                    rel_labels,
+                    logger,
+                    roi_features=None,
+                    roi_depth_features=None, rel_binarys=None):
+
+            if self.mode == "predcls":
+                obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
+            else:
+                obj_labels = None
+
+            if self.mode == "predcls":
+                obj_logits = obj_labels
+                obj_embed = self.obj_embed(obj_labels.long())
+                obj_dists = F.one_hot(obj_labels.long(), self.num_obj_cls).float()
+
+            else:
+                obj_logits = cat([proposal.get_field("predict_logits") for proposal in proposals], dim=0).detach()
+                obj_labels = cat([proposal.get_field("pred_labels") for proposal in proposals], dim=0).detach()
+                obj_dists = F.one_hot(obj_labels.long(), self.num_obj_cls).float()
+                obj_embed = F.softmax(obj_logits, dim=1) @ self.obj_embed.weight
+
+            if proposals[0].mode == 'xyxy':
+                centor_proposals = [p.convert('xywh') for p in proposals]
+            else:
+                centor_proposals = proposals
+
+            pos_embed = self.pos_embed(cat([art.center_xywh(p.bbox) for p in centor_proposals], dim=0))
+
+            proposal_count_per_img = [len(x) for x in proposals]
+            rel_count_per_img = [len(x) for x in rel_pair_idxs]
+            subj_inds = torch.zeros(sum(rel_count_per_img), dtype=torch.long)
+            obj_inds = torch.zeros(sum(rel_count_per_img), dtype=torch.long)
+            start = 0
+            cumulative_proposals_count = 0
+            for i, irel_pair in enumerate(rel_pair_idxs):
+                end = start+len(irel_pair)
+                subj_inds[start: end] = irel_pair[:, 0] + cumulative_proposals_count
+                obj_inds[start: end] = irel_pair[:, 1] + cumulative_proposals_count
+                cumulative_proposals_count += proposal_count_per_img[i]
+                start = end
+
+            # -- Create a pairwise relation vector out of location features
+            rel_location = torch.cat((pos_embed[subj_inds], pos_embed[obj_inds]), dim=1)
+            rel_location = self.location_projection(rel_location)
+            rel_class = torch.cat((obj_embed[subj_inds], obj_embed[obj_inds]), dim=1)
+            rel_class = self.class_projection(rel_class)
+            rel_visual = torch.cat((roi_features[subj_inds], roi_features[obj_inds]), 1)
+            rel_depth = torch.cat((roi_depth_features[subj_inds], roi_depth_features[obj_inds]), 1)
+            rel_logits_raw = self.fusion_transformer(rel_depth, rel_visual, rel_location, rel_class)
+            rel_dists = self.rel_out(
+                rel_logits_raw)
+
+            add_losses = {}
+            if self.training:
+                if self.mode != "predcls":
+                    fg_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
+                    loss_refine_obj = self.criterion_loss(obj_dists, fg_labels.long())
+                    add_losses['obj_loss'] = loss_refine_obj
+                rel_labels = cat(rel_labels, dim=0)
+                add_losses['rel_loss'] = self.criterion_loss_rel(rel_dists, rel_labels)
+                return None, None, add_losses, None, None, None
+            obj_dists = obj_dists.split(proposal_count_per_img, dim=0)
+            rel_dists = rel_dists.split(rel_count_per_img, dim=0)
+
+            return obj_dists, rel_dists, add_losses, None, None, None

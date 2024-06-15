@@ -68,8 +68,8 @@ MODEL:
     LOSS: CrossEntropyLoss
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
-    USE_SPATIAL_FEATURES: False
-    USE_UNION_FEATURES: False
+    USE_SPATIAL_FEATURES: True
+    USE_UNION_FEATURES: True
     EMBED_DIM: 512
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
