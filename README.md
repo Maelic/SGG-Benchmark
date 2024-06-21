@@ -23,7 +23,7 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 
 
 - [ ] TODO: Change Dataloader to COCO format (in progress).
-- [ ] TODO: Add support for [DT2-ACBS](https://github.com/a-lakh/DT2-ACBS/tree/main).
+- [X] 23.05.2024: Added support for the YOLOV10 backbone and SQUAT relation head!
 - [X] 28.05.2024: Official release of our [Real-Time Scene Graph Generation](https://arxiv.org/abs/2405.16116) implementation.
 - [X] 23.05.2024: Added support for the [YOLO-World](https://www.yoloworld.cc/) backbone for Open-Vocabulary object detection!
 - [X] 10.05.2024: Added support for the [PSG Dataset](https://github.com/Jingkang50/OpenPSG)
@@ -94,6 +94,7 @@ We proposed different object detection backbones that can be plugged with any re
 
 :rocket: NEW! No need to train a backbone anymore, we support Yolo-World for fast and easy open-vocabulary inference. Please check it out!
 
+- [x] [YOLOV10](https://docs.ultralytics.com/models/yolov10/): New end-to-end yolo architecture for SOTA real-time object detection.
 - [x] [YOLOV8-World](https://docs.ultralytics.com/models/yolo-world/): SOTA in real-time open-vocabulary object detection!
 - [x] [YOLOV9](https://docs.ultralytics.com/models/yolov9/): SOTA in real-time object detection.
 - [x] [YOLOV8](https://docs.ultralytics.com/models/yolov8/): SOTA in real-time object detection.
@@ -103,8 +104,9 @@ We proposed different object detection backbones that can be plugged with any re
 
 We try to compiled the main approaches for relation modeling in this codebase:
 
-- [x] PE-NET: [Prototype-based Embedding Network for Scene Graph Generation
-](https://arxiv.org/abs/2303.07096), thanks to the [official implementation by authors](https://github.com/VL-Group/PENET)
+- [x] SQUAT: [Devil's on the Edges: Selective Quad Attention for Scene Graph Generation](https://arxiv.org/abs/2304.03495), thanks to the [official implementation by authors](https://github.com/hesedjds/SQUAT)
+
+- [x] PE-NET: [Prototype-based Embedding Network for Scene Graph Generation](https://arxiv.org/abs/2303.07096), thanks to the [official implementation by authors](https://github.com/VL-Group/PENET)
 
 - [x] SHA-GCL: [Stacked Hybrid-Attention and Group Collaborative Learning for Unbiased Scene Graph Generation in Pytorch](https://arxiv.org/abs/2203.09811), thanks to the [official implementation by authors](https://github.com/dongxingning/SHA-GCL-for-SGG)
 
