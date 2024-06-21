@@ -110,6 +110,10 @@ def train(cfg, logger, args):
     if cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == "IMPPredictor":
         slow_heads = ["roi_heads.relation.box_feature_extractor",
                       "roi_heads.relation.union_feature_extractor.feature_extractor",]
+    elif cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == 'SquatPredictor':
+        slow_heads = [
+            'roi.heads.relation.predictor.context_layer.mask_predictor'
+        ]
     else:
         slow_heads = []
 
@@ -126,7 +130,7 @@ def train(cfg, logger, args):
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     num_batch = cfg.SOLVER.IMS_PER_BATCH
-    optimizer = make_optimizer(cfg, model, logger, slow_heads=slow_heads, slow_ratio=10.0, rl_factor=float(num_batch))
+    optimizer = make_optimizer(cfg, model, logger, slow_heads=slow_heads, slow_ratio=2.5, rl_factor=float(num_batch))
     scheduler = make_lr_scheduler(cfg, optimizer, logger)
     logger_step(logger, 'Building optimizer and scheduler...')
 

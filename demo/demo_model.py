@@ -63,8 +63,6 @@ class SGG_Model(object):
         self.model.eval()
 
     def load_model(self):
-        print(self.cfg.TEST.CUSTUM_EVAL)
-
         self.model = build_detection_model(self.cfg)
         self.model.to(self.cfg.MODEL.DEVICE)
 

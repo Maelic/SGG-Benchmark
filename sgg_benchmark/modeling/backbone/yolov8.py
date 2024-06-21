@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from ultralytics.nn.tasks import DetectionModel
 from sgg_benchmark.data.transforms import LetterBox
 
-from ultralytics.cfg import get_cfg
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
 from ultralytics.engine.results import Results
@@ -12,9 +11,6 @@ from ultralytics.engine.results import Results
 from sgg_benchmark.structures.bounding_box import BoxList
 
 import numpy as np
-import cv2
-from PIL import Image
-
 
 class YoloV8(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes

@@ -449,7 +449,7 @@ class GPSNetPredictor(BasePredictor):
             union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
         """
 
-        obj_pred_logits, obj_pred_labels, rel_feats = self.context_layer(roi_features, union_features, inst_proposals, rel_pair_idxs, rel_binarys)
+        obj_pred_logits, obj_pred_labels, rel_feats, _ = self.context_layer(roi_features, union_features, inst_proposals, rel_pair_idxs, rel_binarys)
 
         rel_cls_logits = self.rel_classifier(rel_feats)
 
@@ -489,12 +489,6 @@ class SquatPredictor(BasePredictor):
 
         self.obj_recls_logits_update_manner = "replace"
         assert self.obj_recls_logits_update_manner in ["replace", "add"]
-
-        # freq
-        if self.use_bias:
-            statistics = get_dataset_statistics(config)
-            self.freq_bias = FrequencyBias(config, statistics)
-            self.statistics = statistics
         
     def forward(self, inst_proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None): 
         """

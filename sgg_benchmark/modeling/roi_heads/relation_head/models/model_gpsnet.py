@@ -552,10 +552,9 @@ class GPSNetContext(nn.Module):
             refined_obj_pred_labels = obj_prediction_nms(
                 boxes_per_cls, refined_obj_logits, nms_thresh=0.5
             )
-            obj_pred_labels = refined_obj_pred_labels
+            obj_labels = refined_obj_pred_labels
         else:
             obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
             obj_labels = obj_labels.long()
-            obj_pred_labels = to_onehot(obj_labels, self.num_obj_cls)
 
-        return refined_inst_features, obj_pred_labels, refined_rel_features, None
+        return refined_inst_features, obj_labels, refined_rel_features, None

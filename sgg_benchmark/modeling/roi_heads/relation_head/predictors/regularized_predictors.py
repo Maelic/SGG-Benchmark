@@ -33,7 +33,6 @@ class PrototypeEmbeddingNetwork(BasePredictor):
 
         obj_classes, rel_classes = self.statistics['obj_classes'], self.statistics['rel_classes']
 
-        self.num_obj_classes = len(obj_classes)
         dropout_p = 0.2
 
         self.context_layer = PENetContext(config, obj_classes, rel_classes, in_channels, dropout_p=dropout_p)
