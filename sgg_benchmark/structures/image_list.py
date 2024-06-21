@@ -65,8 +65,6 @@ def to_image_list(tensors, size_divisible=0):
         for img, pad_img in zip(tensors, batched_imgs):
             pad_img[: img.shape[0], : img.shape[1], : img.shape[2]].copy_(img)
 
-        # batched_imgs = torch.stack(tensors, dim=0)
-
         image_sizes = [im.shape[-2:] for im in tensors]
 
         return ImageList(batched_imgs, image_sizes)
