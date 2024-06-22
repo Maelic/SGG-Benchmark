@@ -236,7 +236,7 @@ _C.MODEL.ROI_HEADS.POST_NMS_PER_CLS_TOPN = 300
 _C.MODEL.ROI_HEADS.NMS_FILTER_DUPLICATES = False 
 # Maximum number of detections to return per image (100 is based on the limit
 # established for the COCO dataset)
-_C.MODEL.ROI_HEADS.DETECTIONS_PER_IMG = 256
+_C.MODEL.ROI_HEADS.DETECTIONS_PER_IMG = 100
 
 
 _C.MODEL.ROI_BOX_HEAD = CN()

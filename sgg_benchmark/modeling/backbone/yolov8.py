@@ -24,6 +24,8 @@ class YoloV8(DetectionModel):
         self.nc = nc
         self.max_det = cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG
 
+    # custom implementation of forward method based on
+    # https://github.com/ultralytics/ultralytics/blob/3df9d278dce67eec7fdb4fddc0aab22fee62588f/ultralytics/nn/tasks.py#L122
     def forward(self, x, profile=False, visualize=False, embed=None):
         y, feature_maps = [], []  # outputs
         for i, m in enumerate(self.model):
@@ -46,6 +48,7 @@ class YoloV8(DetectionModel):
         else:
             return x
 
+
     def load(self, weights_path: str, task=None):
         """
         Initializes a new model and infers the task type from the model head.
@@ -59,87 +62,25 @@ class YoloV8(DetectionModel):
 
         if weights:
             super().load(weights)
-
-    def prepare_input(self, image, input_shape=(640,640), stride=32, auto=True):
-        not_tensor = not isinstance(image, torch.Tensor)
-        if not_tensor:
-            same_shapes = all(x.shape == im[0].shape for x in image)
-            letterbox = LetterBox(input_shape, auto=same_shapes, stride=self.model.stride)(image=image)
-            im = np.stack([letterbox(image=x) for x in im])
-            im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
-            im = np.ascontiguousarray(im)  # contiguous
-            im = torch.from_numpy(im)
-
-        im = im.to(self.device).float()
-        if not_tensor:
-            im /= 255  # 0 - 255 to 0.0 - 1.0
-
-        return im
-
-    def features_extract(self, x):
-        """
-        Perform a forward pass through the network.
-
-        Args:
-            x (torch.Tensor): The input tensor to the model.
-            profile (bool):  Print the computation time of each layer if True, defaults to False.
-            visualize (bool): Save the feature maps of the model if True, defaults to False.
-            embed (list, optional): A list of feature vectors/embeddings to return.
-
-        Returns:
-            (torch.Tensor): The last output of the model.
-        """
-        y, embeddings = [], []  # outputs
-        for m in self.model.model:
-            if m.f != -1:  # if not from previous layer
-                x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
-            x = m(x)  # run
-            y.append(x if m.i in self.save else None)  # save output
-            embeddings.append(nn.functional.adaptive_avg_pool2d(x, (1, 1)).squeeze(-1).squeeze(-1))  # flatten
-            if m.i == max(self.features_layers):
-                return torch.unbind(torch.cat(embeddings, 1), dim=0)
-        return x
-    
-    def preprocess(self, batch):
-        """Preprocesses batch of images for YOLO training."""
-        if not(torch.is_tensor(batch)):
-            batch['img'] = batch['img'].to(self.device, non_blocking=True)
-            batch['img'] = (batch['img'].half() if self.half else batch['img'].float()) / 255
-            for k in ['batch_idx', 'cls', 'bboxes']:
-                batch[k] = batch[k].to(self.device)
-
-            nb = len(batch['img'])
-            self.lb = [torch.cat([batch['cls'], batch['bboxes']], dim=-1)[batch['batch_idx'] == i]
-                    for i in range(nb)] if self.save_hybrid else []  # for autolabelling
-        else:
-            batch = batch.to(self.device, non_blocking=True)
-            batch = (batch.half() if self.half else batch.float()) / 255
-            nb = len(batch)
-
-        return batch
-    
-    def visualize(self, preds, orig_imgs):
-        if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
-            orig_imgs = ops.convert_torch2numpy_batch(orig_imgs)
-    
-        # get model input size
-        imgsz = (self.input_size, self.input_size)
-        results = []
-        for i, pred in enumerate(preds):
-            orig_img = orig_imgs[i]
-            pred[:, :4] = ops.scale_boxes(imgsz, pred[:, :4], orig_img.shape)
-            img_path = self.batch[0][i]
-            results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
     
     def postprocess(self, preds, image_sizes):
         """Post-processes predictions and returns a list of Results objects."""
-        preds = ops.non_max_suppression(
-            preds,
-            nc=self.nc,
-            conf_thres=self.conf_thres,
-            iou_thres=self.iou_thres,
-            max_det=self.max_det,
-        )
+
+        if self.end2end:
+            preds = preds[0]
+            mask = preds[..., 4] > self.conf_thres
+            preds = [p[mask[idx]] for idx, p in enumerate(preds)]
+            # sort by confidence
+            preds = [p[p[:, 4].argsort(descending=True)] for p in preds]
+            preds = [p[:self.max_det] for p in preds]
+        else:
+            preds = ops.non_max_suppression(
+                preds,
+                nc=self.nc,
+                conf_thres=self.conf_thres,
+                iou_thres=self.iou_thres,
+                max_det=self.max_det,
+            )
 
         if len(preds) == 0:
             # return a dummy box with size of all image
