@@ -14,12 +14,13 @@ def logger_step(logger, info):
     current_step += 1
     logger.info('#'*20+' Step '+str(current_step)+': '+info+' '+'#'*20)
 
-def setup_logger(name, save_dir=None, distributed_rank=0, filename="log.txt", steps=False, verbose=False):
+def setup_logger(name, save_dir=None, distributed_rank=0, filename="log.txt", steps=False, verbose="INFO"):
     global use_step
     use_step = steps
     try:
         from loguru import logger
-        level = "DEBUG" if verbose else "INFO"
+        assert verbose in ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"], "Invalid verbose option: "+verbose
+        level = verbose
         logger.remove()
         if distributed_rank is not None and distributed_rank > 0:
             return logger

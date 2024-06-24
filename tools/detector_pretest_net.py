@@ -105,7 +105,7 @@ def main():
     if output_dir:
         mkdir(output_dir)
 
-    logger = setup_logger("sgg_benchmark", output_dir, get_rank())
+    logger = setup_logger("sgg_benchmark", output_dir, get_rank(), verbose="INFO")
     logger.info("Using {} GPUs".format(num_gpus))
 
     logger.info("Collecting env info (might take some time)")

@@ -302,7 +302,7 @@ def main():
         wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
         use_wandb = True
         
-    logger = setup_logger("sgg_benchmark", output_dir, get_rank())
+    logger = setup_logger("sgg_benchmark", output_dir, get_rank(), verbose="INFO")
     logger.info("Using {} GPUs".format(num_gpus))
     logger.info(args)
 

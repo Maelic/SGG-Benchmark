@@ -17,7 +17,7 @@ from ..utils.timer import Timer, get_time_str
 from .bbox_aug import im_detect_bbox_aug
 
 
-def compute_on_dataset(model, data_loader, device, synchronize_gather=True, timer=None):
+def compute_on_dataset(model, data_loader, device, synchronize_gather=True, timer=None, silence=False):
     model.eval()
     results_dict = {}
     cpu_device = torch.device("cpu")
@@ -25,7 +25,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
     starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
     timings=np.zeros((len(data_loader),1))
 
-    for i, batch in enumerate(tqdm(data_loader)):
+    for i, batch in enumerate(tqdm(data_loader, disable=silence)):
         with torch.no_grad():
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]
@@ -149,6 +149,7 @@ def inference(
         output_folder=None,
         logger=None,
         informative=False,
+        silence=False,
 ):
     load_prediction_from_cache = cfg.TEST.ALLOW_LOAD_FROM_CACHE and output_folder is not None and os.path.exists(os.path.join(output_folder, "predictions.pth"))
 
@@ -172,7 +173,7 @@ def inference(
         predictions = torch.load(pred_path, map_location=torch.device("cpu"))
         logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:
-        predictions, timings = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=inference_timer)
+        predictions, timings = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=inference_timer, silence=silence)
         # wait for all processes to complete before measuring the time
         synchronize()
         total_time = total_timer.toc()

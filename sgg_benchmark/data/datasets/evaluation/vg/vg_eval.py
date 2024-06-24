@@ -1,17 +1,11 @@
-import logging
 import os
 import torch
 import numpy as np
 import json
 from tqdm import tqdm
-from functools import reduce
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
-from sgg_benchmark.data import get_dataset_statistics
-from sgg_benchmark.structures.bounding_box import BoxList
-from sgg_benchmark.structures.boxlist_ops import boxlist_iou
-from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
 from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall, SGInformativeRecall, SGF1Score, SGRecallRelative, SGMeanRecallRelative
 from sgg_benchmark.config.paths_catalog import DatasetCatalog
 
@@ -195,7 +189,7 @@ def do_vg_evaluation(
             global_container['ind_to_predicates'] = stats['rel_classes']
             global_container['ind_to_classes'] = stats['obj_classes']
         
-        for groundtruth, prediction in tqdm(zip(groundtruths, predictions), desc='Evaluating', total=len(groundtruths)):
+        for groundtruth, prediction in tqdm(zip(groundtruths, predictions), desc='Evaluating', total=len(groundtruths), disable=not(informative)):
             evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator, informative=informative)
         
         # calculate mean recall

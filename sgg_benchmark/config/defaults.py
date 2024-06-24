@@ -483,7 +483,7 @@ _C.SOLVER.UPDATE_SCHEDULE_DURING_LOAD = False
 # Number of images per batch
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
-_C.SOLVER.IMS_PER_BATCH = 16
+_C.SOLVER.IMS_PER_BATCH = 8
 _C.SOLVER.OPTIMIZER = "SGD"  # "ADAMW"
 
 # ---------------------------------------------------------------------------- #
@@ -544,6 +544,7 @@ _C.TEST.CUSTUM_PATH = '.'
 _C.OUTPUT_DIR = "."
 _C.DETECTED_SGG_DIR = "."
 _C.GLOVE_DIR = "."
+_C.VERBOSE = "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 _C.PATHS_CATALOG = os.path.join(os.path.dirname(__file__), "paths_catalog.py")
 _C.PATHS_DATA = os.path.join(os.path.dirname(__file__), "/home/maelic/Documents/Datasets/VG/")

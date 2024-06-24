@@ -16,7 +16,7 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         super().__init__(config, in_channels)        
 
         self.num_obj_classes = len(self.obj_classes)
-        dropout_p = 0.2
+        dropout_p = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_DROPOUT_RATE
 
         self.context_layer = PENetContext(config, self.obj_classes, self.rel_classes, in_channels, dropout_p=dropout_p)
 

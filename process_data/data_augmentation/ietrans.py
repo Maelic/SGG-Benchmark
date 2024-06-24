@@ -23,7 +23,7 @@ def process(path, output_file=None, categories=False):
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     distributed = num_gpus > 1
 
-    logger = setup_logger("sgg_benchmark", verbose=True, steps=True)
+    logger = setup_logger("sgg_benchmark", verbose="INFO", steps=True)
 
     logger_step(logger, 'Building model...')
     model = build_detection_model(cfg) 

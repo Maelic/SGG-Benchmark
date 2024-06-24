@@ -124,7 +124,7 @@ def main():
         output_dir = OUTPUT_DIR
         mkdir(output_dir)
 
-    logger = setup_logger("image_retrieval_using_sg", output_dir, get_rank())
+    logger = setup_logger("image_retrieval_using_sg", output_dir, get_rank(), verbose="INFO")
     logger.info("Using {} GPUs".format(num_gpus))
     logger.info(args)
 

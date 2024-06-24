@@ -15,6 +15,10 @@ import numpy as np
 class YoloV8(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
         yolo_cfg = cfg.MODEL.YOLO.SIZE+'.yaml'
+        if cfg.VERBOSE in ["DEBUG", "INFO"]:
+            verbose = True
+        else:
+            verbose = False
         super().__init__(yolo_cfg, nc=nc, verbose=verbose)
         # self.features_layers = [len(self.model) - 2]
         self.conf_thres = cfg.MODEL.BACKBONE.NMS_THRESH

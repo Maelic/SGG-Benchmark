@@ -23,6 +23,7 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 
 
 - [ ] TODO: Change Dataloader to COCO format (in progress).
+- [X] 23.05.2024: Added support for Hyperparameters Tuning with the RayTune library, please check it out: [Hyperparameters Tuning](#hyperparameters-tuning)
 - [X] 23.05.2024: Added support for the YOLOV10 backbone and SQUAT relation head!
 - [X] 28.05.2024: Official release of our [Real-Time Scene Graph Generation](https://arxiv.org/abs/2405.16116) implementation.
 - [X] 23.05.2024: Added support for the [YOLO-World](https://www.yoloworld.cc/) backbone for Open-Vocabulary object detection!
@@ -42,15 +43,15 @@ This codebase is actually a work-in-progress, do not expect everything to work p
     - [Explanation of R@K, mR@K, zR@K, ng-R@K, ng-mR@K, ng-zR@K, A@K, S2G](METRICS.md#explanation-of-our-metrics)
     - [Output Format](METRICS.md#output-format-of-our-code)
     - [Reported Results](METRICS.md#reported-results)
-7. [Scene Graph Generation as RoI_Head](#scene-graph-generation-as-RoI_Head)
-8. [Training on Scene Graph Generation](#perform-training-on-scene-graph-generation)
+7. [Training on Scene Graph Generation](#perform-training-on-scene-graph-generation)
+8. [Hyperparameters Tuning](#hyperparameters-tuning)
 9. [Evaluation on Scene Graph Generation](#Evaluation)
 <!-- 9. [**Detect Scene Graphs on Your Custom Images** :star2:](#SGDet-on-custom-images) -->
 <!-- 10. [**Visualize Detected Scene Graphs of Custom Images** :star2:](#Visualize-Detected-SGs-of-Custom-Images) -->
-11. [Other Options that May Improve the SGG](#other-options-that-may-improve-the-SGG)
+10. [Other Options that May Improve the SGG](#other-options-that-may-improve-the-SGG)
 <!-- 11. [Tips and Tricks for TDE on any Unbiased Task](#tips-and-Tricks-for-any-unbiased-taskX-from-biased-training) -->
-12. [Frequently Asked Questions](#frequently-asked-questions)
-13. [Citations](#Citations)
+11. [Frequently Asked Questions](#frequently-asked-questions)
+12. [Citations](#Citations)
 
 ## Overview
 
@@ -225,6 +226,27 @@ Training Example 2 : (SGCls, Causal, **TDE**, SUM Fusion, MOTIFS Model)
 ```bash
 CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10026 --nproc_per_node=2 tools/relation_train_net.py --task sgcls --save-best  --config-file "configs/e2e_relation_X_101_32_8_FPN_1x.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR CausalAnalysisPredictor MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE none MODEL.ROI_RELATION_HEAD.CAUSAL.FUSION_TYPE sum MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER motifs  SOLVER.IMS_PER_BATCH 12 TEST.IMS_PER_BATCH 2 DTYPE "float16" SOLVER.MAX_EPOCH 20 MODEL.PRETRAINED_DETECTOR_CKPT ./checkpoints/pretrained_faster_rcnn/model_final.pth OUTPUT_DIR ./checkpoints/causal-motifs-sgcls-exmp
 ```
+
+## Hyperparameters Tuning
+
+Required library:
+```pip install ray[data,train,tune] optuna tensorboard```
+
+We provide a training loop for hyperparameters tuning in [hyper_param_tuning.py](tools/hyper_param_tuning.py). This script uses the [RayTune](https://docs.ray.io/en/latest/tune/index.html) library for efficient hyperparameters search. You can define a ```search_space``` object with different values related to the optimizer (AdamW and SGD supported for now) or directly customize the model structure with model parameters (for instance Linear layers dimensions or MLP dimensions etc). The ```ASHAScheduler``` scheduler is used for the early stopping of bad trials. The default value to optimize is the overall loss but this can be customize to specific loss values or standard metrics such as ```mean_recall```.
+
+To launch the script, do as follow:
+
+```
+CUDA_VISIBLE_DEVICES=0 python tools/hyper_param_tuning.py --save-best --task sgdet --config-file "/home/maelic/SGG-Benchmark/configs/IndoorVG/e2e_relation_yolov10.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR PrototypeEmbeddingNetwork DTYPE "float16" SOLVER.PRE_VAL True GLOVE_DIR /home/maelic/glove OUTPUT_DIR /home/maelic/SGG-Benchmark/checkpoints/IndoorVG4/SGDET/penet-yolov10m SOLVER.IMS_PER_BATCH 8
+```
+
+The config and OUTPUT_DIR paths need to be absolute to allow faster loading. A lot of terminal outputs are disabled by default during tuning, using the ```cfg.VERBOSE``` variable.
+
+To watch the results with tensorboardX: 
+```
+tensorboard --logdir=/home/maelic/ray_results/train_relation_net_2024-06-23_15-28-01
+```
+
 
 ## Evaluation
 

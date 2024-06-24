@@ -437,7 +437,7 @@ def main():
     if output_dir:
         mkdir(output_dir)
 
-    logger = setup_logger("sgg_benchmark", output_dir, get_rank(), verbose=args.verbose, steps=True)
+    logger = setup_logger("sgg_benchmark", output_dir, get_rank(), verbose=cfg.VERBOSE, steps=True)
     logger.info("Using {} GPUs".format(num_gpus))
     logger.debug(args)
 

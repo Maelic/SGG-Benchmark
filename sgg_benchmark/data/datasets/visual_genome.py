@@ -177,14 +177,14 @@ class VGDataset(torch.utils.data.Dataset):
             # check if there is images in the directory
             if not any([f.endswith(tuple(img)) for f in files]):
                 return
-            for file_name in tqdm(os.listdir(path)):
+            for file_name in os.listdir(path):
                 self.custom_files.append(os.path.join(path, file_name))
                 img = Image.open(os.path.join(path, file_name)).convert("RGB")
                 self.img_info.append({'width':int(img.width), 'height':int(img.height), 'image_id':str(file_name.split('.')[0])})
         # Expecting a list of paths in a json file
         if os.path.isfile(path):
             file_list = json.load(open(path))
-            for file in tqdm(file_list):
+            for file in file_list:
                 self.custom_files.append(file)
                 img = Image.open(file).convert("RGB")
                 self.img_info.append({'width': int(img.width), 'height': int(img.height), 'image_id':str(file_name.split('.')[0])})
@@ -276,7 +276,7 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
     fg_matrix = np.zeros((num_obj_classes, num_obj_classes, num_rel_classes), dtype=np.int64)
     bg_matrix = np.zeros((num_obj_classes, num_obj_classes), dtype=np.int64)
 
-    for ex_ind in tqdm(range(len(train_data))):
+    for ex_ind in range(len(train_data)):
         gt_classes = train_data.gt_classes[ex_ind].copy()
         gt_relations = train_data.relationships[ex_ind].copy()
         gt_boxes = train_data.gt_boxes[ex_ind].copy()
