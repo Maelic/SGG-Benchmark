@@ -11,8 +11,29 @@ from sgg_benchmark.modeling.detector import build_detection_model
 from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
 from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
+from sgg_benchmark.structures.boxlist_ops import cat_boxlist
 
 import pickle
+
+def add_gt_proposals(proposals, targets):
+    """
+    Arguments:
+        proposals: list[BoxList]
+        targets: list[BoxList]
+    """
+    new_targets = []
+    for t in targets:
+        new_t = t.copy_with_fields(["labels"])
+        new_t.add_field("pred_labels", t.get_field("labels"))
+        new_t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
+        new_targets.append(new_t)
+
+    proposals = [
+        cat_boxlist((proposal, gt_box))
+        for proposal, gt_box in zip(proposals, new_targets)
+    ]
+
+    return proposals
 
 def process(path, output_file=None, categories=False):
     config_file = path
@@ -59,13 +80,13 @@ def process(path, output_file=None, categories=False):
 
     # triplet cat
     if categories:
-        triplet_cat_path = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/process_data/data_augmentation/triplets_categories.pkl"
+        triplet_cat_path = "/home/maelic/SGG-Benchmark/process_data/data_augmentation/triplets_categories.pkl"
         with open(triplet_cat_path, 'rb') as f:
             triplet_cat = pickle.load(f)
 
         # transfer rules
         # {'functional': 0, 'topological': 1, 'attribute': 2, 'part-whole': 3}
-        transfer_rules = {0: [0], 1: [1, 0], 2: [2, 3], 3: [3, 2]}
+        transfer_rules = {0: [0], 1: [1, 0], 2: [2, 3], 3: [3]}
 
     pbar = tqdm(total=len(data_loader_train))
     for batch in data_loader_train:
@@ -74,7 +95,12 @@ def process(path, output_file=None, categories=False):
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]
 
-            predictions = model(images.to(device), targets)
+            outputs, features = model.backbone(images.tensors.to(device), embed=True)
+            proposals = model.backbone.postprocess(outputs, images.image_sizes)
+
+            proposals = add_gt_proposals(proposals,targets)
+
+            _, predictions, _ = model.roi_heads(features, proposals, targets, logger, proposals)
 
         img_name = targets[0].get_field('image_path').split('/')[-1]
         out_data[img_name] = []
@@ -198,12 +224,14 @@ def process(path, output_file=None, categories=False):
 
                         confusion_r_labels = [x for _, x in sorted(zip(attr_sort, confusion_r_labels), key=lambda pair: pair[0], reverse=False)]
                         for c_r_label in confusion_r_labels:
-                            if c_r_label.item() != 0:
-                                new_attr = stats['triplet_freq'][(gt_s_label[i].item(), gt_o_label[i].item(), c_r_label.item())]
-                                if new_attr > 3: # we discard the triplets that have a count lower than 3, because it is most likely to be annotations noise
-                                    out_data[img_name].append([gt_s_idx[i].item(), gt_o_idx[i].item(), c_r_label.item()])
-                                    external_trans_count += 1
-                                    break
+                            if stats['triplet_freq'][(gt_s_label[i].item(), gt_o_label[i].item(), c_r_label.item())] > 0: 
+                                out_data[img_name].append([gt_s_idx[i].item(), gt_o_idx[i].item(), c_r_label.item()])
+                                external_trans_count += 1
+                                break
+                        # c_r_label = confusion_r_labels[0]
+                        # out_data[img_name].append([gt_s_idx[i].item(), gt_o_idx[i].item(), c_r_label.item()])
+                        # external_trans_count += 1
+
 
         pbar.set_description('int: %d, ext: %d' % (internal_trans_count, external_trans_count))
 
@@ -217,6 +245,6 @@ def process(path, output_file=None, categories=False):
 if __name__ == '__main__':
     config_file = sys.argv[1]
     output_file = sys.argv[2]
-    categories = True
+    categories = False
 
     process(config_file, output_file, categories)

@@ -6,39 +6,12 @@ import numpy as np
 import json
 from tqdm import tqdm
 from functools import reduce
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
 
-from sgg_benchmark.data import get_dataset_statistics
-from sgg_benchmark.structures.bounding_box import BoxList
-from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
 from sentence_transformers import SentenceTransformer, util
 import time
 
 from abc import ABC, abstractmethod
-
-# sim = 'glove'
-# sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
-# if sim not in sim_options:
-#     raise ValueError('sim must be in %s' % sim_options)
-# similarity = sim
-
-# # load embeddings according to similarity value
-# if similarity == 'glove':
-#     sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
-# elif similarity == 'uae_large':
-#     sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
-# elif similarity == 'bert_large':
-#     sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
-# elif similarity == 'minilm':
-#     sim_model = SentenceTransformer('all-MiniLM-L6-v2')
-# elif similarity == "mpnet":
-#     sim_model = SentenceTransformer('all-mpnet-base-v2')
-# elif similarity == "clip":
-#     from transformers import AutoTokenizer, CLIPTextModelWithProjection
-#     sim_model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
-#     tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
     
 class SceneGraphEvaluation(ABC):
     def __init__(self, result_dict):

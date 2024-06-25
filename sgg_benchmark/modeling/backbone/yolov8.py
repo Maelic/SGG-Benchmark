@@ -28,6 +28,11 @@ class YoloV8(DetectionModel):
         self.nc = nc
         self.max_det = cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG
 
+        if self.end2end:
+            self.layers_to_extract = [16, 19, 22]
+        else:
+            self.layers_to_extract = [15, 18, 21]
+
     # custom implementation of forward method based on
     # https://github.com/ultralytics/ultralytics/blob/3df9d278dce67eec7fdb4fddc0aab22fee62588f/ultralytics/nn/tasks.py#L122
     def forward(self, x, profile=False, visualize=False, embed=None):
@@ -45,7 +50,7 @@ class YoloV8(DetectionModel):
             For different object scales, as in original YOLOV8 implementation.
             """
             if embed:
-                if i in {15, 18, 21}:  # if current layer is one of the feature extraction layers
+                if i in self.layers_to_extract:  # if current layer is one of the feature extraction layers
                     feature_maps.append(x)
         if embed:
             return x, feature_maps
