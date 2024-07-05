@@ -113,7 +113,13 @@ def setup(config):
     cfg.merge_from_file(config_file)
     cfg.merge_from_list(config["opts"])
     if "model_config" in config:
-        cfg.merge_from_list(config["model_config"])
+        # config["model_config"] to list
+        conf_model = []
+        for k, v in config["model_config"].items():
+            conf_model.append(k)
+            conf_model.append(v)
+        print(conf_model)
+        cfg.merge_from_list(conf_model)
     if config["task"]:
         assert_mode(cfg,config["task"])
 
@@ -278,7 +284,7 @@ def main():
 
     max_epoch = 1
     max_images = 4000 # One epoch could be too long for tuning, so we limit the number of images
-    optimizer = "ADAMW" # Optimizer to use, choose between "SGD" and "ADAMW"
+    optimizer = "SGD" # Optimizer to use, choose between "SGD" and "ADAMW"
 
     # training hypeparameters
     if optimizer == "SGD":
@@ -287,7 +293,7 @@ def main():
                 "optimizer": optimizer,
                 "lr": tune.loguniform(1e-5, 1e-1), # Learning rate
                 "momentum": tune.uniform(0.1, 0.9), # Momentum for SGD
-                "batch_size": tune.choice([2, 4, 8]),
+                # "batch_size": tune.choice([2, 4, 8]),
                 "max_epoch": max_epoch,
                 "num_images": max_images,
                 # "use_amp": tune.choice([True, False]),
@@ -322,8 +328,15 @@ def main():
         "MODEL.ROI_RELATION_HEAD.CONTEXT_DROPOUT_RATE ": tune.uniform(0.1, 0.5),
     }
 
+    squat_config = {
+        "MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.NUM_DECODER": tune.choice([1,2,3,4,5]),
+        "MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.RHO": tune.uniform(0.1, 0.9),
+        "MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.BETA": tune.uniform(0.1, 0.9),
+        "MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.PRE_NORM": tune.choice([True, False]),
+    }
+
     # experimental
-    #search_space.update({"model_config":model_config})
+    #search_space.update({"model_config":squat_config})
 
     # config taken from https://docs.ray.io/en/latest/tune/api/schedulers.html
     scheduler = ASHAScheduler(
@@ -341,7 +354,7 @@ def main():
     tune_config = tune.TuneConfig(
         search_alg=algo,
         scheduler=scheduler,
-        num_samples=30, # Adjust for how many trials you want to run, more is better but will take longer
+        num_samples=50, # Adjust for how many trials you want to run, more is better but will take longer
     )
 
     # Start the Ray Tune run

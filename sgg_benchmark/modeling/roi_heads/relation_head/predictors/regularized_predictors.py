@@ -139,6 +139,8 @@ class CausalAnalysisPredictor(BasePredictor):
         self.separate_spatial = config.MODEL.ROI_RELATION_HEAD.CAUSAL.SEPARATE_SPATIAL
         self.use_vtranse = config.MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER == "vtranse"
         self.effect_type = config.MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE
+
+        self.freq_bias = FrequencyBias(self.cfg, self.statistics)
         
         # load class dict
         obj_classes, rel_classes = self.statistics['obj_classes'], self.statistics['rel_classes']

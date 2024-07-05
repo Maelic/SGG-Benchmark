@@ -23,9 +23,9 @@ from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
 from sgg_benchmark.utils.collect_env import collect_env_info
 from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
 from sgg_benchmark.utils.logger import setup_logger, logger_step
-from sgg_benchmark.utils.miscellaneous import mkdir, save_config
+from sgg_benchmark.utils.miscellaneous import mkdir, save_config, set_seed
 from sgg_benchmark.utils.parser import default_argument_parser
-
+                           
 def train_one_epoch(model, optimizer, data_loader, device, epoch, logger, cfg, scaler, use_wandb=False, use_amp=True):
     pbar = tqdm.tqdm(total=len(data_loader))
 
@@ -92,11 +92,11 @@ def train(cfg, logger, args):
 
     # get run name for logger
     if args['use_wandb']:
-        import wandb
+        project_name = args['project_name']        
         run_name = cfg.OUTPUT_DIR.split('/')[-1]
         if args['distributed']:
-            wandb.init(project="sgdet-indoorvg-4", entity="maelic", group="DDP", name=run_name, config=cfg)
-        wandb.init(project="sgdet-indoorvg-4", entity="maelic", name=run_name, config=cfg)
+            wandb.init(project=project_name, entity="maelic", group="DDP", name=run_name, config=cfg)
+        wandb.init(project=project_name, entity="maelic", name=run_name, config=cfg)
 
     # modules that should be always set in eval mode
     # their eval() method should be called after model.train() is called
@@ -433,6 +433,9 @@ def main():
         assert_mode(cfg, args.task)
     cfg.freeze()
 
+    # set seed
+    set_seed(seed=cfg.SEED)
+
     output_dir = cfg.OUTPUT_DIR
     if output_dir:
         mkdir(output_dir)
@@ -460,7 +463,8 @@ def main():
         "use_wandb": args.use_wandb, 
         "skip_test": args.skip_test, 
         "local_rank": args.local_rank, 
-        "distributed": args.distributed
+        "distributed": args.distributed,
+        "project_name": args.name,
     }
 
     model, best_checkpoint = train(

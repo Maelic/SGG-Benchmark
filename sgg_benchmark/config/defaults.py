@@ -335,7 +335,7 @@ _C.MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.PRETRAIN_MASK_EPOCH = 1
 
 
 _C.MODEL.ROI_RELATION_HEAD.LABEL_SMOOTHING_LOSS = False
-_C.MODEL.ROI_RELATION_HEAD.USE_FREQUENCY_BIAS = True
+_C.MODEL.ROI_RELATION_HEAD.USE_FREQUENCY_BIAS = False
 _C.MODEL.ROI_RELATION_HEAD.REQUIRE_BOX_OVERLAP = True
 _C.MODEL.ROI_RELATION_HEAD.NUM_SAMPLE_PER_GT_REL = 4  # when sample fg relationship from gt, the max number of corresponding proposal pairs
 
@@ -545,6 +545,7 @@ _C.OUTPUT_DIR = "."
 _C.DETECTED_SGG_DIR = "."
 _C.GLOVE_DIR = "."
 _C.VERBOSE = "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
+_C.SEED = 42 # -1 to desactivate
 
 _C.PATHS_CATALOG = os.path.join(os.path.dirname(__file__), "paths_catalog.py")
 _C.PATHS_DATA = os.path.join(os.path.dirname(__file__), "/home/maelic/Documents/Datasets/VG/")

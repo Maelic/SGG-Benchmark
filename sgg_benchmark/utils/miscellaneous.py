@@ -5,10 +5,19 @@ import logging
 import os
 from .comm import is_main_process
 import numpy as np
+import torch
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 import sgg_benchmark
+
+def set_seed(seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def get_path():
     return os.path.dirname(sgg_benchmark.__file__).split('sgg_benchmark')[0]

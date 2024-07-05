@@ -1,9 +1,4 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
-# Set up custom environment before nearly anything else is imported
-# NOTE: this should be the first import (no not reorder)
 from sgg_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
-
-import argparse
 import os
 
 import torch
@@ -12,10 +7,9 @@ from sgg_benchmark.data import make_data_loader
 from sgg_benchmark.engine.inference import inference
 from sgg_benchmark.modeling.detector import build_detection_model
 from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
-from sgg_benchmark.utils.collect_env import collect_env_info
 from sgg_benchmark.utils.comm import synchronize, get_rank
 from sgg_benchmark.utils.logger import setup_logger, logger_step
-from sgg_benchmark.utils.miscellaneous import mkdir
+from sgg_benchmark.utils.miscellaneous import mkdir, set_seed
 from sgg_benchmark.utils.parser import default_argument_parser
 from sgg_benchmark.data import get_dataset_statistics
 
@@ -46,6 +40,9 @@ def main():
         assert_mode(cfg, args.task)
     
     cfg.freeze()
+
+    # set seed
+    set_seed(seed=cfg.SEED)
 
     output_dir = cfg.OUTPUT_DIR
 

@@ -86,7 +86,7 @@ def process(path, output_file=None, categories=False):
 
         # transfer rules
         # {'functional': 0, 'topological': 1, 'attribute': 2, 'part-whole': 3}
-        transfer_rules = {0: [0], 1: [1, 0], 2: [2, 3], 3: [3]}
+        transfer_rules = {0: [0, 1], 1: [1, 0, 3], 2: [2], 3: [3]}
 
     pbar = tqdm(total=len(data_loader_train))
     for batch in data_loader_train:
@@ -224,6 +224,7 @@ def process(path, output_file=None, categories=False):
 
                         confusion_r_labels = [x for _, x in sorted(zip(attr_sort, confusion_r_labels), key=lambda pair: pair[0], reverse=False)]
                         for c_r_label in confusion_r_labels:
+                            # if int(c_r_label.item()) not in [25, 15, 1, 17, 23]: # remove some too frequent categories, i.e. [on, has, above, in, near]
                             if stats['triplet_freq'][(gt_s_label[i].item(), gt_o_label[i].item(), c_r_label.item())] > 0: 
                                 out_data[img_name].append([gt_s_idx[i].item(), gt_o_idx[i].item(), c_r_label.item()])
                                 external_trans_count += 1
@@ -245,6 +246,6 @@ def process(path, output_file=None, categories=False):
 if __name__ == '__main__':
     config_file = sys.argv[1]
     output_file = sys.argv[2]
-    categories = False
+    categories = True
 
     process(config_file, output_file, categories)
