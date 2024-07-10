@@ -49,3 +49,6 @@ wandb/
 # others
 analysis/
 *SLURM.sh
+
+# add the datasets/VG150/zeroshot_triplet.pytorch file as exception
+!/datasets/VG150/zeroshot_triplet.pytorch

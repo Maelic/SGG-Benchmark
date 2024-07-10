@@ -69,6 +69,7 @@ class GeneralizedYOLO(nn.Module):
             # add empty missing fields
             for p in proposals:
                 p.add_field("pred_rel_scores", torch.tensor([], dtype=torch.float32, device=p.bbox.device))
+                p.add_field("pred_rel_labels", torch.tensor([], dtype=torch.float32, device=p.bbox.device))
                 p.add_field("rel_pair_idxs", torch.tensor([], dtype=torch.int64, device=p.bbox.device))
             return proposals
 

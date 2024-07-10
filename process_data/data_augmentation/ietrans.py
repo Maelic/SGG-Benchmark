@@ -39,6 +39,7 @@ def process(path, output_file=None, categories=False):
     config_file = path
 
     cfg.merge_from_file(config_file)
+    cfg.TEST.IMS_PER_BATCH = 1
     cfg.freeze()
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
