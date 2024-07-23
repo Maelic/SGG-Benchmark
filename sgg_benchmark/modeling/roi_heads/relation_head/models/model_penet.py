@@ -20,7 +20,7 @@ class PENetContext(nn.Module):
         self.pooling_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
         self.hidden_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
 
-        self.mlp_dim = self.cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM
+        self.mlp_dim = 2048
         self.post_emb = nn.Linear(in_channels, self.mlp_dim * 2)  
 
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM

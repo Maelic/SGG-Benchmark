@@ -111,19 +111,43 @@ class SGG_Model(object):
         if visu:
             for i, bbox in enumerate(predictions['bbox']):
                 bbox = [int(b) for b in bbox]
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.5
+                font_thickness = 1
+                text_padding = 2  # Padding around the text
+                
+                # Draw bounding box
                 cv2.rectangle(out_img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0), 1)
+                
+                # Determine the text to be drawn
                 if 'track_id' in predictions:
-                    cv2.putText(out_img, f"{predictions['track_id'][i]}_{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
+                    text = f"{predictions['track_id'][i]}_{predictions['bbox_labels'][i]}"
                 else:
-                    cv2.putText(out_img, f"{str(i)}_{predictions['bbox_labels'][i]}", (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 0), 2)
-                # show fps
-                if self.show_fps:
-                    cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 2)
-            img_graph = self.visualize_graph(predictions)
+                    text = f"{str(i)}_{predictions['bbox_labels'][i]}"
+                
+                # Calculate text size (width, height) and baseline
+                (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, font_thickness)
+                
+                # Calculate rectangle coordinates for the background
+                rect_start = (bbox[0], bbox[1] - text_height -10 - text_padding - baseline)
+                rect_end = (bbox[0] + text_width + text_padding * 2, bbox[1] - 10 + text_padding - baseline)
+                
+                # Draw background rectangle
+                cv2.rectangle(out_img, rect_start, rect_end, (255, 0, 0), cv2.FILLED)
+                
+                # Draw text
+                cv2.putText(out_img, text, (bbox[0] + text_padding, bbox[1] - 10 - text_padding - baseline), font, font_scale, (255, 255, 255), font_thickness)
+            # show fps
+            if self.show_fps:
+                cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 2)
+            # to rgb
+            out_img = cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB)
+            img_graph = self.visualize_graph(predictions, out_img.shape[:2])
+
             return out_img, img_graph
-        return predictions
+        return predictions, None
     
-    def visualize_graph(self, predictions, color='blue'):
+    def visualize_graph(self, predictions, img_size, color='blue'):
         G = nx.MultiDiGraph()
         for i, r_label in enumerate(predictions['rel_labels']):
             r = predictions['rel_pairs'][i]
@@ -133,7 +157,7 @@ class SGG_Model(object):
             else:
                 subj = str(r[0])+'_'+predictions['bbox_labels'][r[0]]
                 obj = str(r[1])+'_'+predictions['bbox_labels'][r[1]]
-            G.add_edge(str(subj), str(obj), label=r_label)
+            G.add_edge(str(subj), str(obj), label=r_label, color=color)
 
         # draw networkx graph with graphviz, display edge labels
         G.graph['edge'] = {'arrowsize': '0.6', 'splines': 'curved'}
@@ -142,32 +166,28 @@ class SGG_Model(object):
         # all graph color to blue
         G.graph['edge']['color'] = color
         G.graph['node']['color'] = color
-        # draw graph
-        img_graph = to_agraph(G)
-        img_graph.layout('dot')
-        img_graph = img_graph.draw(format='png', args='-Gdpi=100')
-        # to cv2
-        img_graph = cv2.imdecode(np.fromstring(img_graph, np.uint8), cv2.IMREAD_COLOR)
 
-        return img_graph
+        img_graph = to_agraph(G)
+        # Layout the graph
+        img_graph.layout('dot')
+
+        # Draw the graph directly to a byte array
+        png_byte_array = img_graph.draw(format='png', prog='dot')
+
+        # Convert the byte array to an OpenCV image without redundant conversion
+        img_cv2 = cv2.imdecode(np.frombuffer(png_byte_array, np.uint8), cv2.IMREAD_COLOR)
+
+        return img_cv2
     
     def nice_plot(self, img, graph):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         graph = cv2.cvtColor(graph, cv2.COLOR_BGR2RGB)
 
-        # rescale img to 640 width by keeping ratio
-        if img.shape[1] > 640:
-            ratio = 640 / img.shape[1]
-            img = cv2.resize(img, (640, int(img.shape[0]*ratio)))
-        else:
-            img = cv2.resize(img, (640, img.shape[0]))
-
-        # merge both images side by side
-        h, w, _ = img.shape
-        graph = cv2.resize(graph, (w, h))
-        img = np.concatenate((img, graph), axis=1)
-
-        return img
+        out_img = np.zeros((img.shape[0]+graph.shape[0], max(img.shape[1], graph.shape[1]), 3), dtype=np.uint8)
+        out_img[:img.shape[0], :img.shape[1]] = img
+        out_img[img.shape[0]:, :graph.shape[1]] = graph
+        
+        return out_img
 
 
     def _pre_processing(self, image):

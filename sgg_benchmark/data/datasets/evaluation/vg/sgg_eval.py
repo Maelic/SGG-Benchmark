@@ -12,7 +12,9 @@ from sentence_transformers import SentenceTransformer, util
 import time
 
 from abc import ABC, abstractmethod
-    
+
+sim_model = SentenceTransformer('all-mpnet-base-v2',trust_remote_code=True) # clip-ViT-B-32
+
 class SceneGraphEvaluation(ABC):
     def __init__(self, result_dict):
         super().__init__()
@@ -26,6 +28,9 @@ class SceneGraphEvaluation(ABC):
     @abstractmethod
     def generate_print_string(self, mode):
         print("Generate Print String")
+        pass
+
+    def calculate(self, global_container, local_container, mode):
         pass
 
 class SGF1Score(SceneGraphEvaluation):
@@ -43,7 +48,7 @@ class SGF1Score(SceneGraphEvaluation):
         result_str += '\n'
         return result_str
 
-    def calculate_f1(self, global_container, mode):
+    def calculate(self, global_container, local_container, mode):
         for k in global_container[mode + '_recall']:
             recall_k = np.mean(global_container[mode + '_recall'][k])
             mean_reacall_k = np.mean(global_container[mode + '_mean_recall'][k])
@@ -68,7 +73,7 @@ class SGRecallRelative(SceneGraphEvaluation):
         result_str += '\n'
         return result_str
 
-    def calculate_recall(self, global_container, local_container, mode):
+    def calculate(self, global_container, local_container, mode):
         gt_rels = local_container['gt_rels']
 
         pred_to_gt = local_container['pred_to_gt']
@@ -82,7 +87,7 @@ class SGRecallRelative(SceneGraphEvaluation):
         return local_container
     
 class SGMeanRecallRelative(SceneGraphEvaluation):
-    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=False):
+    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=True):
         super(SGMeanRecallRelative, self).__init__(result_dict)
         self.num_rel = num_rel
         self.print_detail = print_detail
@@ -101,7 +106,7 @@ class SGMeanRecallRelative(SceneGraphEvaluation):
         result_str += '\n'
         if self.print_detail:
             result_str += '----------------------- Details ------------------------\n'
-            for n, r in zip(self.rel_name_list, self.result_dict[mode + '_mean_recall_list'][100]):
+            for n, r in zip(self.rel_name_list, self.result_dict[mode + '_mean_recall_list_relative']['relative']):
                 result_str += '({}:{:.4f}) '.format(str(n), r)
             result_str += '\n'
             result_str += '--------------------------------------------------------\n'
@@ -134,7 +139,7 @@ class SGMeanRecallRelative(SceneGraphEvaluation):
             if recall_count[n] > 0:
                 self.result_dict[mode + '_mean_recall_collect_relative']['relative'][n].append(float(recall_hit[n] / recall_count[n]))
 
-    def calculate_mean_recall(self, mode):
+    def calculate(self, global_container, local_container, mode):
         sum_recall = 0
         num_rel_no_bg = self.num_rel - 1
         for idx in range(num_rel_no_bg):
@@ -148,8 +153,108 @@ class SGMeanRecallRelative(SceneGraphEvaluation):
         self.result_dict[mode + '_mean_recall_relative']['relative'] = sum_recall / float(num_rel_no_bg)
         return
 
+class SGInformativeRecallWeighted(SceneGraphEvaluation):
+    def __init__(self, result_dict, sim='mpnet'):
+        super(SGInformativeRecall, self).__init__(result_dict)
+
+        self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
+        if sim not in self.sim_options:
+            raise ValueError('sim must be in %s' % self.sim_options)
+        self.similarity = sim
+
+        # load embeddings according to similarity value
+        if self.similarity == 'glove':
+            self.sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
+        elif self.similarity == 'uae_large':
+            self.sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
+        elif self.similarity == 'bert_large':
+            self.sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
+        elif self.similarity == 'minilm':
+            self.sim_model = SentenceTransformer('all-MiniLM-L12-v2')
+        elif self.similarity == "mpnet":
+            self.sim_model = SentenceTransformer('all-mpnet-base-v2')
+        elif self.similarity == "clip":
+            self.sim_model = SentenceTransformer('CLIP-ViT-B-32')
+
+    def register_container(self, mode):
+        self.result_dict[mode + '_informative_recall'] = {100: []} # 5: [], 10: [], 20: [], 50: [], 
+
+    def generate_print_string(self, mode):
+        result_str = 'SGG eval: '
+        for k, v in self.result_dict[mode + '_informative_recall'].items():
+            result_str += '    IR @ %d: %.4f; ' % (k, np.mean(v))
+        result_str += ' for mode=%s, type=Informative Recall.' % mode
+        result_str += '\n'
+        return result_str
+    
+    def similarity_match(self, gt_triplets, pred_triplets, cosine_thres=0.9):
+        pred_to_gt = [[] for _ in range(len(pred_triplets))]
+
+        if len(gt_triplets) == 0 or len(pred_triplets) == 0:
+            return pred_to_gt
+
+        gt_triplets_embeddings = self.sim_model.encode(gt_triplets)
+        pred_triplets_embeddings = self.sim_model.encode(pred_triplets)
+
+        # Compute cosine similarity for all combinations at once
+        cos_sim_matrix = util.cos_sim(pred_triplets_embeddings, gt_triplets_embeddings)
+
+        # Iterate over each pred_triplet's cosine similarity scores
+        for i, cos_sim_scores in enumerate(cos_sim_matrix):
+            # Find the index of the maximum cosine similarity score for the current pred_triplet
+            max_sim_score, max_index = torch.max(cos_sim_scores, dim=0)
+
+            # If the highest cosine similarity score is above the threshold, consider it a match
+            if max_sim_score > cosine_thres:
+                pred_to_gt[i].append(max_index.item())
+
+        return pred_to_gt
+
+    def calculate(self, global_container, local_container, mode):
+        pred_rel_inds = local_container['pred_rel_inds']
+        rel_scores = local_container['rel_scores']
+        pred_classes = local_container['pred_classes']
+        pred_boxes = local_container['pred_boxes']
+        obj_scores = local_container['obj_scores']
+
+        gt_relationships = local_container['informative_rels']
+
+        pred_rels = np.column_stack((pred_rel_inds, 1+rel_scores[:,1:].argmax(1)))
+        pred_scores = rel_scores[:,1:].max(1)
+
+        pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
+
+        pred_triplets = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
+
+        pred_to_gt = self.similarity_match(gt_relationships, pred_triplets, cosine_thres=0.9)
+
+        for k in self.result_dict[mode + '_informative_recall']:
+            weighted_sum = 0
+            # get indices of pred_to_gt that are not empty
+            indices = [i for i, x in enumerate(pred_to_gt[:k]) if x]
+            # apply a lambda function to remove the number of previous items in the list, such that a perfect ranking = 0
+            indices = list(map(lambda x, y: x - y, indices, range(len(indices))))
+            for idx in indices:
+                # Compute weight for the current position
+                weight = self.weight_function(idx, k)
+                # Add weighted match to the weighted sum
+                weighted_sum += weight 
+
+            # Normalize the weighted recall score
+            rec_i_weighted = weighted_sum / len(gt_relationships)
+            self.result_dict[mode + '_informative_recall'][k].append(rec_i_weighted)
+
+        return local_container
+    
+    def weight_function(self, position, max_position, mode="linear"):
+        if mode == "linear":
+            return (max_position - position) / max_position
+        if mode == "log": # normalized log
+            return np.log(max_position - position + 1) / np.log(max_position + 1)
+
+
 class SGInformativeRecall(SceneGraphEvaluation):
-    def __init__(self, result_dict, sim='glove'):
+    def __init__(self, result_dict, sim='mpnet'):
         super(SGInformativeRecall, self).__init__(result_dict)
 
         self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
@@ -169,9 +274,7 @@ class SGInformativeRecall(SceneGraphEvaluation):
         elif self.similarity == "mpnet":
             self.sim_model = SentenceTransformer('all-mpnet-base-v2')
         elif self.similarity == "clip":
-            from transformers import AutoTokenizer, CLIPTextModelWithProjection
-            self.sim_model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
-            self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+            self.sim_model = SentenceTransformer('CLIP-ViT-B-32')
 
     def register_container(self, mode):
         self.result_dict[mode + '_informative_recall'] = {5: [], 10: [], 20: [], 50: [], 100: []}
@@ -183,8 +286,8 @@ class SGInformativeRecall(SceneGraphEvaluation):
         result_str += ' for mode=%s, type=Informative Recall.' % mode
         result_str += '\n'
         return result_str
-    
-    def similarity_match(self, gt_triplets, pred_triplets, cosine_thres=0.9):
+
+    def similarity_match(self, gt_triplets, pred_triplets, cosine_thres=0.8):
         """
         Perform cosine similarity between gt_triplets list of strings and pred_triplets list of strings
         For each pred_triplet, find the gt_triplet with the highest cosine similarity score
@@ -192,42 +295,29 @@ class SGInformativeRecall(SceneGraphEvaluation):
         Return:
             pred_to_gt [List of List]
         """
-        for i in range(len(gt_triplets)):
-            gt_triplets[i] = gt_triplets[i].lower()
-        for i in range(len(pred_triplets)):
-            pred_triplets[i] = pred_triplets[i].lower()
-
-        pred_to_gt = [[] for x in range(len(pred_triplets))]
+        pred_to_gt = [[] for _ in range(len(pred_triplets))]
 
         if len(gt_triplets) == 0 or len(pred_triplets) == 0:
             return pred_to_gt
 
-        # encoding the gt_triplets and pred_triplets
-        if self.similarity == 'clip':
-            gt_triplets_input = self.tokenizer(gt_triplets, padding=True, truncation=True, return_tensors="pt")
-            pred_triplets_input = self.tokenizer(pred_triplets, padding=True, truncation=True, return_tensors="pt")
+        gt_triplets_embeddings = self.sim_model.encode(gt_triplets, batch_size=256, device='cuda')
+        pred_triplets_embeddings = self.sim_model.encode(pred_triplets, batch_size=256, device='cuda')
 
-            gt_triplets_embeddings = self.sim_model(**gt_triplets_input).text_embeds.detach().cpu().numpy()
-            pred_triplets_embeddings = self.sim_model(**pred_triplets_input).text_embeds.detach().cpu().numpy()
-        else:
-            gt_triplets_embeddings = self.sim_model.encode(gt_triplets)
-            pred_triplets_embeddings = self.sim_model.encode(pred_triplets)
+        # Compute cosine similarity for all combinations at once
+        cos_sim_matrix = util.cos_sim(pred_triplets_embeddings, gt_triplets_embeddings)
 
-        # cosine similarity between gt_triplets and pred_triplets
-        for i in range(len(pred_triplets)):
-            if len(gt_triplets_embeddings) == 0:
-                break
-            top_sim =  torch.topk(util.cos_sim(pred_triplets_embeddings[i], gt_triplets_embeddings)[0], k=1)
+        # Iterate over each pred_triplet's cosine similarity scores
+        for i, cos_sim_scores in enumerate(cos_sim_matrix):
+            # Find the index of the maximum cosine similarity score for the current pred_triplet
+            max_sim_score, max_index = torch.max(cos_sim_scores, dim=0)
 
-            # if the highest cosine similarity score is above a threshold, then consider the pred_triplet to be a match
-            if top_sim[0] > cosine_thres:
-                pred_to_gt[i].append(top_sim[1])
-                # remove the matched gt_triplet from the gt_triplets_embeddings matrix
-                gt_triplets_embeddings = np.delete(gt_triplets_embeddings, top_sim.indices[0], axis=0)
+            # If the highest cosine similarity score is above the threshold, consider it a match
+            if max_sim_score > cosine_thres:
+                pred_to_gt[i].append(max_index.item())
 
         return pred_to_gt
 
-    def calculate_recall(self, global_container, local_container, mode):
+    def calculate(self, global_container, local_container, mode):
         pred_rel_inds = local_container['pred_rel_inds']
         rel_scores = local_container['rel_scores']
         pred_classes = local_container['pred_classes']
@@ -239,11 +329,11 @@ class SGInformativeRecall(SceneGraphEvaluation):
         pred_rels = np.column_stack((pred_rel_inds, 1+rel_scores[:,1:].argmax(1)))
         pred_scores = rel_scores[:,1:].max(1)
 
-        pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
+        pred_triplets, _, _ = _triplet(pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
 
         pred_triplets = [str(global_container['ind_to_classes'][triplet[0]]) + " "+ str(global_container['ind_to_predicates'][triplet[1]]) + " "+ str(global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
 
-        pred_to_gt = self.similarity_match(gt_relationships, pred_triplets, cosine_thres=0.9)
+        pred_to_gt = self.similarity_match(gt_relationships, pred_triplets, cosine_thres=0.8)
 
         for k in self.result_dict[mode + '_informative_recall']:
             # check if pred_to_gt_inf is empty
@@ -266,7 +356,6 @@ https://github.com/rowanz/neural-motifs
 class SGRecall(SceneGraphEvaluation):
     def __init__(self, result_dict):
         super(SGRecall, self).__init__(result_dict)
-        
 
     def register_container(self, mode):
         self.result_dict[mode + '_recall'] = {20: [], 50: [], 100: []}
@@ -275,11 +364,11 @@ class SGRecall(SceneGraphEvaluation):
         result_str = 'SGG eval: '
         for k, v in self.result_dict[mode + '_recall'].items():
             result_str += '    R @ %d: %.4f; ' % (k, np.mean(v))
-        result_str += ' for mode=%s, type=Recall(Main).' % mode
+        result_str += ' for mode=%s, type=Recall (Main).' % mode
         result_str += '\n'
         return result_str
 
-    def calculate_recall(self, global_container, local_container, mode):
+    def calculate(self, global_container, local_container, mode):
         pred_rel_inds = local_container['pred_rel_inds']
         rel_scores = local_container['rel_scores']
         gt_rels = local_container['gt_rels']
@@ -320,6 +409,81 @@ class SGRecall(SceneGraphEvaluation):
             self.result_dict[mode + '_recall'][k].append(rec_i)
 
         return local_container
+
+class SGWeightedRecall(SceneGraphEvaluation):
+    def __init__(self, result_dict):
+        super(SGWeightedRecall, self).__init__(result_dict)
+
+    def register_container(self, mode):
+        self.result_dict[mode + '_weighted_recall'] = {20: [], 50: [], 100: []}
+
+    def generate_print_string(self, mode):
+        result_str = 'SGG eval: '
+        for k, v in self.result_dict[mode + '_weighted_recall'].items():
+            result_str += '    R @ %d: %.4f; ' % (k, np.mean(v))
+        result_str += ' for mode=%s, type=Weighted Recall (Main).' % mode
+        result_str += '\n'
+        return result_str
+
+    def calculate(self, global_container, local_container, mode):
+        pred_rel_inds = local_container['pred_rel_inds']
+        rel_scores = local_container['rel_scores']
+        gt_rels = local_container['gt_rels']
+        gt_classes = local_container['gt_classes']
+        gt_boxes = local_container['gt_boxes']
+        pred_classes = local_container['pred_classes']
+        pred_boxes = local_container['pred_boxes']
+        obj_scores = local_container['obj_scores']
+
+        iou_thres = global_container['iou_thres']
+
+        pred_rels = np.column_stack((pred_rel_inds, 1+rel_scores[:,1:].argmax(1)))
+        pred_scores = rel_scores[:,1:].max(1)
+
+        gt_triplets, gt_triplet_boxes, _ = _triplet(gt_rels, gt_classes, gt_boxes)
+        local_container['gt_triplets'] = gt_triplets
+        local_container['gt_triplet_boxes'] = gt_triplet_boxes
+
+        pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(
+                pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
+
+        # Compute recall. It's most efficient to match once and then do recall after
+        pred_to_gt = _compute_pred_matches(
+            gt_triplets,
+            pred_triplets,
+            gt_triplet_boxes,
+            pred_triplet_boxes,
+            iou_thres,
+            global_container,
+            phrdet=mode=='phrdet',
+        )
+        local_container['pred_to_gt'] = pred_to_gt
+
+        # Modify the recall calculation loop to include weights
+        for k in self.result_dict[mode + '_weighted_recall']:
+            weighted_sum = 0
+            # get indices of pred_to_gt that are not empty
+            indices = [i for i, x in enumerate(pred_to_gt[:k]) if x]
+            # apply a lambda function to remove the number of previous items in the list, such that a perfect ranking = 0
+            indices = list(map(lambda x, y: x - y, indices, range(len(indices))))
+            for idx in indices:
+                # Compute weight for the current position
+                weight = self.weight_function(idx, k)
+                # Add weighted match to the weighted sum
+                weighted_sum += weight 
+
+            # Normalize the weighted recall score
+            rec_i_weighted = weighted_sum / len(gt_triplets)
+            self.result_dict[mode + '_weighted_recall'][k].append(rec_i_weighted)
+
+        return local_container
+    
+    def weight_function(self, position, max_position, mode="linear"):
+        if mode == "linear":
+            return (max_position - position) / max_position
+        if mode == "log": # normalized log
+            return np.log(max_position - position + 1) / np.log(max_position + 1)
+    
 """
 No Graph Constraint Recall, implement based on:
 https://github.com/rowanz/neural-motifs
@@ -339,7 +503,7 @@ class SGNoGraphConstraintRecall(SceneGraphEvaluation):
         result_str += '\n'
         return result_str
 
-    def calculate_recall(self, global_container, local_container, mode):
+    def calculate(self, global_container, local_container, mode):
         obj_scores = local_container['obj_scores']
         pred_rel_inds = local_container['pred_rel_inds']
         rel_scores = local_container['rel_scores']
@@ -413,7 +577,7 @@ class SGZeroShotRecall(SceneGraphEvaluation):
         else:
             self.zeroshot_idx = np.where( intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0 )[0].tolist()
 
-    def calculate_recall(self, global_container, local_container, mode):
+    def calculate(self, global_container, local_container, mode):
         pred_to_gt = local_container['pred_to_gt']
 
         for k in self.result_dict[mode + '_zeroshot_recall']:
@@ -459,7 +623,7 @@ class SGNGZeroShotRecall(SceneGraphEvaluation):
         else:
             self.zeroshot_idx = np.where( intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0 )[0].tolist()
 
-    def calculate_recall(self, global_container, local_container, mode):
+    def calculate(self, global_container, local_container, mode):
         pred_to_gt = local_container['nogc_pred_to_gt']
 
         for k in self.result_dict[mode + '_ng_zeroshot_recall']:
@@ -508,7 +672,7 @@ class SGPairAccuracy(SceneGraphEvaluation):
         gt_pair_idx = local_container['gt_rels'][:, 0] * 1024 + local_container['gt_rels'][:, 1]
         self.pred_pair_in_gt = (pred_pair_idx[:, None] == gt_pair_idx[None, :]).sum(-1) > 0
 
-    def calculate_recall(self, global_container, local_container, mode):
+    def calculate(self, global_container, local_container, mode):
         pred_to_gt = local_container['pred_to_gt']
         gt_rels = local_container['gt_rels']
 
@@ -533,7 +697,7 @@ Mean Recall: Proposed in:
 https://arxiv.org/pdf/1812.01880.pdf CVPR, 2019
 """
 class SGMeanRecall(SceneGraphEvaluation):
-    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=False):
+    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=True):
         super(SGMeanRecall, self).__init__(result_dict)
         self.num_rel = num_rel
         self.print_detail = print_detail
@@ -586,8 +750,7 @@ class SGMeanRecall(SceneGraphEvaluation):
                 if recall_count[n] > 0:
                     self.result_dict[mode + '_mean_recall_collect'][k][n].append(float(recall_hit[n] / recall_count[n]))
  
-
-    def calculate_mean_recall(self, mode):
+    def calculate(self, global_container, local_container, mode):
         for k, v in self.result_dict[mode + '_mean_recall'].items():
             sum_recall = 0
             num_rel_no_bg = self.num_rel - 1
@@ -602,12 +765,88 @@ class SGMeanRecall(SceneGraphEvaluation):
             self.result_dict[mode + '_mean_recall'][k] = sum_recall / float(num_rel_no_bg)
         return
 
+class SGWeightedMeanRecall(SceneGraphEvaluation):
+    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=True):
+        super(SGWeightedMeanRecall, self).__init__(result_dict)
+        self.num_rel = num_rel
+        self.print_detail = print_detail
+        self.rel_name_list = ind_to_predicates[1:] # remove __background__
+
+    def register_container(self, mode):
+        #self.result_dict[mode + '_recall_hit'] = {20: [0]*self.num_rel, 50: [0]*self.num_rel, 100: [0]*self.num_rel}
+        #self.result_dict[mode + '_recall_count'] = {20: [0]*self.num_rel, 50: [0]*self.num_rel, 100: [0]*self.num_rel}
+        self.result_dict[mode + '_weighted_mean_recall'] = {20: 0.0, 50: 0.0, 100: 0.0}
+        self.result_dict[mode + '_weighted_mean_recall_collect'] = {20: [[] for i in range(self.num_rel)], 50: [[] for i in range(self.num_rel)], 100: [[] for i in range(self.num_rel)]}
+        self.result_dict[mode + '_weighted_mean_recall_list'] = {20: [], 50: [], 100: []}
+
+    def generate_print_string(self, mode):
+        result_str = 'SGG eval: '
+        for k, v in self.result_dict[mode + '_weighted_mean_recall'].items():
+            result_str += '   mR @ %d: %.4f; ' % (k, float(v))
+        result_str += ' for mode=%s, type=Weighted Mean Recall.' % mode
+        result_str += '\n'
+        if self.print_detail:
+            result_str += '----------------------- Details ------------------------\n'
+            for n, r in zip(self.rel_name_list, self.result_dict[mode + '_weighted_mean_recall_list'][100]):
+                result_str += '({}:{:.4f}) '.format(str(n), r)
+            result_str += '\n'
+            result_str += '--------------------------------------------------------\n'
+
+        return result_str
+    
+    def weight_function(self, position, max_position, mode="linear"):
+        if mode == "linear":
+            return (max_position - position) / max_position
+        if mode == "log": # normalized log
+            return np.log(max_position - position + 1) / np.log(max_position + 1)
+
+    def collect_mean_recall_items(self, global_container, local_container, mode):
+        pred_to_gt = local_container['pred_to_gt']
+        gt_rels = local_container['gt_rels']
+
+        for k in self.result_dict[mode + '_weighted_mean_recall_collect']:
+            # the following code are copied from Neural-MOTIFS
+            match = reduce(np.union1d, pred_to_gt[:k])
+            # NOTE: by kaihua, calculate Mean Recall for each category independently
+            # this metric is proposed by: CVPR 2019 oral paper "Learning to Compose Dynamic Tree Structures for Visual Contexts"
+            recall_hit = [0] * self.num_rel
+            recall_count = [0] * self.num_rel
+
+            for idx in range(gt_rels.shape[0]):
+                local_label = gt_rels[idx,2]
+                recall_count[int(local_label)] += 1
+                recall_count[0] += 1
+
+            for idx in range(len(match)):
+                weight = self.weight_function(idx, k)
+                local_label = gt_rels[int(match[idx]),2]
+                recall_hit[int(local_label)] += weight
+                recall_hit[0] += weight
+
+            for n in range(self.num_rel):
+                if recall_count[n] > 0:
+                    self.result_dict[mode + '_weighted_mean_recall_collect'][k][n].append(float(recall_hit[n] / recall_count[n]))
+
+    def calculate(self, global_container, local_container, mode):
+        for k, v in self.result_dict[mode + '_weighted_mean_recall'].items():
+            sum_recall = 0
+            num_rel_no_bg = self.num_rel - 1
+            for idx in range(num_rel_no_bg):
+                if len(self.result_dict[mode + '_weighted_mean_recall_collect'][k][idx+1]) == 0:
+                    tmp_recall = 0.0
+                else:
+                    tmp_recall = np.mean(self.result_dict[mode + '_weighted_mean_recall_collect'][k][idx+1])
+                self.result_dict[mode + '_weighted_mean_recall_list'][k].append(tmp_recall)
+                sum_recall += tmp_recall
+
+            self.result_dict[mode + '_weighted_mean_recall'][k] = sum_recall / float(num_rel_no_bg)
+        return
 
 """
 No Graph Constraint Mean Recall
 """
 class SGNGMeanRecall(SceneGraphEvaluation):
-    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=False):
+    def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=True):
         super(SGNGMeanRecall, self).__init__(result_dict)
         self.num_rel = num_rel
         self.print_detail = print_detail
@@ -659,7 +898,7 @@ class SGNGMeanRecall(SceneGraphEvaluation):
                     self.result_dict[mode + '_ng_mean_recall_collect'][k][n].append(float(recall_hit[n] / recall_count[n]))
  
 
-    def calculate_mean_recall(self, mode):
+    def calculate(self, global_container, local_container, mode):
         for k, v in self.result_dict[mode + '_ng_mean_recall'].items():
             sum_recall = 0
             num_rel_no_bg = self.num_rel - 1
@@ -693,12 +932,10 @@ class SGAccumulateRecall(SceneGraphEvaluation):
         result_str += '\n'
         return result_str
 
-    def calculate_accumulate(self, mode):
+    def calculate(self, global_container, local_container, mode):
         for k, v in self.result_dict[mode + '_accumulate_recall'].items():
             self.result_dict[mode + '_accumulate_recall'][k] = float(self.result_dict[mode + '_recall_hit'][k][0]) / float(self.result_dict[mode + '_recall_count'][k][0] + 1e-10)
-
         return 
-
 
 def _triplet(relations, classes, boxes, predicate_scores=None, class_scores=None):
     """
@@ -738,7 +975,6 @@ def _triplet(relations, classes, boxes, predicate_scores=None, class_scores=None
         ))
 
     return triplets, triplet_boxes, triplet_scores
-
 
 def _compute_pred_matches(gt_triplets, pred_triplets,
                  gt_boxes, pred_boxes, iou_thres, global_container, phrdet=False):
@@ -804,54 +1040,47 @@ def _compute_pred_matches2(gt_triplets, pred_triplets,
     if len(gt_triplets_full) == 0 or len(pred_triplets_full) == 0:
         return pred_to_gt
 
-    # encoding the gt_triplets and pred_triplets
-    if similarity == 'clip':
-        gt_triplets_input = tokenizer(gt_triplets_full, padding=True, truncation=True, return_tensors="pt")
-        pred_triplets_input = tokenizer(pred_triplets_full, padding=True, truncation=True, return_tensors="pt")
-
-        gt_triplets_embeddings = sim_model(**gt_triplets_input).text_embeds.detach().cpu().numpy()
-        pred_triplets_embeddings = sim_model(**pred_triplets_input).text_embeds.detach().cpu().numpy()
-    else:
-        gt_triplets_embeddings = sim_model.encode(gt_triplets_full)
-        pred_triplets_embeddings = sim_model.encode(pred_triplets_full)
+    gt_triplets_embeddings = sim_model.encode(gt_triplets_full, batch_size=128)
+    pred_triplets_embeddings = sim_model.encode(pred_triplets_full, batch_size=128)
 
     # Convert the lists to PyTorch tensors
     gt_triplets_embeddings = torch.tensor(gt_triplets_embeddings)
     pred_triplets_embeddings = torch.tensor(pred_triplets_embeddings)
 
-    # Normalize the embeddings
-    gt_triplets_embeddings = F.normalize(gt_triplets_embeddings, p=2, dim=1)
-    pred_triplets_embeddings = F.normalize(pred_triplets_embeddings, p=2, dim=1)
+    # # Normalize the embeddings
+    # gt_triplets_embeddings = F.normalize(gt_triplets_embeddings, p=2, dim=1)
+    # pred_triplets_embeddings = F.normalize(pred_triplets_embeddings, p=2, dim=1)
 
     # Compute the cosine similarity for all pairs of triplets
-    cos_sim = torch.mm(pred_triplets_embeddings, gt_triplets_embeddings.t())
+    cos_sim = F.cosine_similarity(gt_triplets_embeddings[:, None, :], pred_triplets_embeddings[None, :, :], dim=2)
 
-    # Get the indices of the top-k similarities for each predicted triplet
-    top_sim_values, top_sim_indices = torch.topk(cos_sim, k=1, dim=1)
+    # Get the indices of the top-1 most similar predicted triplet for each ground truth triplet
+    top_sim_values, top_sim_indices = cos_sim.topk(1, dim=1)
 
-    # Get the indices of the predicted triplets that have a similarity above the threshold
-    match_indices = (top_sim_values > threshold).nonzero(as_tuple=True)[0]
+    # Get the indices above the threshold
+    temp_list = torch.argwhere(top_sim_values >= threshold)[:,:1].squeeze().tolist()
 
-    # Convert the bounding boxes to PyTorch tensors
-    gt_boxes = torch.tensor(gt_boxes)
-    pred_boxes = torch.tensor(pred_boxes)
+    match_indices_gt = temp_list if isinstance(temp_list, list) else [temp_list]
 
-    # Compute the IoU for all pairs of bounding boxes
-    iou_sub = bbox_overlaps(gt_boxes[:, :4], pred_boxes[:, :4])
-    iou_obj = bbox_overlaps(gt_boxes[:, 4:], pred_boxes[:, 4:])
+    tmp_pred = top_sim_indices[match_indices_gt].squeeze().tolist()
+    match_indices_pred = tmp_pred if isinstance(tmp_pred, list) else [tmp_pred]
 
-    # For each matched predicted triplet
-    for i in match_indices:
-        # Get the index of the matched ground truth triplet
-        gt_index = top_sim_indices[i]
+    # concat gt_boxes[match_indices_gt][:, :4] and gt_boxes[match_indices_gt][:, 4:] to get the full box
+    sub_iou_all = bbox_overlaps(gt_boxes[match_indices_gt][:, :4], pred_boxes[:, :4])
+    sub_iou_all = np.maximum(sub_iou_all, bbox_overlaps(gt_boxes[match_indices_gt][:, 4:], pred_boxes[:, :4]))
+    obj_iou_all = bbox_overlaps(gt_boxes[match_indices_gt][:, :4], pred_boxes[:, 4:])
+    obj_iou_all = np.maximum(obj_iou_all, bbox_overlaps(gt_boxes[match_indices_gt][:, 4:], pred_boxes[:, 4:]))
 
-        # Get the IoU between the bounding boxes of the matched triplets
-        sub_iou = iou_sub[gt_index, i]
-        obj_iou = iou_obj[gt_index, i]
+    # print(sub_iou_all)
+    # print(len(sub_iou_all))
 
-        inds = (sub_iou >= iou_thres) & (obj_iou >= iou_thres)
+    # Iterate over each GT box and its corresponding matches.
+    for gt_ind, sub_iou, obj_iou, keep in zip(match_indices_gt, sub_iou_all, obj_iou_all, match_indices_pred):
+        # Apply threshold to both subject and object IOUs.
+        inds = (sub_iou[keep] >= iou_thres) & (obj_iou[keep] >= iou_thres)
 
-        # If the IoU is above the threshold, add the ground truth triplet to the list of matches for the predicted triplet
-        if inds:
-            pred_to_gt[i].append(gt_index)
+        # If any indices meet the threshold, append to pred_to_gt.
+        if inds.any():
+            pred_to_gt[keep].extend(int(gt_ind) for i in inds.nonzero()[0])
+
     return pred_to_gt

@@ -37,7 +37,7 @@ class PrototypeEmbeddingNetwork(BasePredictor):
 
         self.context_layer = PENetContext(config, obj_classes, rel_classes, in_channels, dropout_p=dropout_p)
 
-        self.mlp_dim = self.cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM
+        self.mlp_dim = 2048 #self.cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM // 2
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
         self.spatial_for_vision = config.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
         self.use_union = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES

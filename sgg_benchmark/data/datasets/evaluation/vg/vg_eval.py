@@ -6,7 +6,7 @@ from tqdm import tqdm
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
-from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall, SGInformativeRecall, SGF1Score, SGRecallRelative, SGMeanRecallRelative
+from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import *
 from sgg_benchmark.config.paths_catalog import DatasetCatalog
 
 def do_vg_evaluation(
@@ -19,6 +19,13 @@ def do_vg_evaluation(
     iou_types,
     informative=False,
 ):
+    # Control which metric to evaluate, recall need to be here BY DEFAULT
+    metrics_to_eval = {'relations': ['recall', 'mean_recall', 'f1_score', 'informative_recall'], 'bbox': ['mAP']}
+    
+    metrics_map = {'recall': SGRecall, 'recall_nogc': SGNoGraphConstraintRecall, 'zeroshot_recall': SGZeroShotRecall, 'ng_zeroshot_recall': SGNGZeroShotRecall, 'informative_recall': SGInformativeRecall, 'mean_recall': SGMeanRecall, 'recall_relative': SGRecallRelative, 'mean_recall_relative': SGMeanRecallRelative, 'f1_score': SGF1Score, 'weighted_recall': SGWeightedRecall, 'weighted_mean_recall': SGWeightedMeanRecall}
+
+    metrics_to_eval = {k: v for k,v in metrics_map.items() if k in metrics_to_eval['relations']}
+
     # get zeroshot triplet
     if "relations" in iou_types:
         data_dir = DatasetCatalog.DATA_DIR
@@ -120,58 +127,14 @@ def do_vg_evaluation(
     if "relations" in iou_types:
         result_dict = {}
         evaluator = {}
-        # tradictional Recall@K
-        eval_recall = SGRecall(result_dict)
-        eval_recall.register_container(mode)
-        evaluator['eval_recall'] = eval_recall
 
-        # no graphical constraint
-        eval_nog_recall = SGNoGraphConstraintRecall(result_dict)
-        eval_nog_recall.register_container(mode)
-        evaluator['eval_nog_recall'] = eval_nog_recall
-
-        # test on different distribution
-        eval_zeroshot_recall = SGZeroShotRecall(result_dict)
-        eval_zeroshot_recall.register_container(mode)
-        evaluator['eval_zeroshot_recall'] = eval_zeroshot_recall
-
-        # test on no graph constraint zero-shot recall
-        eval_ng_zeroshot_recall = SGNGZeroShotRecall(result_dict)
-        eval_ng_zeroshot_recall.register_container(mode)
-        evaluator['eval_ng_zeroshot_recall'] = eval_ng_zeroshot_recall
-        
-        # used by https://github.com/NVIDIA/ContrastiveLosses4VRD for sgcls and predcls
-        eval_pair_accuracy = SGPairAccuracy(result_dict)
-        eval_pair_accuracy.register_container(mode)
-        evaluator['eval_pair_accuracy'] = eval_pair_accuracy
-
-        # used for meanRecall@K
-        eval_mean_recall = SGMeanRecall(result_dict, num_rel_category, dataset.ind_to_predicates, print_detail=True)
-        eval_mean_recall.register_container(mode)
-        evaluator['eval_mean_recall'] = eval_mean_recall
-
-        # used for no graph constraint mean Recall@K
-        eval_ng_mean_recall = SGNGMeanRecall(result_dict, num_rel_category, dataset.ind_to_predicates, print_detail=True)
-        eval_ng_mean_recall.register_container(mode)
-        evaluator['eval_ng_mean_recall'] = eval_ng_mean_recall
-
-        # compute F1 score
-        eval_f1_score = SGF1Score(result_dict)
-        eval_f1_score.register_container(mode)
-        evaluator['eval_f1_score'] = eval_f1_score
-
-        if informative:
-            eval_informative_recall = SGInformativeRecall(result_dict, sim="glove")
-            eval_informative_recall.register_container(mode)
-            evaluator['eval_informative_recall'] = eval_informative_recall
-
-            eval_relative_recall = SGRecallRelative(result_dict)
-            eval_relative_recall.register_container(mode)
-            evaluator['eval_relative_recall'] = eval_relative_recall
-
-            eval_mean_relative_recall = SGMeanRecallRelative(result_dict, num_rel_category, dataset.ind_to_predicates, print_detail=True)
-            eval_mean_relative_recall.register_container(mode)
-            evaluator['eval_mean_relative_recall'] = eval_mean_relative_recall
+        for k, v in metrics_to_eval.items():
+            if "mean" in k:
+                cur_metric = v(result_dict, num_rel_category, dataset.ind_to_predicates, print_detail=True)
+            else:
+                cur_metric = v(result_dict)
+            cur_metric.register_container(mode)
+            evaluator["eval_"+k] = cur_metric
 
         # prepare all inputs
         global_container = {}
@@ -192,47 +155,32 @@ def do_vg_evaluation(
         for groundtruth, prediction in tqdm(zip(groundtruths, predictions), desc='Evaluating', total=len(groundtruths), disable=not(informative)):
             evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator, informative=informative)
         
-        # calculate mean recall
-        eval_mean_recall.calculate_mean_recall(mode)
-        eval_ng_mean_recall.calculate_mean_recall(mode)
+        for k,v in evaluator.items():
+            if "mean" in k:
+                v.calculate(global_container, None, mode)
+            if "f1" not in k:
+                result_str += v.generate_print_string(mode)
 
-        if informative:
-            eval_mean_relative_recall.calculate_mean_recall(mode)
-
-        # calculate f1 score
-        eval_f1_score.calculate_f1(global_container['result_dict'], mode)
-        
-        # print result
-        result_str += eval_recall.generate_print_string(mode)
-        result_str += eval_nog_recall.generate_print_string(mode)
-        result_str += eval_zeroshot_recall.generate_print_string(mode)
-        result_str += eval_ng_zeroshot_recall.generate_print_string(mode)
-        result_str += eval_mean_recall.generate_print_string(mode)
-        result_str += eval_ng_mean_recall.generate_print_string(mode)
-        result_str += eval_f1_score.generate_print_string(mode)
-
-        if informative:
-            result_str += eval_informative_recall.generate_print_string(mode)
-            result_str += eval_relative_recall.generate_print_string(mode)
-            result_str += eval_mean_relative_recall.generate_print_string(mode)
-
-        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-            result_str += eval_pair_accuracy.generate_print_string(mode)
+        if "eval_f1_score" in evaluator.keys(): # make sure we do f1 at the end
+            evaluator['eval_f1_score'].calculate(global_container['result_dict'], None, mode)
+            result_str += evaluator['eval_f1_score'].generate_print_string(mode)
         result_str += '=' * 100 + '\n'
-
 
     logger.info(result_str)
     
     if "relations" in iou_types:
         result_dict['detector_mAP@50'] = mAp
         if output_folder:
-            torch.save(result_dict, os.path.join(output_folder, 'result_dict.pytorch'))
+            out_file = os.path.join(output_folder, 'eval_results_top_'+str(cfg.TEST.TOP_K)+'.json')
+
+            with open(out_file, 'w') as f:
+                json.dump(result_dict, f)
+            # torch.save(result_dict, os.path.join(output_folder, 'result_dict.pytorch'))
         return result_dict
     elif "bbox" in iou_types:
         return {'mAP': float(mAp)}
     else:
         return -1
-
 
 def save_output(output_folder, groundtruths, predictions, dataset):
     if output_folder:
@@ -259,8 +207,6 @@ def save_output(output_folder, groundtruths, predictions, dataset):
                 })
         with open(os.path.join(output_folder, "visual_info.json"), "w") as f:
             json.dump(visual_info, f)
-
-
 
 def evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator, informative=False):
     """
@@ -298,47 +244,23 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     # This metric is used by "Graphical Contrastive Losses for Scene Graph Parsing" 
     # for sgcls and predcls
     if mode != 'sgdet':
-        evaluator['eval_pair_accuracy'].prepare_gtpair(local_container)
-
-    # to calculate the prior label based on statistics
-    evaluator['eval_zeroshot_recall'].prepare_zeroshot(global_container, local_container)
-    evaluator['eval_ng_zeroshot_recall'].prepare_zeroshot(global_container, local_container)
+        if "eval_pair_accuracy" in evaluator.keys():
+            evaluator['eval_pair_accuracy'].prepare_gtpair(local_container)
+    
+    # to calculate the prior label based on statistics for zero-shot
+    for k, v in evaluator.items():
+        if "zeroshot" in k:
+            v.prepare_zeroshot(global_container, local_container)
 
     if mode == 'predcls':
         local_container['pred_boxes'] = local_container['gt_boxes']
         local_container['pred_classes'] = local_container['gt_classes']
         local_container['obj_scores'] = np.ones(local_container['gt_classes'].shape[0])
-
     elif mode == 'sgcls':
         if local_container['gt_boxes'].shape[0] != local_container['pred_boxes'].shape[0]:
             print('Num of GT boxes is not matching with num of pred boxes in SGCLS')
-    elif mode == 'sgdet' or mode == 'phrdet':
-        pass
-    else:
+    elif mode not in ['sgdet', 'phrdet', 'predcls', 'sgcls']:
         raise ValueError('invalid mode')
-    """
-    elif mode == 'preddet':
-        # Only extract the indices that appear in GT
-        prc = intersect_2d(pred_rel_inds, gt_rels[:, :2])
-        if prc.size == 0:
-            for k in result_dict[mode + '_recall']:
-                result_dict[mode + '_recall'][k].append(0.0)
-            return None, None, None
-        pred_inds_per_gt = prc.argmax(0)
-        pred_rel_inds = pred_rel_inds[pred_inds_per_gt]
-        rel_scores = rel_scores[pred_inds_per_gt]
-
-        # Now sort the matching ones
-        rel_scores_sorted = argsort_desc(rel_scores[:,1:])
-        rel_scores_sorted[:,1] += 1
-        rel_scores_sorted = np.column_stack((pred_rel_inds[rel_scores_sorted[:,0]], rel_scores_sorted[:,1]))
-
-        matches = intersect_2d(rel_scores_sorted, gt_rels)
-        for k in result_dict[mode + '_recall']:
-            rec_i = float(matches[:k].any(0).sum()) / float(gt_rels.shape[0])
-            result_dict[mode + '_recall'][k].append(rec_i)
-        return None, None, None
-    """
 
     # check if any of the local container is empty
     for k,v in local_container.items():
@@ -348,33 +270,20 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
             return
         if torch.is_tensor(v) and v.shape[0] == 0:
             return
-
+    
     # Traditional Metric with Graph Constraint
     # NOTE: this is the MAIN evaluation function, it must be run first (several important variables need to be update)
-    local_container = evaluator['eval_recall'].calculate_recall(global_container, local_container, mode)
+    local_container = evaluator['eval_recall'].calculate(global_container, local_container, mode)
 
-    # No Graph Constraint
-    evaluator['eval_nog_recall'].calculate_recall(global_container, local_container, mode)
-    # GT Pair Accuracy
-    evaluator['eval_pair_accuracy'].calculate_recall(global_container, local_container, mode)
-    # Mean Recall
-    evaluator['eval_mean_recall'].collect_mean_recall_items(global_container, local_container, mode)
-    # No Graph Constraint Mean Recall
-    evaluator['eval_ng_mean_recall'].collect_mean_recall_items(global_container, local_container, mode)
-    # Zero shot Recall
-    evaluator['eval_zeroshot_recall'].calculate_recall(global_container, local_container, mode)
-    # No Graph Constraint Zero-Shot Recall
-    evaluator['eval_ng_zeroshot_recall'].calculate_recall(global_container, local_container, mode)
-
-    if informative:
-        evaluator['eval_informative_recall'].calculate_recall(global_container, local_container, mode)
-
-        evaluator['eval_relative_recall'].calculate_recall(global_container, local_container, mode)
-        evaluator['eval_mean_relative_recall'].collect_mean_recall_items(global_container, local_container, mode)
-        
+    for k, v in evaluator.items():
+        if "mean" in k:
+            v.collect_mean_recall_items(global_container, local_container, mode)
+        elif "f1" not in k: # meanRecall and F1 need to be computed at the end
+            if k=="eval_recall":
+                continue
+            v.calculate(global_container, local_container, mode)
+            
     return 
-
-
 
 def convert_relation_matrix_to_triplets(relation):
     triplets = []
