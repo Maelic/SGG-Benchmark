@@ -74,9 +74,13 @@ class SGG_Model(object):
         self.device = torch.device(self.cfg.MODEL.DEVICE)
 
         if self.cfg.MODEL.BACKBONE.TYPE == "yolov8world":
-            self.model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
+            names = self.stats['idx_to_label'].values()
+            self.model.backbone.load_txt_feats(names)
 
     def predict(self, image, visu=False):
+        self.model.roi_heads.eval()
+        self.model.backbone.eval()
+
         out_img = image.copy()
         self.last_time = time.time()
         img_list, target = self._pre_processing(image)
@@ -129,14 +133,14 @@ class SGG_Model(object):
                 (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, font_thickness)
                 
                 # Calculate rectangle coordinates for the background
-                rect_start = (bbox[0], bbox[1] - text_height -10 - text_padding - baseline)
-                rect_end = (bbox[0] + text_width + text_padding * 2, bbox[1] - 10 + text_padding - baseline)
+                rect_start = (bbox[0], bbox[1] - text_height - text_padding )
+                rect_end = (bbox[0] + text_width + text_padding * 2, bbox[1] + text_padding )
                 
                 # Draw background rectangle
                 cv2.rectangle(out_img, rect_start, rect_end, (255, 0, 0), cv2.FILLED)
                 
                 # Draw text
-                cv2.putText(out_img, text, (bbox[0] + text_padding, bbox[1] - 10 - text_padding - baseline), font, font_scale, (255, 255, 255), font_thickness)
+                cv2.putText(out_img, text, (bbox[0] + text_padding, bbox[1] - text_padding ), font, font_scale, (255, 255, 255), font_thickness)
             # show fps
             if self.show_fps:
                 cv2.putText(out_img, f"FPS: {1/(time.time()-self.last_time):.2f}", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 2)

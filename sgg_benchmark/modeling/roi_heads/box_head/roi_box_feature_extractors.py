@@ -16,11 +16,13 @@ class YOLOV8FeatureExtractor(nn.Module):
 
         resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
         sampling_ratio = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
-        pooler = PoolerYOLO(
+        pooler = Pooler(
             output_size=(resolution, resolution),
             sampling_ratio=sampling_ratio,
             cat_all_levels=cat_all_levels,
-            out_channels=cfg.MODEL.YOLO.OUT_CHANNELS,
+            in_channels=in_channels,
+            scales=cfg.MODEL.ROI_BOX_HEAD.POOLER_SCALES,
+            # out_channels=cfg.MODEL.YOLO.OUT_CHANNELS,
         )
 
         self.pooler = pooler
@@ -41,7 +43,7 @@ class YOLOV8FeatureExtractor(nn.Module):
         self.out_channels = out_dim
 
     def forward(self, x, proposals):
-        x = self.pooler(x, proposals, True)
+        x = self.pooler(x, proposals)
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc6(x))
         x = F.relu(self.fc7(x))

@@ -52,8 +52,9 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             output = [o.to(cpu_device) for o in output]
 
             # add image_path to output
-            for i, o in enumerate(output):
-                o.add_field('image_path', targets[i].get_field('image_path'))
+            if output[0].has_field('image_path'):
+                for i, o in enumerate(output):
+                    o.add_field('image_path', targets[i].get_field('image_path'))
 
         if synchronize_gather:
             synchronize()
@@ -137,7 +138,7 @@ def informative_post_process(boxlist, top_n=100):
     # info_scores = torch.tensor(triple_scores)
     # sorting_idx = torch.argsort(info_scores, descending=True)
 
-    triple_scores = (values_norm + info_scores) / 2 #) + scores_rels) /2
+    triple_scores = values_norm # (values_norm + info_scores) / 2 #) + scores_rels) /2
 
     # Sort the scores in descending order and get the sorting indices
     sorting_idx = torch.argsort(triple_scores, descending=True)

@@ -56,7 +56,7 @@ class GeneralizedYOLO(nn.Module):
         images = to_image_list(images)
 
         with torch.no_grad():
-            outputs, features = self.backbone(images.tensors, embed=True)
+            outputs, features = self.backbone(images.tensors, visualize=False, embed=True)
             # get dino features
             proposals = self.backbone.postprocess(outputs, images.image_sizes)
             # features = self.feat_backbone.get_intermediate_layers(images.tensors, 4, reshape=True)

@@ -7,6 +7,8 @@ from sgg_benchmark.data.transforms import LetterBox
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
 from ultralytics.engine.results import Results
+from ultralytics.utils.plotting import feature_visualization
+from pathlib import Path
 
 from sgg_benchmark.structures.bounding_box import BoxList
 
@@ -19,7 +21,7 @@ class YoloV8(DetectionModel):
             verbose = True
         else:
             verbose = False
-        super().__init__(yolo_cfg, nc=nc, verbose=verbose)
+        super().__init__(yolo_cfg, nc=nc, verbose=False)
         # self.features_layers = [len(self.model) - 2]
         self.conf_thres = cfg.MODEL.BACKBONE.NMS_THRESH
         self.iou_thres = cfg.MODEL.ROI_HEADS.NMS
@@ -49,6 +51,8 @@ class YoloV8(DetectionModel):
             21: 20x20
             For different object scales, as in original YOLOV8 implementation.
             """
+            if visualize:
+                feature_visualization(x, m.type, m.i, save_dir=Path('/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/demo/test_custom/results'))
             if embed:
                 if i in self.layers_to_extract:  # if current layer is one of the feature extraction layers
                     feature_maps.append(x)

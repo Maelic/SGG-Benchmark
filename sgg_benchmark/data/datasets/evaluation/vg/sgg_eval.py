@@ -13,7 +13,7 @@ import time
 
 from abc import ABC, abstractmethod
 
-sim_model = SentenceTransformer('all-mpnet-base-v2',trust_remote_code=True) # clip-ViT-B-32
+# sim_model = SentenceTransformer('all-mpnet-base-v2',trust_remote_code=True) # clip-ViT-B-32
 
 class SceneGraphEvaluation(ABC):
     def __init__(self, result_dict):

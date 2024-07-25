@@ -63,6 +63,8 @@ class Pooler(nn.Module):
             sampling_ratio (int): sampling ratio for ROIAlign
         """
         super(Pooler, self).__init__()
+
+        self.in_channels = in_channels
         poolers = []
         for scale in scales:
             poolers.append(
@@ -124,6 +126,9 @@ class Pooler(nn.Module):
             device=device,
         )
         for level, (per_level_feature, pooler) in enumerate(zip(x, self.poolers)):
+            if per_level_feature.shape[1] != self.in_channels:
+                per_level_feature = nn.Conv2d(per_level_feature.shape[1], self.in_channels, kernel_size=1, stride=1, padding=0, device=device)(per_level_feature)
+
             if self.cat_all_levels:
                 result[:,level*num_channels:(level+1)*num_channels,:,:] = pooler(per_level_feature, rois).to(dtype)
             else:
@@ -162,7 +167,8 @@ class PoolerYOLO(nn.Module):
         # assert rois.size(0) > 0
 
         # Infer scales from the actual image
-        scales = [box.size[0] / feature_map.size(-1) for box, feature_map in zip(boxes, x)]
+        scales = [boxes[0].size[0] / feature_map.size(-1) for feature_map in x]
+        print(scales)
         poolers = [ROIAlign(self.output_size, spatial_scale=scale, sampling_ratio=self.sampling_ratio) for scale in scales]
 
         if num_levels == 1:
