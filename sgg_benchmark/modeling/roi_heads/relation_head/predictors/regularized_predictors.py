@@ -43,19 +43,27 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         self.use_union = config.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
 
         self.down_samp = MLP(self.pooling_dim, self.mlp_dim, self.mlp_dim, 2) 
-        self.vis2sem = nn.Linear(self.pooling_dim, self.mlp_dim)
+        self.vis2sem = nn.Sequential(*[
+            nn.Linear(self.mlp_dim, self.mlp_dim*2), nn.ReLU(True),
+            nn.Dropout(dropout_p), nn.Linear(self.mlp_dim*2, self.mlp_dim)
+        ])
         self.gate_pred = nn.Linear(self.mlp_dim*2, self.mlp_dim)
+
         self.W_pred = MLP(self.embed_dim, self.mlp_dim // 2, self.mlp_dim, 2)
+
         self.dropout_rel_rep = nn.Dropout(dropout_p)
-        self.norm_rel_rep = nn.LayerNorm(self.mlp_dim)
-        self.linear_rel_rep = nn.Linear(self.mlp_dim, self.mlp_dim)
-        self.project_head = MLP(self.mlp_dim, self.mlp_dim, self.mlp_dim*2, 2)
         self.dropout_rel = nn.Dropout(dropout_p)
         self.dropout_pred = nn.Dropout(dropout_p)
+
+        self.norm_rel_rep = nn.LayerNorm(self.mlp_dim)
+        self.linear_rel_rep = nn.Linear(self.mlp_dim, self.mlp_dim)
+
+        self.project_head = MLP(self.mlp_dim, self.mlp_dim, self.mlp_dim*2, 2)
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
         rel_embed_vecs = rel_vectors(rel_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=config.GLOVE_DIR, wv_dim=self.embed_dim)   # load Glove for predicates
         self.rel_embed = nn.Embedding(self.num_rel_cls, self.embed_dim)
+
         with torch.no_grad():
             self.rel_embed.weight.copy_(rel_embed_vecs, non_blocking=True)
 

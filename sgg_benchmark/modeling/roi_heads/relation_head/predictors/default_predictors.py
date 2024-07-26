@@ -541,7 +541,7 @@ class SquatPredictor(BasePredictor):
             obj_pred_labels = refined_obj_pred_labels
         else:
             obj_pred_labels = cat(
-                [each_prop.get_field("pred_labels") for each_prop in inst_proposals], dim=0
+                [each_prop.get_field("labels") for each_prop in inst_proposals], dim=0
             )
             obj_pred_logits = refined_obj_logits
             
