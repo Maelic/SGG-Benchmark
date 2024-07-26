@@ -7,10 +7,10 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   BOX_HEAD: True
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/IndoorVG4/faster_rcnn/model_final.pth"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/IndoorVG4/Backbones/faster_rcnn/model_final.pth"
   BACKBONE:
     TYPE: "R-101-FPN"
-    NMS_THRESH: 0.7
+    NMS_THRESH: 0.001
     FREEZE: False
   YOLO:
     SIZE: ""

@@ -256,7 +256,7 @@ class MotifPredictor(BasePredictor):
             obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
         else:
             if self.freeze_backbone:
-                obj_preds, edge_ctx = self.context_layer(roi_features, proposals, logger)
+                obj_dists, obj_preds, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
             else:
                 obj_dists, obj_preds, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
                 obj_dists = obj_dists.split(num_objs, dim=0)
@@ -305,10 +305,7 @@ class MotifPredictor(BasePredictor):
             att_dists = att_dists.split(num_objs, dim=0)
             return (obj_dists, att_dists), rel_dists, add_losses
         else:
-            if self.freeze_backbone:
-                return rel_dists, add_losses
-            else:
-                return obj_dists, rel_dists, add_losses
+            return obj_dists, rel_dists, add_losses
 
 @registry.ROI_RELATION_PREDICTOR.register("VCTreePredictor")
 class VCTreePredictor(BasePredictor):
