@@ -20,7 +20,10 @@ def do_vg_evaluation(
     informative=False,
 ):
     # Control which metric to evaluate, recall need to be here BY DEFAULT
-    metrics_to_eval = {'relations': ['recall', 'mean_recall', 'f1_score', 'informative_recall'], 'bbox': ['mAP']}
+    metrics_to_eval = {'relations': ['recall', 'mean_recall', 'f1_score'], 'bbox': ['mAP']}
+
+    if cfg.TEST.INFORMATIVE:
+        metrics_to_eval['relations'].extend(['informative_recall'])
     
     metrics_map = {'recall': SGRecall, 'recall_nogc': SGNoGraphConstraintRecall, 'zeroshot_recall': SGZeroShotRecall, 'ng_zeroshot_recall': SGNGZeroShotRecall, 'informative_recall': SGInformativeRecall, 'mean_recall': SGMeanRecall, 'recall_relative': SGRecallRelative, 'mean_recall_relative': SGMeanRecallRelative, 'f1_score': SGF1Score, 'weighted_recall': SGWeightedRecall, 'weighted_mean_recall': SGWeightedMeanRecall}
 
