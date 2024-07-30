@@ -19,7 +19,7 @@ def main(args):
     model = SGG_Model(config_path, dict_file, weights, tracking=tracking, rel_conf=rel_conf, box_conf=box_conf)
 
     # Open the webcam
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(-1)
 
     while True:
         # Capture frame-by-frame
@@ -27,6 +27,9 @@ def main(args):
 
         # Make prediction
         img, graph = model.predict(frame, visu=True)
+
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        graph = cv2.cvtColor(graph, cv2.COLOR_BGR2RGB)
 
         # Display the resulting frames
         cv2.imshow('Bbox detection', img)
@@ -47,8 +50,8 @@ if __name__ == "__main__":
     parser.add_argument('--weights', type=str, required=True, help='Path to the weights file, e.g. model.pth')
     parser.add_argument('--classes', default="datasets/vg/VG-SGG-dicts-with-attri.json", type=str, required=True, help='Path to the classes dict file, e.g. VG-SGG-dicts.json')
     parser.add_argument('--tracking', action="store_true", help='Object tracking or not')
-    parser.add_argument('--rel_conf', type=float, default=0.1, help='Relation confidence threshold')
-    parser.add_argument('--box_conf', type=float, default=0.5, help='Box confidence threshold')
+    parser.add_argument('--rel_conf', type=float, default=0.05, help='Relation confidence threshold')
+    parser.add_argument('--box_conf', type=float, default=0.34, help='Box confidence threshold')
 
     args = parser.parse_args()
 

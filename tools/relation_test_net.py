@@ -12,6 +12,7 @@ from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, set_seed
 from sgg_benchmark.utils.parser import default_argument_parser
 from sgg_benchmark.data import get_dataset_statistics
+from calflops import calculate_flops
 
 def assert_mode(cfg, task):
     cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
@@ -38,13 +39,12 @@ def main():
     cfg.merge_from_list(args.opts)
     if args.task:
         assert_mode(cfg, args.task)
-    
-    cfg.freeze()
 
     # set seed
     set_seed(seed=cfg.SEED)
 
     output_dir = cfg.OUTPUT_DIR
+
 
     logger = setup_logger("sgg_benchmark", output_dir, get_rank(), filename="log.txt", steps=True, verbose=cfg.VERBOSE)
     logger.info("Using {} GPUs".format(num_gpus))
@@ -54,6 +54,7 @@ def main():
     # logger.debug("\n" + collect_env_info())
 
     # logger.info("Running with config:\n{}".format(cfg))
+    # compute_flops(cfg, output_dir, logger=logger)
 
     model = build_detection_model(cfg)
     model.to(cfg.MODEL.DEVICE)
@@ -101,7 +102,7 @@ def main():
 
     if cfg.OUTPUT_DIR:
         for idx, dataset_name in enumerate(dataset_names):
-            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference_"+str(cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG))
             mkdir(output_folder)
             output_folders[idx] = output_folder
     data_loaders_val = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed, dataset_to_test=cfg.DATASETS.TO_TEST)
@@ -124,6 +125,44 @@ def main():
                 informative=True,
             )
         synchronize()
+
+    del model
+    torch.cuda.empty_cache()
+
+def compute_flops(cfg, output_dir, logger):
+    logger.info("Computing FLOPs and MACs...")
+    cfg.TEST.CUSTUM_EVAL = True
+    model = build_detection_model(cfg)
+
+    model.to(cfg.MODEL.DEVICE)
+
+    enable_inplace_relu(model)
+
+    checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
+    last_check = checkpointer.get_checkpoint_file()
+    if last_check == "":
+        last_check = cfg.MODEL.WEIGHT
+    logger.info("Loading last checkpoint from {}...".format(last_check))
+    _ = checkpointer.load(last_check)
+
+    model.backbone.eval()
+    model.roi_heads.eval() 
+
+    h_dim = cfg.INPUT.MIN_SIZE_TRAIN
+    w_dim = cfg.INPUT.MAX_SIZE_TRAIN    
+
+    input_shape = (1, 3, h_dim, w_dim)
+    model.backbone.eval()
+    model.roi_heads.eval()
+    flops, macs, params = calculate_flops(model=model, 
+                                    input_shape=input_shape,
+                                    output_as_string=True,
+                                    output_precision=4)
+    print("FLOPs:%s   MACs:%s   Params:%s \n" %(flops, macs, params))
+    cfg.TEST.CUSTUM_EVAL = False
+
+    del model
+    torch.cuda.empty_cache()
 
 def enable_inplace_relu(model):
     for name, module in model.named_children():
