@@ -5,10 +5,12 @@ from torch import nn
 
 from sgg_benchmark.layers import MLP
 from sgg_benchmark.modeling.utils import cat
-from sgg_benchmark.utils.txt_embeddings import rel_vectors
+from sgg_benchmark.utils.txt_embeddings import rel_vectors, obj_edge_vectors
 
-from sgg_benchmark.modeling.roi_heads.relation_head.models.model_penet import PENetContext
 from sgg_benchmark.modeling.roi_heads.relation_head.predictors.default_predictors import BasePredictor
+from sgg_benchmark.modeling.roi_heads.relation_head.models.utils.utils_motifs import to_onehot
+
+import torch.nn.functional as F
 
 @registry.ROI_RELATION_PREDICTOR.register("PENetSimplePredictor")
 class PrototypeEmbeddingNetwork(BasePredictor):
@@ -18,31 +20,107 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         self.num_obj_classes = len(self.obj_classes)
         dropout_p = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_DROPOUT_RATE
 
-        self.context_layer = PENetContext(config, self.obj_classes, self.rel_classes, in_channels, dropout_p=dropout_p)
-
-        self.mlp_dim = self.cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM
+        self.mlp_dim = self.cfg.MODEL.ROI_RELATION_HEAD.MLP_HEAD_DIM
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
 
+        self.post_emb = nn.Linear(in_channels, self.mlp_dim * 2) 
+
+        self.W_sub = MLP(self.embed_dim, self.mlp_dim // 2, self.mlp_dim, 2)
+        self.W_obj = MLP(self.embed_dim, self.mlp_dim // 2, self.mlp_dim, 2)
         self.W_pred = MLP(self.embed_dim, self.mlp_dim // 2, self.mlp_dim, 2)
-        self.dropout_rel_rep = nn.Dropout(dropout_p)
-        self.norm_rel_rep = nn.LayerNorm(self.mlp_dim)
+
+        self.gate_sub = nn.Linear(self.mlp_dim*2, self.mlp_dim)  
+        self.gate_obj = nn.Linear(self.mlp_dim*2, self.mlp_dim)
+        self.gate_pred = nn.Linear(self.mlp_dim*2, self.mlp_dim)
+
+        self.vis2sem = nn.Sequential(*[
+            nn.Linear(self.mlp_dim, self.mlp_dim*2), nn.ReLU(True),
+            nn.Dropout(dropout_p), nn.Linear(self.mlp_dim*2, self.mlp_dim)
+        ])
+
+        self.linear_sub = nn.Linear(self.mlp_dim, self.mlp_dim)
+        self.linear_obj = nn.Linear(self.mlp_dim, self.mlp_dim)
+        self.linear_pred = nn.Linear(self.mlp_dim, self.mlp_dim)
         self.linear_rel_rep = nn.Linear(self.mlp_dim, self.mlp_dim)
-        self.project_head = MLP(self.mlp_dim, self.mlp_dim, self.mlp_dim*2, 2)
+
+        self.norm_sub = nn.LayerNorm(self.mlp_dim)
+        self.norm_obj = nn.LayerNorm(self.mlp_dim)
+        self.norm_rel_rep = nn.LayerNorm(self.mlp_dim)
+
+        self.dropout_sub = nn.Dropout(dropout_p)
+        self.dropout_obj = nn.Dropout(dropout_p)
+        self.dropout_rel_rep = nn.Dropout(dropout_p)
+        
         self.dropout_rel = nn.Dropout(dropout_p)
         self.dropout_pred = nn.Dropout(dropout_p)
+
+        self.down_samp = MLP(self.pooling_dim, self.mlp_dim, self.mlp_dim, 2) 
+        self.project_head = MLP(self.mlp_dim, self.mlp_dim, self.mlp_dim*2, 2)
+
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
+        obj_embed_vecs = obj_edge_vectors(self.obj_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=self.cfg.GLOVE_DIR, wv_dim=self.embed_dim)  # load Glove for objects
         rel_embed_vecs = rel_vectors(self.rel_classes, wv_type=self.cfg.MODEL.TEXT_EMBEDDING, wv_dir=config.GLOVE_DIR, wv_dim=self.embed_dim)   # load Glove for predicates
+        
         self.rel_embed = nn.Embedding(self.num_rel_cls, self.embed_dim)
+        self.obj_embed = nn.Embedding(self.num_obj_cls, self.embed_dim)
+
         with torch.no_grad():
             self.rel_embed.weight.copy_(rel_embed_vecs, non_blocking=True)
+            self.obj_embed.weight.copy_(obj_embed_vecs, non_blocking=True)
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None):
         add_losses = {}
 
-        entity_dists, _, fusion_so, _ = self.context_layer(roi_features, proposals, rel_pair_idxs, logger)
+        entity_dists, entity_preds = self.encode_obj_labels(proposals)
 
-        rel_rep = fusion_so # - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
+        entity_rep = self.post_emb(roi_features)   # using the roi features obtained from the faster rcnn
+        entity_rep = entity_rep.view(entity_rep.size(0), 2, self.mlp_dim)
+
+        sub_rep = entity_rep[:, 1].contiguous().view(-1, self.mlp_dim)    # xs
+        obj_rep = entity_rep[:, 0].contiguous().view(-1, self.mlp_dim)    # xo
+
+        entity_embeds = self.obj_embed(entity_preds) # obtaining the word embedding of entities with GloVe 
+
+        num_rels = [r.shape[0] for r in rel_pair_idxs]
+        num_objs = [len(b) for b in proposals]
+
+        sub_reps = sub_rep.split(num_objs, dim=0)
+        obj_reps = obj_rep.split(num_objs, dim=0)
+        entity_preds = entity_preds.split(num_objs, dim=0)
+        entity_embeds = entity_embeds.split(num_objs, dim=0)
+
+        fusion_so = []
+        pair_preds = []
+
+        for pair_idx, sub_rep, obj_rep, entity_pred, entity_embed in zip(rel_pair_idxs, sub_reps, obj_reps, entity_preds, entity_embeds):
+
+            s_embed = self.W_sub(entity_embed.index_select(0, pair_idx[:, 0]))  #  Ws x ts
+            o_embed = self.W_obj(entity_embed.index_select(0, pair_idx[:, 1]))  #  Wo x to
+
+            sem_sub = self.vis2sem(sub_rep.index_select(0, pair_idx[:, 0]))  # h(xs)
+            sem_obj = self.vis2sem(obj_rep.index_select(0, pair_idx[:, 1]))  # h(xo)
+            
+            gate_sem_sub = torch.sigmoid(self.gate_sub(cat((s_embed, sem_sub), dim=-1)))  # gs
+            gate_sem_obj = torch.sigmoid(self.gate_obj(cat((o_embed, sem_obj), dim=-1)))  # go
+
+            sub = s_embed + sem_sub * gate_sem_sub  # s = Ws x ts + gs · h(xs)  i.e., s = Ws x ts + vs
+            obj = o_embed + sem_obj * gate_sem_obj  # o = Wo x to + go · h(xo)  i.e., o = Wo x to + vo
+
+            ##### for the model convergence
+            sub = self.norm_sub(self.dropout_sub(torch.relu(self.linear_sub(sub))) + sub)
+            obj = self.norm_obj(self.dropout_obj(torch.relu(self.linear_obj(obj))) + obj)
+            #####
+
+            fusion_so.append(fusion_func(sub, obj)) # F(s, o)
+            pair_preds.append(torch.stack((entity_pred[pair_idx[:, 0]], entity_pred[pair_idx[:, 1]]), dim=1))
+
+        fusion_so = cat(fusion_so, dim=0)  
+
+        sem_pred = self.vis2sem(self.down_samp(union_features))  # h(xu)
+        gate_sem_pred = torch.sigmoid(self.gate_pred(cat((fusion_so, sem_pred), dim=-1)))  # gp
+
+        rel_rep = fusion_so - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
         predicate_proto = self.W_pred(self.rel_embed.weight)  # c = Wp x tp  i.e., semantic prototypes
         
         ##### for the model convergence
@@ -57,9 +135,6 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         ### (Prototype-based Learning  ---- cosine similarity) & (Relation Prediction)
         rel_dists = rel_rep_norm @ predicate_proto_norm.t() * self.logit_scale.exp()  #  <r_norm, c_norm> / τ
         # the rel_dists will be used to calculate the Le_sim with the ce_loss
-
-        num_objs = [len(b) for b in proposals]
-        num_rels = [r.shape[0] for r in rel_pair_idxs]
 
         entity_dists = entity_dists.split(num_objs, dim=0)
         rel_dists = rel_dists.split(num_rels, dim=0)
@@ -100,3 +175,12 @@ class PrototypeEmbeddingNetwork(BasePredictor):
             ### end 
  
         return entity_dists, rel_dists, add_losses
+    
+    def encode_obj_labels(self, proposals):
+        obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
+        obj_labels = obj_labels.long()
+        obj_dists = to_onehot(obj_labels, self.num_obj_classes)
+        return obj_dists, obj_labels
+    
+def fusion_func(x, y):
+    return F.relu(x + y) - (x - y) ** 2

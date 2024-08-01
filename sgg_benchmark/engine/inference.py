@@ -13,42 +13,51 @@ from sgg_benchmark.data.datasets.evaluation import evaluate
 from ..utils.comm import is_main_process, get_world_size
 from ..utils.comm import all_gather
 from ..utils.comm import synchronize
-from ..utils.timer import Timer, get_time_str
 from .bbox_aug import im_detect_bbox_aug
 import networkx as nx
+import datetime
 
-def compute_on_dataset(model, data_loader, device, synchronize_gather=True, timer=None, silence=False):
+def compute_on_dataset(model, data_loader, device, synchronize_gather=True, timer=None, silence=False, informative=False):
     model.eval()
     results_dict = {}
     cpu_device = torch.device("cpu")
-    torch.cuda.empty_cache()
     starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+
     timings=np.zeros((len(data_loader),1))
 
+    if informative:
+        obj_classes, pred_classes, informative_rels = init_informative_post_process()
+        starter2, ender2 = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+        timings2=np.zeros((len(data_loader),1))
+
     for i, batch in enumerate(tqdm(data_loader, disable=silence)):
-        if i == 1000:
-            break
         with torch.no_grad():
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]
 
             if timer:
-                timer.tic()
                 starter.record()
+                starter2.record()
             if cfg.TEST.BBOX_AUG.ENABLED:
                 output = im_detect_bbox_aug(model, images, device)
             else:
-                # relation detection needs the targets
+                # compute GFLOPS
                 output = model(images.to(device), targets)
-
             if timer:
                 ender.record()
                 torch.cuda.synchronize()
                 curr_time = starter.elapsed_time(ender)
                 timings[i] = curr_time
-                if not cfg.MODEL.DEVICE == 'cpu':
+
+            if informative:
+                for boxlist in output:
+                    informative_post_process(boxlist=boxlist, obj_classes=obj_classes, pred_classes=pred_classes, informative_rels=informative_rels)
+                if timer:
+                    ender2.record()
                     torch.cuda.synchronize()
-                timer.toc()
+                    curr_time = starter2.elapsed_time(ender2)
+                    timings2[i] = curr_time
+
             output = [o.to(cpu_device) for o in output]
 
             # add image_path to output
@@ -71,16 +80,17 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             # save the detected sgg to npy file
             #np.save(os.path.join(save_dir, 'sgg_{}.npy'.format(image_id)), clean_graph)
     torch.cuda.empty_cache()
-    return results_dict, timings
+    if not informative: timings2 = timings
+    return results_dict, timings, timings2
 
-def informative_post_process(boxlist, top_n=100):
+def init_informative_post_process():
     classes_dict = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/datasets/IndoorVG_4/VG-SGG-dicts.json"
-    classes_dict = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/datasets/VG150/VG-SGG-dicts-with-attri.json"
+    # classes_dict = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/datasets/VG150/VG-SGG-dicts-with-attri.json"
     with open(classes_dict, 'r') as f:
         classes = json.load(f)
 
     informative_path = "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/informativeness_in_SG/Intrinsic_info/IndoorVG/similarity_mpnet.json"
-    informative_path = "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/informativeness_in_SG/Intrinsic_info/VG150/similarity_mpnet.json"
+    # informative_path = "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/informativeness_in_SG/Intrinsic_info/VG150/similarity_mpnet.json"
 
     with open(informative_path, 'r') as f:
         informative_rels = json.load(f)
@@ -90,82 +100,64 @@ def informative_post_process(boxlist, top_n=100):
     pred_classes = classes['idx_to_predicate']
     pred_classes = {int(k): v for k, v in pred_classes.items()}
 
-    scores = boxlist.get_field('pred_rel_scores')
-    labels = boxlist.get_field('pred_rel_labels')
-    pd_rels = boxlist.get_field('rel_pair_idxs')
+    return obj_classes, pred_classes, informative_rels
+
+def informative_post_process(boxlist, obj_classes, pred_classes, informative_rels, top_n=100):
+
+    scores = boxlist.get_field('pred_rel_scores')[:top_n]
+    labels = boxlist.get_field('pred_rel_labels')[:top_n]
+    pd_rels = boxlist.get_field('rel_pair_idxs')[:top_n]
 
     if len(pd_rels) == 0:
         return
 
     pd_labels = boxlist.get_field('pred_labels')
 
-    pd_s_labels = []
-    pd_o_labels = []
-    for p in pd_rels:
-        pd_s_labels.append(pd_labels[p[0]].item())
-        pd_o_labels.append(pd_labels[p[1]].item())
+    pd_s_labels = pd_labels[pd_rels[:, 0]]
+    pd_o_labels = pd_labels[pd_rels[:, 1]]
 
     # Pre-compute mappings for subject and object labels
-    subj_strs = [obj_classes[idx] for idx in pd_s_labels]
-    obj_strs = [obj_classes[idx] for idx in pd_o_labels]
-    pred_strs = [pred_classes[idx] for idx in labels.tolist()]
+    subj_strs = [obj_classes[idx.item()] for idx in pd_s_labels]
+    obj_strs = [obj_classes[idx.item()] for idx in pd_o_labels]
+    pred_strs = [pred_classes[idx.item()] for idx in labels]
 
-    nx_graph = nx.MultiDiGraph()
-    info_scores = []
-    rels = []
-    scores_rels = []
+    # tensor of size subj_strs
+    # info_scores = torch.zeros(len(subj_strs))
 
-    top_n = min(top_n, len(subj_strs))
+    nx_graph = nx.DiGraph()
 
-    for i, (subj_str, obj_str, pred) in enumerate(zip(subj_strs[:top_n], obj_strs[:top_n], pred_strs[:top_n])):
-        full_rel = f"{subj_str} {pred} {obj_str}"
-        inform_score = informative_rels.get(full_rel, 0.0)
-        info_scores.append(inform_score)
-        #scores_rels.append(float(scores[i][1:].max(0)[0].item()))
-        rels.append(str(pd_rels[i][0].item())+'_'+subj_str +' '+ pred+ ' '+ str(pd_rels[i][1].item())+'_'+obj_str)
-        nx_graph.add_edge(str(pd_rels[i][0].item())+'_'+subj_str, str(pd_rels[i][1].item())+'_'+obj_str, label=pred, distance=max(0, 1.0 - inform_score))
+    # Pre-compute the values of sub_id, obj_id, sub, and obj outside the loop
+    sub_ids = pd_rels[:, 0]
+    obj_ids = pd_rels[:, 1]
+    sub_strs = np.array([str(sub_id.item()) + subj_str for sub_id, subj_str in zip(sub_ids, subj_strs)])
+    obj_strs = np.array([str(obj_id.item()) + obj_str for obj_id, obj_str in zip(obj_ids, obj_strs)])
 
+    # Compute inform_score and add edges to nx_graph
+    inform_scores = np.array([informative_rels.get(f"{sub_str} {pred} {obj_str}", 0.0) for sub_str, obj_str, pred in zip(sub_strs, obj_strs, pred_strs)])
+    nx_graph.add_edges_from([(sub, obj, {'weight': inform_score, 'distance': 1 - inform_score}) for sub, obj, inform_score in zip(sub_strs, obj_strs, inform_scores)])
+
+    # Compute edge betweenness centrality and normalize values_norm
     betw = nx.edge_betweenness_centrality(nx_graph, normalized=True, weight='distance')
-    values_norm = torch.nn.functional.normalize(torch.tensor(list(betw.values())), dim=0)
-    info_scores = torch.tensor(info_scores)
+    values_norm = np.linalg.norm(list(betw.values()), axis=0) / np.linalg.norm(list(betw.values()), axis=0).max()
 
-    # scores_rels = torch.tensor(scores_rels)
-
-    # triple_scores = torch.zeros((top_n,))
-    # for i in range(top_n):
-    #     triple_scores[i] = np.mean([betw_values[i], info_scores[i]])
-
-    # info_scores = torch.tensor(triple_scores)
-    # sorting_idx = torch.argsort(info_scores, descending=True)
-
-    triple_scores = values_norm # (values_norm + info_scores) / 2 #) + scores_rels) /2
+    # Compute triple_scores
+    triple_scores = 0.5 * (values_norm + inform_scores)
 
     # Sort the scores in descending order and get the sorting indices
-    sorting_idx = torch.argsort(triple_scores, descending=True)
-    full_idx = torch.arange(0,len(scores),1)
+    sorting_idx = list(np.argsort(triple_scores)[::-1])
+    # full_idx = torch.arange(0,len(scores),1)
 
-    # replace the first len(sorting_idx) elements of full_idx with sorting_idx
-    full_idx[:len(sorting_idx)] = sorting_idx
-
-    # verify that there is no duplicates in full_idx
-    assert len(set(full_idx.tolist())) == len(full_idx.tolist())
-
-    # rels = [rels[i] for i in sorting_idx.tolist()]
-    # print(rels[:10])
+    # # replace the first len(sorting_idx) elements of full_idx with sorting_idx
+    # full_idx[:len(sorting_idx)] = sorting_idx
 
     boxlist.remove_field('pred_rel_scores')
     boxlist.remove_field('pred_rel_labels')
     boxlist.remove_field('rel_pair_idxs')
 
-    boxlist.add_field('pred_rel_scores', scores[full_idx])
-    boxlist.add_field('pred_rel_labels', labels[full_idx])
-    boxlist.add_field('rel_pair_idxs', pd_rels[full_idx])
-
-    # # Re-order the top_n first triplets
-    # for i in range(top_n):
-    #     boxlist.extra_fields['pred_rel_scores'][i] = scores[sorting_idx[i]]
-    #     boxlist.extra_fields['pred_rel_labels'][i] = labels[sorting_idx[i]]
-    #     boxlist.extra_fields['rel_pair_idxs'][i] = pd_rels[sorting_idx[i]]  
+    boxlist.add_field('pred_rel_scores', scores[sorting_idx])
+    boxlist.add_field('pred_rel_labels', labels[sorting_idx])
+    boxlist.add_field('rel_pair_idxs', pd_rels[sorting_idx])
+    
 
 def generate_detect_sg(predictions, vg_dict, obj_thres = 0.5):
     
@@ -267,26 +259,25 @@ def inference(
     p = dataset_name.rfind("_")
     name, split = dataset_name[:p], dataset_name[p+1:]
 
-    total_timer = Timer()
-    inference_timer = Timer()
-    total_timer.tic()
     if load_prediction_from_cache:
         pred_path = os.path.join(output_folder, "predictions.pth")
         predictions = torch.load(pred_path, map_location=torch.device("cpu"))
         logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:
-        predictions, timings = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=inference_timer, silence=silence)
+        predictions, timings, timings2 = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=True, silence=silence, informative=informative)
         # wait for all processes to complete before measuring the time
         synchronize()
-        total_time = total_timer.toc()
-        total_time_str = get_time_str(total_time)
+        batch_size = int(cfg.TEST.IMS_PER_BATCH)
+
+        total_time_str = str(datetime.timedelta(seconds=int(sum(timings2)/1000)))
+        avg_per_image = np.mean(timings2) / batch_size
         logger.info(
-            "Total run time: {} ({} s / img per device, on {} devices)".format(
-                total_time_str, total_time * num_devices / len(dataset), num_devices
+            "Total run time: {} ({} ms / img per device, on {} devices)".format(
+                total_time_str, avg_per_image, num_devices
             )
         )
+
         # get batch size
-        batch_size = int(cfg.TEST.IMS_PER_BATCH)
         mean_syn = np.mean(timings) / batch_size
         mean_std = np.std(timings) / batch_size
         logger.info(
@@ -313,9 +304,12 @@ def inference(
     # save preditions to .pth file
     if output_folder is not None and not load_prediction_from_cache:
         torch.save(predictions, os.path.join(output_folder, "predictions.pth"))
-
-    # for p in tqdm(predictions):
-    #     informative_post_process(p, cfg.TEST.TOP_K)
+        latency = {
+            'mean_syn': mean_syn,
+            'mean_std': mean_std,
+            'latency_raw': avg_per_image
+        }
+        json.dump(latency, open(os.path.join(output_folder, "results.json"), "w"))
 
     if cfg.TEST.CUSTUM_EVAL:
         detected_sgg = custom_sgg_post_precessing(predictions)
