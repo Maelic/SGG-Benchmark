@@ -554,7 +554,7 @@ class GPSNetContext(nn.Module):
             )
             obj_labels = refined_obj_pred_labels
         else:
-            refined_obj_logits = refine_entit_feats_each_iters
+            refined_obj_logits = refined_inst_features
             obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
             obj_labels = obj_labels.long()
 

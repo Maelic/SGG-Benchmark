@@ -46,6 +46,13 @@ class ROIRelationHead(torch.nn.Module):
         if self.use_union_box:
             self.union_feature_extractor = make_roi_relation_feature_extractor(cfg, in_channels)
 
+        self.use_LA = self.cfg.MODEL.ROI_RELATION_HEAD.LOGIT_ADJUSTMENT
+
+        if self.use_LA:
+            self.pred_freq = torch.tensor(self.pred_freq, dtype=torch.float).log() * self.cfg.MODEL.ROI_RELATION_HEAD.LOGIT_ADJUSTMENT_TAU
+            self.pred_freq[0] = 0
+            self.pred_freq = self.pred_freq.to(self.cfg.MODEL.DEVICE)
+
     def forward(self, features, proposals, targets=None, logger=None):
         """
         Arguments:
@@ -86,9 +93,12 @@ class ROIRelationHead(torch.nn.Module):
         # final classifier that converts the features into predictions
         # should corresponding to all the functions and layers after the self.context class
         if not self.cfg.MODEL.BACKBONE.FREEZE:
-            refine_logits, relation_logits, add_losses = self.predictor(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
+            refine_logits, relation_logits, add_losses = self.predictor(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)            
+
             # for test
             if not self.training:
+                if self.use_LA:
+                    relation_logits = [relation_logits[i] - self.pred_freq for i in range(len(relation_logits))]
                 result = self.post_processor((relation_logits, refine_logits), rel_pair_idxs, proposals)
                 return roi_features, result, {}
             loss_relation, loss_refine = self.loss_evaluator(proposals, rel_labels, relation_logits, refine_logits)
@@ -100,6 +110,8 @@ class ROIRelationHead(torch.nn.Module):
             _, relation_logits, add_losses = self.predictor(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
             # for test
             if not self.training:
+                if self.use_LA:
+                    relation_logits = [relation_logits[i] - self.pred_freq for i in range(len(relation_logits))]
                 result = self.post_processor(relation_logits, rel_pair_idxs, proposals)
                 return roi_features, result, {}
             loss_relation, _ = self.loss_evaluator(proposals, rel_labels, relation_logits)

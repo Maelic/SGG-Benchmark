@@ -123,7 +123,7 @@ class VGDataset(torch.utils.data.Dataset):
 
 
     def get_statistics(self):
-        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weight = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
+        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_freq, triplet_freq, pred_weight = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
                                                 image_file=self.image_file, zeroshot_file=self.zeroshot_file, must_overlap=True)
         eps = 1e-3
         bg_matrix += 1
@@ -137,7 +137,7 @@ class VGDataset(torch.utils.data.Dataset):
             'rel_classes': self.ind_to_predicates,
             'predicate_new_order': predicate_new_order,
             'predicate_new_order_count': predicate_new_order_count,
-            'pred_freq': pred_prop,
+            'pred_freq': pred_freq,
             'triplet_freq': triplet_freq,
             'pred_weight': pred_weight, # pred_weights,
             #'att_classes': self.ind_to_attributes,
@@ -302,6 +302,9 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
         pred_prop[i] = np.sum(fg_matrix[:, :, i] > 0)
 
     assert len(pred_prop) == num_rel_classes
+
+    # we want the frequency of each predicate
+    pred_freq = pred_prop / np.sum(pred_prop)
     
     # weight is the inverse frequency normalized by the median
     pred_weights = torch.tensor(np.sum(fg_matrix, axis=(0, 1)))
@@ -331,7 +334,7 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
 
     # Now triplet_freq is a dictionary where the keys are the triplets and the values are the frequencies
 
-    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weights
+    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_freq, triplet_freq, pred_weights
     
 
 def box_filter(boxes, must_overlap=False):

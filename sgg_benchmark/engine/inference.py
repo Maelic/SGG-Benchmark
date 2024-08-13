@@ -23,21 +23,24 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
     cpu_device = torch.device("cpu")
     starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
 
-    timings=np.zeros((len(data_loader),1))
+    timings=[]
 
     if informative:
         obj_classes, pred_classes, informative_rels = init_informative_post_process()
         starter2, ender2 = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-        timings2=np.zeros((len(data_loader),1))
+        timings2=[]
 
     for i, batch in enumerate(tqdm(data_loader, disable=silence)):
+        # if i == 100:
+        #     break
         with torch.no_grad():
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]
 
             if timer:
                 starter.record()
-                starter2.record()
+                if informative:
+                    starter2.record()
             if cfg.TEST.BBOX_AUG.ENABLED:
                 output = im_detect_bbox_aug(model, images, device)
             else:
@@ -47,7 +50,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
                 ender.record()
                 torch.cuda.synchronize()
                 curr_time = starter.elapsed_time(ender)
-                timings[i] = curr_time
+                timings.append(curr_time)
 
             if informative:
                 for boxlist in output:
@@ -56,7 +59,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
                     ender2.record()
                     torch.cuda.synchronize()
                     curr_time = starter2.elapsed_time(ender2)
-                    timings2[i] = curr_time
+                    timings2.append(curr_time)
 
             output = [o.to(cpu_device) for o in output]
 
@@ -264,7 +267,7 @@ def inference(
         predictions = torch.load(pred_path, map_location=torch.device("cpu"))
         logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:
-        predictions, timings, timings2 = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=True, silence=silence, informative=informative)
+        predictions, timings, timings2 = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=True, silence=silence, informative=False)
         # wait for all processes to complete before measuring the time
         synchronize()
         batch_size = int(cfg.TEST.IMS_PER_BATCH)
@@ -303,13 +306,20 @@ def inference(
 
     # save preditions to .pth file
     if output_folder is not None and not load_prediction_from_cache:
-        torch.save(predictions, os.path.join(output_folder, "predictions.pth"))
+        #torch.save(predictions, os.path.join(output_folder, "predictions.pth"))
         latency = {
             'mean_syn': mean_syn,
             'mean_std': mean_std,
             'latency_raw': avg_per_image
         }
-        json.dump(latency, open(os.path.join(output_folder, "results.json"), "w"))
+        file_name = "results.json"
+        # if file exists, load it and update it
+        data = latency
+        if os.path.exists(os.path.join(output_folder, file_name)):
+            with open(os.path.join(output_folder, file_name), 'r') as f:
+                data = json.load(f)
+            data.update(latency)
+        json.dump(data, open(os.path.join(output_folder, file_name), "w"))
 
     if cfg.TEST.CUSTUM_EVAL:
         detected_sgg = custom_sgg_post_precessing(predictions)
@@ -318,6 +328,7 @@ def inference(
         print('=====> ' + str(os.path.join(cfg.DETECTED_SGG_DIR, 'custom_prediction.json')) + ' SAVED !')
         return -1.0
 
+    #return None
     return evaluate(cfg=cfg,
                     dataset=dataset,
                     dataset_name=name,
