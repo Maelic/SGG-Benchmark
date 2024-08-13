@@ -49,7 +49,7 @@ class ROIRelationHead(torch.nn.Module):
         self.use_LA = self.cfg.MODEL.ROI_RELATION_HEAD.LOGIT_ADJUSTMENT
 
         if self.use_LA:
-            self.pred_freq = torch.tensor(self.pred_freq, dtype=torch.float).log() * self.cfg.MODEL.ROI_RELATION_HEAD.LOGIT_ADJUSTMENT_TAU
+            self.pred_freq = torch.tensor(pred_prop, dtype=torch.float).log() * self.cfg.MODEL.ROI_RELATION_HEAD.LOGIT_ADJUSTMENT_TAU
             self.pred_freq[0] = 0
             self.pred_freq = self.pred_freq.to(self.cfg.MODEL.DEVICE)
 
