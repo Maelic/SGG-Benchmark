@@ -23,6 +23,8 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         self.mlp_dim = self.cfg.MODEL.ROI_RELATION_HEAD.MLP_HEAD_DIM
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
 
+        self.use_union = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
+
         self.post_emb = nn.Linear(in_channels, self.mlp_dim * 2) 
 
         self.W_sub = MLP(self.embed_dim, self.mlp_dim // 2, self.mlp_dim, 2)
@@ -117,10 +119,14 @@ class PrototypeEmbeddingNetwork(BasePredictor):
 
         fusion_so = cat(fusion_so, dim=0)  
 
-        sem_pred = self.vis2sem(self.down_samp(union_features))  # h(xu)
-        gate_sem_pred = torch.sigmoid(self.gate_pred(cat((fusion_so, sem_pred), dim=-1)))  # gp
+        if self.use_union:
 
-        rel_rep = fusion_so - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
+            sem_pred = self.vis2sem(self.down_samp(union_features))  # h(xu)
+            gate_sem_pred = torch.sigmoid(self.gate_pred(cat((fusion_so, sem_pred), dim=-1)))  # gp
+
+            rel_rep = fusion_so - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
+        else:
+            rel_rep = fusion_so
         predicate_proto = self.W_pred(self.rel_embed.weight)  # c = Wp x tp  i.e., semantic prototypes
         
         ##### for the model convergence
