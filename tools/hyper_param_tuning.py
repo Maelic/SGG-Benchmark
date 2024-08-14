@@ -24,13 +24,13 @@ from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, save_config
 from sgg_benchmark.utils.parser import default_argument_parser
 
-METRICS = {"mR": "_mean_recall", "R": "_recall", "zR": "_zeroshot_recall", "ng-zR": "_ng_zeroshot_recall", "ng-R": "_recall_nogc", "ng-mR": "_ng_mean_recall", "topA": ["_accuracy_hit", "_accuracy_count"]}
+METRICS = {"mR": "_mean_recall", "R": "_recall", "zR": "_zeroshot_recall", "ng-zR": "_ng_zeroshot_recall", "ng-R": "_recall_nogc", "ng-mR": "_ng_mean_recall", "f1": "_f1", "topA": ["_accuracy_hit", "_accuracy_count"]}
 
 def train_relation_net(config):
     model, optimizer, train_data_loader, val_data_loaders, device, logger, cfg, scaler, max_iter = setup(config) 
     mode = get_mode(cfg)
 
-    metric_to_track = METRICS[cfg.METRIC_TO_TRACK]
+    metric_to_track = METRICS["f1"]
     iter = 0
 
     logger.info("Start training for %d iterations" % max_iter)
@@ -93,7 +93,7 @@ def train_relation_net(config):
 
             pbar.set_description(f"Epoch={epoch} | Loss={losses_reduced.item():.2f} | Mem={max_mem:.2f}MB")
             losses_report = float(losses_reduced.item())
-            train.report({"loss": losses_report},)
+            # train.report({"loss": losses_report},)
 
         current_metric = None
 
@@ -104,7 +104,7 @@ def train_relation_net(config):
         results = val_result[mode+metric_to_track]
         current_metric = float(np.mean(list(results.values())))
 
-    train.report({"loss": losses_report, metric_to_track: current_metric},)
+        train.report({"loss": losses_report, "f1_score": current_metric},)
 
 
 def setup(config):
@@ -124,6 +124,7 @@ def setup(config):
         assert_mode(cfg,config["task"])
 
     cfg.SOLVER.IMS_PER_BATCH = config["tuning_config"]["batch_size"] if "batch_size" in config["tuning_config"] else cfg.SOLVER.IMS_PER_BATCH
+    cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM = cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM
 
     output_dir = cfg.OUTPUT_DIR
     if output_dir:
@@ -282,8 +283,8 @@ def main():
         },
     )
 
-    max_epoch = 1
-    max_images = 4000 # One epoch could be too long for tuning, so we limit the number of images
+    max_epoch = 5 # Max number of epochs to run
+    max_images = 2000 # One epoch could be too long for tuning, so we limit the number of images
     optimizer = "SGD" # Optimizer to use, choose between "SGD" and "ADAMW"
 
     # training hypeparameters
@@ -291,9 +292,9 @@ def main():
         search_space = {
             "tuning_config": {
                 "optimizer": optimizer,
-                "lr": tune.loguniform(1e-5, 1e-1), # Learning rate
-                "momentum": tune.uniform(0.1, 0.9), # Momentum for SGD
-                # "batch_size": tune.choice([2, 4, 8]),
+                "lr": 0.05, # tune.loguniform(1e-5, 1e-1), # Learning rate
+                "momentum": 0.7, #tune.uniform(0.1, 0.9), # Momentum for SGD
+                #"batch_size": tune.choice([2, 4, 8]),
                 "max_epoch": max_epoch,
                 "num_images": max_images,
                 # "use_amp": tune.choice([True, False]),
@@ -322,10 +323,9 @@ def main():
 
     # model hyperparameters
     model_config = {
-        "MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM": tune.choice([128, 256, 512]),
-        "MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM": tune.choice([128, 256, 512]),
-        "MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM": tune.choice([128, 256, 512]),
-        "MODEL.ROI_RELATION_HEAD.CONTEXT_DROPOUT_RATE ": tune.uniform(0.1, 0.5),
+        "MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM": tune.choice([512, 1024, 2048, 4096]),
+        "MODEL.ROI_RELATION_HEAD.MLP_HEAD_DIM": tune.choice([512, 1024, 2048, 4096]),
+        "MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM": tune.choice([256, 512, 1024, 2048]),
     }
 
     squat_config = {
@@ -335,20 +335,25 @@ def main():
         "MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.PRE_NORM": tune.choice([True, False]),
     }
 
+    pooler_config = {
+        "MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION": tune.choice([5, 7, 9]),
+        "MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO": tune.choice([0, 1, 2, 3]),
+    }
+
     # experimental
-    #search_space.update({"model_config":squat_config})
+    search_space.update({"model_config":model_config})
 
     # config taken from https://docs.ray.io/en/latest/tune/api/schedulers.html
     scheduler = ASHAScheduler(
-        metric="loss",
-        mode="min",
+        metric="f1_score",
+        mode="max",
         max_t=max_images//cfg.SOLVER.IMS_PER_BATCH,
-        grace_period=100,
+        grace_period=1,
         reduction_factor=3,
         brackets=1,
     )
 
-    algo = OptunaSearch(metric="loss", mode="min")
+    algo = OptunaSearch(metric="f1_score", mode="max")
 
     # Configuration for the tuning
     tune_config = tune.TuneConfig(

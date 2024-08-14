@@ -12,7 +12,7 @@ from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, set_seed
 from sgg_benchmark.utils.parser import default_argument_parser
 from sgg_benchmark.data import get_dataset_statistics
-from calflops import calculate_flops
+# from calflops import calculate_flops
 
 def assert_mode(cfg, task):
     cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False

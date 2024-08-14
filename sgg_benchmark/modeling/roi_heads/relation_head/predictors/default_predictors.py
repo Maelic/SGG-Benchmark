@@ -375,9 +375,10 @@ class VCTreePredictor(BasePredictor):
             union_features = self.up_dim(union_features)
 
         ctx_dists = self.ctx_compress(prod_rep * union_features)
-        frq_dists = self.freq_bias.index_with_labels(pair_pred.long())
-
-        rel_dists = ctx_dists + frq_dists
+        if self.use_bias:
+            rel_dists = ctx_dists + self.freq_bias.index_with_labels(pair_pred.long())
+        else:
+            rel_dists = ctx_dists
 
         obj_dists = obj_dists.split(num_objs, dim=0)
         rel_dists = rel_dists.split(num_rels, dim=0)
