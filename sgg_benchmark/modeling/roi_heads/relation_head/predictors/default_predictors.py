@@ -34,6 +34,8 @@ class BasePredictor(nn.Module):
         self.obj_classes = self.statistics['obj_classes']
         self.rel_classes = self.statistics['rel_classes']
 
+        self.pred_freq = self.statistics['pred_freq']
+
         self.attribute_on = config.MODEL.ATTRIBUTE_ON
 
         self.num_obj_cls = self.cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES

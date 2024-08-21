@@ -132,19 +132,22 @@ def informative_post_process(boxlist, obj_classes, pred_classes, informative_rel
     # Pre-compute the values of sub_id, obj_id, sub, and obj outside the loop
     sub_ids = pd_rels[:, 0]
     obj_ids = pd_rels[:, 1]
-    sub_strs = np.array([str(sub_id.item()) + subj_str for sub_id, subj_str in zip(sub_ids, subj_strs)])
-    obj_strs = np.array([str(obj_id.item()) + obj_str for obj_id, obj_str in zip(obj_ids, obj_strs)])
 
     # Compute inform_score and add edges to nx_graph
-    inform_scores = np.array([informative_rels.get(f"{sub_str} {pred} {obj_str}", 0.0) for sub_str, obj_str, pred in zip(sub_strs, obj_strs, pred_strs)])
+    inform_scores = np.array([informative_rels.get(f"{sub_str} {pred} {obj_str}", 0.0) for sub_str, obj_str, pred in zip(subj_strs, obj_strs, pred_strs)])
+    sub_strs = np.array([str(sub_id.item()) + subj_str for sub_id, subj_str in zip(sub_ids, subj_strs)])
+    obj_strs = np.array([str(obj_id.item()) + obj_str for obj_id, obj_str in zip(obj_ids, obj_strs)])
     nx_graph.add_edges_from([(sub, obj, {'weight': inform_score, 'distance': 1 - inform_score}) for sub, obj, inform_score in zip(sub_strs, obj_strs, inform_scores)])
 
     # Compute edge betweenness centrality and normalize values_norm
     betw = nx.edge_betweenness_centrality(nx_graph, normalized=True, weight='distance')
-    values_norm = np.linalg.norm(list(betw.values()), axis=0) / np.linalg.norm(list(betw.values()), axis=0).max()
+    # normalize between 0 and 1
+    values_norm = torch.nn.functional.normalize(torch.tensor(list(betw.values())), dim=0)
+    values_norm = values_norm.tolist()
 
     # Compute triple_scores
-    triple_scores = 0.5 * (values_norm + inform_scores)
+    # max_scores = scores[:,1:].max(1)[0].tolist()
+    triple_scores = (values_norm + inform_scores) / 2 #0.5 * (values_norm + inform_scores)
 
     # Sort the scores in descending order and get the sorting indices
     sorting_idx = list(np.argsort(triple_scores)[::-1])
