@@ -9,8 +9,12 @@
 | PSG      | [Download](https://drive.google.com/file/d/1AL1fLMZsi_Q2MpsBtDxjOyE7zES6AMie/view?usp=sharing) | 35.38 | [yolov8m_psg.pt](https://drive.google.com/file/d/18xn56bSBAUiAxNhZ76U2tR5cjRnkW0oF/view?usp=sharing) | 53.60 |
 | | | | [yolov8x_psg.pt](https://drive.google.com/file/d/1cZwQIzBOvaEPUSHXQ3UioTa18vti58dM/view?usp=sharing) | 57.20 |
 
-
 ## SGG Models
+
+Coming soon...
+
+
+<!-- 
 
 All models with YoloV8 and YoloV8-World are trained without any debiasing or re-weighting methods (such as TDE or reweight loss) and performance could probably be further improved.
 
@@ -49,4 +53,4 @@ New weights by me with YOLOV8 backbone and PE-Net model (SGDET only):
 
 Models | WEIGHTS | R@20 | R@50 | R@100 | mR@20 | mR@50 | mR@100 | 
 -- | -- | -- | -- | -- | -- | -- | -- |
-PE-NET YOLOV8m  | [Download](https://drive.google.com/file/d/1JZ36ftugJP2_W_U64WqF5YgylBRHKgX6/view?usp=sharing) | 26.57 | 29.85 | 31.34 | 18.06 | 19.96 | 20.81 |
+PE-NET YOLOV8m  | [Download](https://drive.google.com/file/d/1JZ36ftugJP2_W_U64WqF5YgylBRHKgX6/view?usp=sharing) | 26.57 | 29.85 | 31.34 | 18.06 | 19.96 | 20.81 | -->
