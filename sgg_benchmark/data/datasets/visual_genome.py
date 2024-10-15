@@ -74,18 +74,21 @@ class VGDataset(torch.utils.data.Dataset):
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
 
-            if informative_file != "" and informative_file is not None:
+            if informative_file != "" and os.path.exists(informative_file):
                 self.informative_graphs = json.load(open(informative_file, 'r'))
             else:
-                self.informative_graphs = {img['image_id']: [] for img in self.img_info}
+                self.informative_graphs = None
 
             assert(len(self.filenames) == len(self.gt_boxes) == len(self.gt_classes) == len(self.relationships) == len(self.img_info))
 
             if self.save_final_dict:
                 final_dict = []
-                for file, info, boxes, classes, rels, informative_rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships, self.informative_graphs):
-                    final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels), 'informative_rels': np.array(informative_rels)})
-
+                if self.informative_graphs is not None:
+                    for file, info, boxes, classes, rels, informative_rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships, self.informative_graphs):
+                        final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels), 'informative_rels': np.array(informative_rels)})
+                else:
+                    for file, info, boxes, classes, rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships):
+                        final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels)})
                 with open('final_dict.json', 'w') as f:
                     json.dump(final_dict, f)
 
@@ -437,7 +440,6 @@ def load_image_filenames(img_dir, image_file):
     assert len(fns) == len(img_info)
     # assert len(img_info) == 108073
     return fns, img_info
-
 
 def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter_non_overlap):
     """

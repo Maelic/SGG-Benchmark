@@ -113,10 +113,10 @@ class PSGDataset(torch.utils.data.Dataset):
         self.ind_to_predicates = sorted(predicate_to_idx, key=lambda k: predicate_to_idx[k])
         self.categories = {i : self.ind_to_classes[i] for i in range(len(self.ind_to_classes))}
 
-        if informative_file is not None:
+        if informative_file != "" and os.path.exists(informative_file):
             self.informative_graphs = json.load(open(informative_file, 'r'))
         else:
-            self.informative_graphs = {img: [] for img in self.img_ids.split('/')[-1]}
+            self.informative_graphs = None
     
     def get_img_info(self, index):
         return self.data_infos[index]
