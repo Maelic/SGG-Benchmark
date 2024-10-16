@@ -74,7 +74,7 @@ class VGDataset(torch.utils.data.Dataset):
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
 
-            if informative_file != "" and os.path.exists(informative_file):
+            if informative_file != None and os.path.exists(informative_file):
                 self.informative_graphs = json.load(open(informative_file, 'r'))
             else:
                 self.informative_graphs = None

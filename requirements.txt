@@ -13,4 +13,4 @@ pycocotools
 h5py
 networkx
 sentence-transformers
-ultralytics
+ultralytics==8.2.70
