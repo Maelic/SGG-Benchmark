@@ -9,7 +9,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "checkpoints/IndoorVG4/Backbones/yolov8m/best.pt"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/SGG-Benchmark/checkpoints/yolov8m_indoorvg.pt"
   BACKBONE:
     TYPE: "yolov8"
     NMS_THRESH: 0.001
@@ -137,7 +137,7 @@ SOLVER:
 OUTPUT_DIR: './output/relation_baseline'
 TEST:
   ALLOW_LOAD_FROM_CACHE: True
-  INFORMATIVE: True
+  INFORMATIVE: False
   RELATION:
     SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem
     REQUIRE_OVERLAP: True

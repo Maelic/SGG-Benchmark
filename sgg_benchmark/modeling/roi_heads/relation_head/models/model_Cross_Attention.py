@@ -40,18 +40,7 @@ class CA_Encoder(nn.Module):
         self.cross_module = nn.ModuleList([
             Single_Layer_Cross_Attention(config)
             for _ in range(n_layers)])
-
-    def forward(self, visual_feats, text_feats, num_objs):
-        visual_output = visual_feats
-        textual_output = text_feats
-
-        for enc_layer in self.cross_module:
-            visual_output, textual_output = enc_layer(visual_output, textual_output, num_objs)
-
-        visual_output = visual_output + textual_output
-
-        return visual_output, textual_output
-
+                            
 class CA_Context(nn.Module):
     def __init__(self, config, obj_classes, rel_classes, in_channels):
         super().__init__()

@@ -47,7 +47,7 @@ class BasePredictor(nn.Module):
 
         self.hidden_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
         self.pooling_dim = self.cfg.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
-        self.use_vision = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
+        self.use_vision = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES or self.cfg.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
 
         # mode
         if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
@@ -373,10 +373,13 @@ class VCTreePredictor(BasePredictor):
         prod_rep = self.post_cat(prod_rep)
 
         # learned-mixin Gate
-        if self.union_single_not_match:
-            union_features = self.up_dim(union_features)
+        if self.use_vision:
+            if self.union_single_not_match:
+                union_features = self.up_dim(union_features)
 
-        ctx_dists = self.ctx_compress(prod_rep * union_features)
+            ctx_dists = self.ctx_compress(prod_rep * union_features)
+        else:
+            ctx_dists = self.ctx_compress(prod_rep)
         if self.use_bias:
             rel_dists = ctx_dists + self.freq_bias.index_with_labels(pair_pred.long())
         else:
@@ -508,7 +511,7 @@ class SquatPredictor(BasePredictor):
             union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
         """
         score_obj, score_rel, masks = self.context_layer(
-            roi_features, inst_proposals, union_features, rel_pair_idxs, rel_binarys
+            roi_features, inst_proposals, union_features, rel_pair_idxs, rel_binarys, self.use_vision
         ) # masks : [list[Tensor]]
         rel_cls_logits = score_rel
         

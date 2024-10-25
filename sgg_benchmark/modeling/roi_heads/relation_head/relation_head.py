@@ -41,7 +41,7 @@ class ROIRelationHead(torch.nn.Module):
         self.samp_processor = make_roi_relation_samp_processor(cfg)
 
         # parameters
-        self.use_union_box = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
+        self.use_union_box = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES or self.cfg.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
 
         if self.use_union_box:
             self.union_feature_extractor = make_roi_relation_feature_extractor(cfg, in_channels)

@@ -143,7 +143,7 @@ class PairwiseFeatureExtractor(nn.Module):
 
         return obj_pair_feat4rel_rep
 
-    def forward(self, inst_roi_feats, union_features, inst_proposals, rel_pair_idxs):
+    def forward(self, inst_roi_feats, union_features, inst_proposals, rel_pair_idxs, use_union=True):
         """
 
         :param inst_roi_feats: instance ROI features, list(Tensor)
@@ -198,21 +198,25 @@ class PairwiseFeatureExtractor(nn.Module):
         else:
             augment_obj_feat = cat((inst_roi_feats, augment_obj_feat), -1)
 
-        if self.rel_feature_type == "obj_pair" or self.rel_feature_type == "fusion":
-            rel_features = self.pairwise_rel_features(augment_obj_feat, union_features,
-                                                      rel_pair_idxs, inst_proposals)
-            if self.rel_feature_type == "fusion":
+        if use_union:
+            if self.rel_feature_type == "obj_pair" or self.rel_feature_type == "fusion":
+                rel_features = self.pairwise_rel_features(augment_obj_feat, union_features,
+                                                        rel_pair_idxs, inst_proposals)
+                if self.rel_feature_type == "fusion":
+                    if self.rel_feat_dim_not_match:
+                        union_features = self.rel_feature_up_dim(union_features)
+                    rel_features = union_features + rel_features
+
+            elif self.rel_feature_type == "union":
                 if self.rel_feat_dim_not_match:
                     union_features = self.rel_feature_up_dim(union_features)
-                rel_features = union_features + rel_features
+                rel_features = union_features
 
-        elif self.rel_feature_type == "union":
-            if self.rel_feat_dim_not_match:
-                union_features = self.rel_feature_up_dim(union_features)
-            rel_features = union_features
-
+            else:
+                assert False
         else:
-            assert False
+            rel_features = self.pairwise_rel_features(augment_obj_feat, None,
+                                                        rel_pair_idxs, inst_proposals)
         # mapping to hidden
         augment_obj_feat = self.obj_feat_aug_finalize_fc(augment_obj_feat)
 

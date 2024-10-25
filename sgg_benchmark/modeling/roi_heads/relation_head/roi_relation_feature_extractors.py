@@ -88,7 +88,7 @@ class RelationFeatureExtractor(nn.Module):
                 rect_inputs.append(rect_input)
 
         # merge two parts
-        if self.separate_spatial:
+        if self.separate_spatial and self.use_union and self.use_spatial:
             assert (self.use_union and self.use_spatial) # only support this mode if self.separate_spatial is True
             # rectangle feature. size (total_num_rel, in_channels, POOLER_RESOLUTION, POOLER_RESOLUTION)
             rect_inputs = torch.cat(rect_inputs, dim=0)
