@@ -23,7 +23,7 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         self.mlp_dim = self.cfg.MODEL.ROI_RELATION_HEAD.MLP_HEAD_DIM
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
 
-        self.use_union = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES and self.cfg.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
+        self.use_union = self.cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES or self.cfg.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
         self.text_only = self.cfg.MODEL.ROI_RELATION_HEAD.TEXTUAL_FEATURES_ONLY
 
         self.post_emb = nn.Linear(in_channels, self.mlp_dim * 2) 
@@ -57,7 +57,7 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         self.dropout_pred = nn.Dropout(dropout_p)
 
         if self.use_union:
-            self.down_samp = MLP(self.pooling_dim, self.mlp_dim, self.mlp_dim, 2)
+            # self.down_samp = MLP(self.pooling_dim, self.mlp_dim, self.mlp_dim, 2)
             self.gate_pred = nn.Linear(self.mlp_dim*2, self.mlp_dim)
         
         self.project_head = MLP(self.mlp_dim, self.mlp_dim, self.mlp_dim*2, 2)
@@ -73,6 +73,7 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         with torch.no_grad():
             self.rel_embed.weight.copy_(rel_embed_vecs, non_blocking=True)
             self.obj_embed.weight.copy_(obj_embed_vecs, non_blocking=True)
+        self.so_linear_layer = nn.Linear(self.mlp_dim*2, self.mlp_dim)
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None):
         if self.text_only:
@@ -99,7 +100,6 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         entity_embeds = entity_embeds.split(num_objs, dim=0)
 
         fusion_so = []
-        pair_preds = []
 
         for pair_idx, sub_rep, obj_rep, entity_pred, entity_embed in zip(rel_pair_idxs, sub_reps, obj_reps, entity_preds, entity_embeds):
 
@@ -120,13 +120,12 @@ class PrototypeEmbeddingNetwork(BasePredictor):
             obj = self.norm_obj(self.dropout_obj(torch.relu(self.linear_obj(obj))) + obj)
             #####
 
-            fusion_so.append(fusion_func(sub, obj)) # F(s, o)
-            pair_preds.append(torch.stack((entity_pred[pair_idx[:, 0]], entity_pred[pair_idx[:, 1]]), dim=1))
+            fusion_so.append(F.relu(self.so_linear_layer(cat((sub, obj), dim=-1)))) # F(s, o)
 
         fusion_so = cat(fusion_so, dim=0)  
 
         if self.use_union:
-            sem_pred = self.vis2sem(self.down_samp(union_features))  # h(xu)
+            sem_pred = self.vis2sem(union_features)  # h(xu)
             gate_sem_pred = torch.sigmoid(self.gate_pred(cat((fusion_so, sem_pred), dim=-1)))  # gp
 
             rel_rep = fusion_so - sem_pred * gate_sem_pred  #  F(s,o) - gp · h(xu)   i.e., r = F(s,o) - up
@@ -202,7 +201,6 @@ class PrototypeEmbeddingNetwork(BasePredictor):
         entity_embeds = entity_embeds.split(num_objs, dim=0)
 
         fusion_so = []
-        pair_preds = []
 
         for pair_idx, entity_pred, entity_embed in zip(rel_pair_idxs, entity_preds, entity_embeds):
 
@@ -214,8 +212,7 @@ class PrototypeEmbeddingNetwork(BasePredictor):
             obj = self.norm_obj(self.dropout_obj(torch.relu(self.linear_obj(o_embed))) + o_embed)
             #####
 
-            fusion_so.append(fusion_func(sub, obj)) # F(s, o)
-            pair_preds.append(torch.stack((entity_pred[pair_idx[:, 0]], entity_pred[pair_idx[:, 1]]), dim=1))
+            fusion_so.append(F.relu(self.so_linear_layer(cat((sub, obj), dim=-1)))) # F(s, o)
 
         rel_rep = cat(fusion_so, dim=0)  
 

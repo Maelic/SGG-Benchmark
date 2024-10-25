@@ -1,3 +1,4 @@
+VERBOSE: INFO
 INPUT:
   MIN_SIZE_TRAIN: 640
   MAX_SIZE_TRAIN: 640
@@ -5,18 +6,18 @@ INPUT:
   MAX_SIZE_TEST: 640
   PADDING: True
 MODEL:
-  TEXT_EMBEDDING: clip
+  TEXT_EMBEDDING: glove.6B
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/SGG-Benchmark/checkpoints/yolov8m_indoorvg.pt"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/IndoorVG4/Backbones/yolov8l/weights/best.pt"
   BACKBONE:
     TYPE: "yolov8"
     NMS_THRESH: 0.001
     FREEZE: True
   YOLO:
-    SIZE: "yolov8m"
-    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
+    SIZE: "yolov8l"
+    OUT_CHANNELS: 256 # 192 for yolov10m, 256 for yolov10l
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
     STRIDE_IN_1X1: False
@@ -49,11 +50,11 @@ MODEL:
   ROI_BOX_HEAD:
     POOLER_RESOLUTION: 7
     POOLER_SCALES: (0.125, 0.0625, 0.03125)
-    POOLER_SAMPLING_RATIO: 2
+    POOLER_SAMPLING_RATIO: 3
     FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
     PREDICTOR: "FPNPredictor"
     NUM_CLASSES: 85              # 151 for VG, 1201 for GQA
-    MLP_HEAD_DIM: 2048
+    MLP_HEAD_DIM: 512
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
@@ -65,19 +66,20 @@ MODEL:
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
+    LOGIT_ADJUSTMENT: False
     MLP_HEAD_DIM: 512
     LOSS: CrossEntropyLoss
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
     USE_SPATIAL_FEATURES: True
-    USE_UNION_FEATURES: True
-    EMBED_DIM: 512
+    USE_UNION_FEATURES: False
+    EMBED_DIM: 200
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
     NUM_CLASSES: 38                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
     BATCH_SIZE_PER_IMAGE: 512      # sample as much as possible
     POSITIVE_FRACTION: 0.25
-    CONTEXT_POOLING_DIM: 2048
+    CONTEXT_POOLING_DIM: 512
     CONTEXT_HIDDEN_DIM: 512         #1024 for VCTree
     POOLING_ALL_LEVELS: True
     LABEL_SMOOTHING_LOSS: False
@@ -114,7 +116,7 @@ DATASETS:
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
-  OPTIMIZER: SGD
+  OPTIMIZER: "SGD"
   MAX_EPOCH: 20
   BIAS_LR_FACTOR: 1
   BASE_LR: 0.01
