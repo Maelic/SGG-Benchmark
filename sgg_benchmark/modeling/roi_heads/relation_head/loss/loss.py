@@ -13,9 +13,6 @@ from sgg_benchmark.modeling.utils import cat
 
 from .reweight_loss import ReweightingCE, CEForSoftLabel
 
-# import sentence transformers
-from sentence_transformers import SentenceTransformer
-
 class RelationLossComputation(object):
     """
     Computes the loss for relation triplet.

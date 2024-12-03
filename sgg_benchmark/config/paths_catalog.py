@@ -67,8 +67,8 @@ class DatasetCatalog(object):
             assert name in DatasetCatalog.DATASETS and split in {'train', 'val', 'test'}
             data_dir = DatasetCatalog.DATA_DIR
             args = copy.deepcopy(DatasetCatalog.DATASETS[name])
-            for k, v in args.items():
-                args[k] = os.path.join(data_dir, v)
+            # for k, v in args.items():
+            #     args[k] = os.path.join(data_dir, v)
             args['split'] = split
             # IF MODEL.RELATION_ON is True, filter images with empty rels
             # else set filter to False, because we need all images for pretraining detector
@@ -87,8 +87,8 @@ class DatasetCatalog(object):
             assert name in DatasetCatalog.DATASETS and split in {'train', 'val', 'test'}
             data_dir = DatasetCatalog.DATA_DIR
             args = copy.deepcopy(DatasetCatalog.DATASETS[name])
-            for k, v in args.items():
-                args[k] = os.path.join(data_dir, v)
+            # for k, v in args.items():
+            #     args[k] = os.path.join(data_dir, v)
             args['split'] = split
             args['filter_empty_rels'] = True
             return dict(
