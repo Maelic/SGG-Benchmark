@@ -164,7 +164,8 @@ Once you have a model, you can modify [this config file](configs/VG150/e2e_relat
 For training an SGG model with YOLO as a backbone, you need to modify the `META_ARCHITECTURE` variable in the same config file to `GeneralizedYOLO`. You can then follow the standard procedure for PREDCLS, SGCLS or SGDET training below.
 
 ## Faster R-CNN pre-training (legacy)
-[!WARNING] Faster-RCNN pre-training is not officially supported anymore in this codebase, please use a YOLO backbone instead.
+
+:warning: Faster-RCNN pre-training is not officially supported anymore in this codebase, please use a YOLO backbone instead.
 
 The following command can be used to train your own Faster R-CNN model:
 ```bash
@@ -270,7 +271,6 @@ To watch the results with tensorboardX:
 ```
 tensorboard --logdir=/home/maelic/ray_results/train_relation_net_2024-06-23_15-28-01
 ```
-
 
 ## Evaluation
 
