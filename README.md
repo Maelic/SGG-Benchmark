@@ -9,13 +9,15 @@
 
 Previous work (PE-NET model) | Our REACT model for Real-Time SGG
 :-: | :-:
-<video src='demo/video_github_baseline.mp4' width=480/> | <video src='demo/video_github_REACT.mp4' width=480/>
+<video src='https://github.com/user-attachments/assets/1e580ecc-6a31-409c-82b5-4488aadaf815' width=480/> | <video src='https://github.com/user-attachments/assets/6dfc22de-176a-4d50-9e3a-e91d8df76777' width=480/>
+
 
 Our latest paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene
 Graph Generation](https://arxiv.org/abs/2405.16116) is finally available! Please have a look if you're interested! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8. Here are the main results:
 
-![real_time_sgg](demo/intro_img_3.png)
-
+<p align="center">
+<img src="https://github.com/user-attachments/assets/5335b285-e54b-4d79-88f1-5f4a4ef6aab4" alt="intro_img" width="1080"/>
+</p>
 
 ## Background
 
