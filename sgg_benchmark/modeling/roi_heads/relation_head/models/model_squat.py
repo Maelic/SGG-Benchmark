@@ -257,7 +257,7 @@ class SquatContext(nn.Module):
 
         return rel_inds, obj_obj_map, obj_num
 
-    def forward(self, roi_features, proposals, union_features, rel_pair_idxs, rel_gt_binarys=None, logger=None):
+    def forward(self, roi_features, proposals, union_features, rel_pair_idxs, rel_gt_binarys=None, logger=None, use_union=True):
         num_rels = [rel_pair_idx.size(0) for rel_pair_idx in rel_pair_idxs]
         # rel_inds, obj_obj_map, obj_num = self._get_map_idx(proposals, rel_pair_idxs)
         
@@ -267,6 +267,7 @@ class SquatContext(nn.Module):
             union_features,
             proposals,
             rel_pair_idxs,
+            use_union,
         )
         
         feat_pred_batch_key = torch.split(feat_pred, num_rels)

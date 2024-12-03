@@ -9,7 +9,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "checkpoints/PSG/BACKBONE/YOLOV8m/best.pt"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/SGG-Benchmark/checkpoints/yolov8m_psg.pt"
   BACKBONE:
     TYPE: "yolov8"
     NMS_THRESH: 0.001
@@ -37,7 +37,8 @@ MODEL:
     EMBED_DIM: 200
     USE_GT_BOX: False
     USE_GT_OBJECT_LABEL: False
-    USE_SPATIAL_FEATURES: True
+    TEXTUAL_FEATURES_ONLY: True
+    USE_SPATIAL_FEATURES: False
     REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
     NUM_CLASSES: 57                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
@@ -59,11 +60,11 @@ MODEL:
     ############# Parameters for Causal Unbias Predictor ##############
     ### Implementation for paper "Unbiased Scene Graph Generation from Biased Training"
     CAUSAL:
-      EFFECT_TYPE: 'TDE'             # candicates: 'TDE', 'NIE', 'TE', 'none'
+      EFFECT_TYPE: 'none'             # candicates: 'TDE', 'NIE', 'TE', 'none'
       FUSION_TYPE: 'sum'              # candicates: 'sum', 'gate'         
       SEPARATE_SPATIAL: False         # separate spatial in union feature
       CONTEXT_LAYER: "motifs"         # candicates: motifs, vctree, vtranse
-      EFFECT_ANALYSIS: True
+      EFFECT_ANALYSIS: False
     ############### Parameters for Transformer Predictor ##############
     TRANSFORMER:
       DROPOUT_RATE: 0.1
@@ -103,7 +104,7 @@ SOLVER:
 OUTPUT_DIR: './output/relation_baseline'
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
-  INFORMATIVE: True
+  INFORMATIVE: False
   RELATION:
     SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem
     REQUIRE_OVERLAP: True

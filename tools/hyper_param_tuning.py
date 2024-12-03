@@ -10,6 +10,7 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.tune.search.optuna import OptunaSearch
 from ray.experimental.tqdm_ray import tqdm
 from ray.tune.search.bayesopt import BayesOptSearch
+from optuna.samplers import TPESampler
 
 from sgg_benchmark.config import cfg
 from sgg_benchmark.data import make_data_loader
@@ -24,14 +25,13 @@ from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, save_config
 from sgg_benchmark.utils.parser import default_argument_parser
 
-METRICS = {"mR": "_mean_recall", "R": "_recall", "zR": "_zeroshot_recall", "ng-zR": "_ng_zeroshot_recall", "ng-R": "_recall_nogc", "ng-mR": "_ng_mean_recall", "f1": "_f1", "topA": ["_accuracy_hit", "_accuracy_count"]}
+METRICS = {"mR": "_mean_recall", "R": "_recall", "zR": "_zeroshot_recall", "ng-zR": "_ng_zeroshot_recall", "ng-R": "_recall_nogc", "ng-mR": "_ng_mean_recall", "f1": "_f1_score", "topA": ["_accuracy_hit", "_accuracy_count"]}
 
 def train_relation_net(config):
     model, optimizer, train_data_loader, val_data_loaders, device, logger, cfg, scaler, max_iter = setup(config) 
     mode = get_mode(cfg)
 
     metric_to_track = METRICS["f1"]
-    iter = 0
 
     logger.info("Start training for %d iterations" % max_iter)
 
@@ -42,6 +42,7 @@ def train_relation_net(config):
         use_amp = config["tuning_config"]["use_amp"]
     
     for epoch in range(0, config["tuning_config"]["max_epoch"]):
+        iter = 0
         if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
             model.train()
             eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
@@ -105,7 +106,6 @@ def train_relation_net(config):
         current_metric = float(np.mean(list(results.values())))
 
         train.report({"loss": losses_report, "f1_score": current_metric},)
-
 
 def setup(config):
     config_file = config["config_path"]
@@ -189,8 +189,11 @@ def setup(config):
         cfg, mode='train', is_distributed=False, start_iter=0,
     )
     val_data_loaders = make_data_loader(
-        cfg, mode='val', is_distributed=False,
+        cfg, mode='val', is_distributed=False, start_iter=0,
     )
+
+    # print the size of val_data_loaders[0]
+    print(f"Size of val_data_loaders[0]: {len(val_data_loaders[0].dataset)}")
 
     return model, optimizer, train_data_loader, val_data_loaders, device, logger, cfg, scaler, max_iter   
 
@@ -292,8 +295,8 @@ def main():
         search_space = {
             "tuning_config": {
                 "optimizer": optimizer,
-                "lr": 0.05, # tune.loguniform(1e-5, 1e-1), # Learning rate
-                "momentum": 0.7, #tune.uniform(0.1, 0.9), # Momentum for SGD
+                "lr": tune.loguniform(1e-5, 1e-1), # Learning rate
+                "momentum": tune.uniform(0.1, 0.9), # Momentum for SGD
                 #"batch_size": tune.choice([2, 4, 8]),
                 "max_epoch": max_epoch,
                 "num_images": max_images,
@@ -341,7 +344,7 @@ def main():
     }
 
     # experimental
-    search_space.update({"model_config":model_config})
+    #search_space.update({"model_config":model_config})
 
     # config taken from https://docs.ray.io/en/latest/tune/api/schedulers.html
     scheduler = ASHAScheduler(
@@ -352,7 +355,7 @@ def main():
         reduction_factor=3,
         brackets=1,
     )
-
+    # TPESampler sampler 
     algo = OptunaSearch(metric="f1_score", mode="max")
 
     # Configuration for the tuning

@@ -20,8 +20,6 @@ class GatingModel(nn.Module):
         self.union_input_dim = union_input_dim
         self.hidden_dim = hidden_dim
 
-        
-
         self.ws = nn.Sequential(
             # nn.BatchNorm1d(self.entity_input_dim),
             make_fc(self.entity_input_dim, self.hidden_dim, ),

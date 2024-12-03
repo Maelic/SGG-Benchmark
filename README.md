@@ -7,10 +7,17 @@
 
 ## :rocket: [REAL-TIME SCENE GRAPH GENERATION](https://arxiv.org/abs/2405.16116) :rocket:
 
-Our latest paper on Real-Time Scene Graph Generation is finally available! Please have a look if you're interested: [https://arxiv.org/abs/2405.16116](https://arxiv.org/abs/2405.16116). We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8. Here are the main results:
+Previous work (PE-NET model) | Our REACT model for Real-Time SGG
+:-: | :-:
+<video src='https://github.com/user-attachments/assets/1e580ecc-6a31-409c-82b5-4488aadaf815' width=480/> | <video src='https://github.com/user-attachments/assets/6dfc22de-176a-4d50-9e3a-e91d8df76777' width=480/>
 
-![real_time_sgg](visualization/real_time_sgg.png)
 
+Our latest paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene
+Graph Generation](https://arxiv.org/abs/2405.16116) is finally available! Please have a look if you're interested! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8. Here are the main results:
+
+<p align="center">
+<img src="https://github.com/user-attachments/assets/5335b285-e54b-4d79-88f1-5f4a4ef6aab4" alt="intro_img" width="1080"/>
+</p>
 
 ## Background
 
@@ -23,6 +30,7 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 
 
 - [ ] TODO: Change Dataloader to COCO format (in progress).
+- [X] 03.12.2024: Official release of the [REACT model](https://arxiv.org/abs/2405.16116)
 - [X] 23.05.2024: Added support for Hyperparameters Tuning with the RayTune library, please check it out: [Hyperparameters Tuning](#hyperparameters-tuning)
 - [X] 23.05.2024: Added support for the YOLOV10 backbone and SQUAT relation head!
 - [X] 28.05.2024: Official release of our [Real-Time Scene Graph Generation](https://arxiv.org/abs/2405.16116) implementation.
@@ -81,13 +89,15 @@ Check [DATASET.md](DATASET.md) for instructions regarding dataset preprocessing.
 
 ## DEMO
 
-I made a small demo code to try SGDET with your webcam in the [demo folder](./demo/README.md), feel free to have a look! You will need a trained model in SGDET mode for the demo.
+You can also use the [SGDET_on_custom_images.ipynb](demo/SGDET_on_custom_images.ipynb) notebook to visualize detections on images.
+
+I also made a demo code to try SGDET with your webcam in the [demo folder](./demo/README.md), feel free to have a look! You will need a trained model in SGDET mode for the demo.
 
 ## Supported Models
 
-Scene Graph Generation approaches can be categorized between one-stage and two-stage approaches.
-Two-stages approaches are the original implementation of SGG. It decouples the training process into (1) training an object detection backbone and (2) using bounding box proposals and image features from the backbone to train a relation prediction model.
-One-stage approaches are learning both the object and relation features in the same learning stage. This codebase focuses on the first category, two-stage approaches.
+Scene Graph Generation approaches can be categorized between one-stage and two-stage approaches:
+1. **Two-stages approaches** are the original implementation of SGG. It decouples the training process into (1) training an object detection backbone and (2) using bounding box proposals and image features from the backbone to train a relation prediction model.
+2. **One-stage approaches** are learning both the object and relation features in the same learning stage. This codebase focuses on the first category, two-stage approaches.
 
 ### Object Detection Backbones
 
@@ -141,24 +151,29 @@ We provide some of the pre-trained weights for evaluation or usage in downstream
 ## Metrics and Results **(IMPORTANT)**
 Explanation of metrics in our toolkit and reported results are given in [METRICS.md](METRICS.md)
 
-## Alternate links
+<!-- ## Alternate links
 
 Since OneDrive links might be broken in mainland China, we also provide the following alternate links for all the pretrained models and dataset annotations using BaiduNetDisk: 
 
 Link：[https://pan.baidu.com/s/1oyPQBDHXMQ5Tsl0jy5OzgA](https://pan.baidu.com/s/1oyPQBDHXMQ5Tsl0jy5OzgA)
-Extraction code：1234
+Extraction code：1234 -->
+## YOLOV8/9/10/11/World Pre-training
 
-## Faster R-CNN pre-training
+If you want to use YoloV8/9/10/11 or Yolo-World as a backbone instead of Faster-RCNN, you need to first train a model using the official [ultralytics implementation](https://github.com/ultralytics/ultralytics). To help you with that, I have created a [dedicated notebook](process_data/convert_to_yolo.ipynb) to generate annotations in YOLO format from a .h5 file (SGG format). 
+Once you have a model, you can modify [this config file](configs/VG150/e2e_relation_yolov8m.yaml) and change the path `PRETRAINED_DETECTOR_CKPT` to your model weights. Please note that you will also need to change the variable `SIZE` and `OUT_CHANNELS` accordingly if you use another variant of YOLO (nano, small or large for instance). 
+For training an SGG model with YOLO as a backbone, you need to modify the `META_ARCHITECTURE` variable in the same config file to `GeneralizedYOLO`. You can then follow the standard procedure for PREDCLS, SGCLS or SGDET training below.
+
+## Faster R-CNN pre-training (legacy)
+
+:warning: Faster-RCNN pre-training is not officially supported anymore in this codebase, please use a YOLO backbone instead.
+
 The following command can be used to train your own Faster R-CNN model:
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch --master_port 10001 --nproc_per_node=4 tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" SOLVER.MAX_ITER 50000 SOLVER.STEPS "(30000, 45000)" SOLVER.VAL_PERIOD 2000 SOLVER.CHECKPOINT_PERIOD 2000 MODEL.RELATION_ON False OUTPUT_DIR /home/kaihua/checkpoints/pretrained_faster_rcnn SOLVER.PRE_VAL False
+CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch --master_port 10001 --nproc_per_node=4 tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" SOLVER.MAX_EPOCH 20 MODEL.RELATION_ON False OUTPUT_DIR ./checkpoints/pretrained_faster_rcnn SOLVER.PRE_VAL False
 ```
-where ```CUDA_VISIBLE_DEVICES``` and ```--nproc_per_node``` represent the id of GPUs and number of GPUs you use, ```--config-file``` means the config we use, where you can change other parameters. ```SOLVER.IMS_PER_BATCH``` and ```TEST.IMS_PER_BATCH``` are the training and testing batch size respectively, ```DTYPE "float16"``` enables Automatic Mixed Precision, ```SOLVER.MAX_ITER``` is the maximum iteration, ```SOLVER.STEPS``` is the steps where we decay the learning rate, ```SOLVER.VAL_PERIOD``` and ```SOLVER.CHECKPOINT_PERIOD``` are the periods of conducting val and saving checkpoint, ```MODEL.RELATION_ON``` means turning on the relationship head or not (since this is the pretraining phase for Faster R-CNN only, we turn off the relationship head),  ```OUTPUT_DIR``` is the output directory to save checkpoints and log (considering `/home/username/checkpoints/pretrained_faster_rcnn`), ```SOLVER.PRE_VAL``` means whether we conduct validation before training or not.
+where ```CUDA_VISIBLE_DEVICES``` and ```--nproc_per_node``` represent the id of GPUs and number of GPUs you use, ```--config-file``` means the config we use, where you can change other parameters. ```SOLVER.IMS_PER_BATCH``` and ```TEST.IMS_PER_BATCH``` are the training and testing batch size respectively, ```DTYPE "float16"``` enables Automatic Mixed Precision, ```OUTPUT_DIR``` is the output directory to save checkpoints and log (considering `/home/username/checkpoints/pretrained_faster_rcnn`), ```SOLVER.PRE_VAL``` means whether we conduct validation before training or not.
  
-## YOLOV8 Backbone
 
-If you want to use YoloV8 as a backbone instead of Faster-RCNN, you need to first train a model using the official [ultralytics implementation](https://github.com/ultralytics/ultralytics). Once you have a model, you can modify [this config file](configs/VG150/e2e_relation_yolov8m.yaml) and change the path `PRETRAINED_DETECTOR_CKPT` to your model weights. Please note that you will also need to change the variable `SIZE` and `OUT_CHANNELS` accordingly if you use another variant of YoloV8 (nano, small or large for instance). 
-For training an SGG model with YOLOV8 as a backbone, you need to modify the `META_ARCHITECTURE` variable in the same config file to `GeneralizedYOLO`. You can then follow the standard procedure for PREDCLS, SGCLS or SGDET training below.
 
 ## Perform training on Scene Graph Generation
 
@@ -179,6 +194,16 @@ For **Scene Graph Detection (SGDet)**:
 
 ### Predefined Models
 We abstract various SGG models to be different ```relation-head predictors``` in the file ```roi_heads/relation_head/roi_relation_predictors.py```. To select our predefined models, you can use ```MODEL.ROI_RELATION_HEAD.PREDICTOR```.
+
+For [REACT](https://arxiv.org/abs/2405.16116v2) Model:
+```bash
+MODEL.ROI_RELATION_HEAD.PREDICTOR REACTPredictor
+```
+
+For [PE-NET](https://arxiv.org/abs/2303.07096) Model:
+```bash
+MODEL.ROI_RELATION_HEAD.PREDICTOR PrototypeEmbeddingNetwork
+```
 
 For [Neural-MOTIFS](https://arxiv.org/abs/1711.06640) Model:
 ```bash
@@ -247,7 +272,6 @@ To watch the results with tensorboardX:
 tensorboard --logdir=/home/maelic/ray_results/train_relation_net_2024-06-23_15-28-01
 ```
 
-
 ## Evaluation
 
 ### Examples of the Test Command
@@ -308,13 +332,13 @@ The counterfactual inference is not only applicable to SGG. Actually, my collegu
 If you find this project helps your research, please kindly consider citing our project or papers in your publications.
 
 ```
-@misc{neau2024realtime,
-      title={Real-Time Scene Graph Generation}, 
-      author={Maëlic Neau and Paulo E. Santos and Karl Sammut and Anne-Gwenn Bosser and Cédric Buche},
+@misc{neau2024reactrealtimeefficiencyaccuracy,
+      title={REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene Graph Generation}, 
+      author={Maëlic Neau and Paulo E. Santos and Anne-Gwenn Bosser and Cédric Buche},
       year={2024},
       eprint={2405.16116},
       archivePrefix={arXiv},
-      primaryClass={cs.CV}
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2405.16116}, 
 }
-
 ```

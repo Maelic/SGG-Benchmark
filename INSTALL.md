@@ -20,8 +20,8 @@ Most of the requirements of this projects are similar to the ones from [https://
 conda update --force conda
 
 # create and activate env
-conda create --name scene_graph_benchmark python=3.11
-conda activate scene_graph_benchmark
+conda create --name sgg_benchmark python=3.11
+conda activate sgg_benchmark
 
 # this installs the right conda dependencies for the fresh python
 conda install ipython scipy h5py ninja cython matplotlib tqdm pandas

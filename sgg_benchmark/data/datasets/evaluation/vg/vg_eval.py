@@ -176,6 +176,30 @@ def do_vg_evaluation(
         if output_folder:
             out_file = os.path.join(output_folder, 'eval_results_top_'+str(cfg.TEST.TOP_K)+'.json')
 
+            if "test" in dataset_name:
+                result_file = os.path.join(output_folder, 'results.json')
+
+                with open(result_file, 'r') as f:
+                    res = json.load(f)
+
+                res['mAP@50'] = mAp
+
+                # compute overall recall@20, 50, 100
+                for k in [20, 50, 100]:
+                    recall = result_dict[mode + '_recall'][k]
+                    res[mode + '_recall@'+str(k)] = np.mean(recall)
+
+                for k in [20, 50, 100]:
+                    mean_recall = result_dict[mode + '_mean_recall'][k]
+                    res[mode + '_mean_recall@'+str(k)] = np.mean(mean_recall)
+
+                for k in [20, 50, 100]:
+                    f1_score = result_dict[mode + '_f1_score'][k]
+                    res[mode + '_f1_score@'+str(k)] = np.mean(f1_score)
+
+                with open(result_file, 'w') as f:
+                    json.dump(res, f)
+
             with open(out_file, 'w') as f:
                 json.dump(result_dict, f)
             # torch.save(result_dict, os.path.join(output_folder, 'result_dict.pytorch'))
