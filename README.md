@@ -13,7 +13,8 @@ Previous work (PE-NET model) | Our REACT model for Real-Time SGG
 
 
 Our latest paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene
-Graph Generation](https://arxiv.org/abs/2405.16116) is finally available! Please have a look if you're interested! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8. Here are the main results:
+Graph Generation](https://arxiv.org/abs/2405.16116) is finally available! Please have a look if you're interested! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8. Weights are available [here](MODEL_ZOO.md).
+Here is a snapshot of the main results:
 
 <p align="center">
 <img src="https://github.com/user-attachments/assets/5335b285-e54b-4d79-88f1-5f4a4ef6aab4" alt="intro_img" width="1080"/>
@@ -30,6 +31,7 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 
 
 - [ ] TODO: Change Dataloader to COCO format (in progress).
+- [X] 04.12.2024: Official release of the REACT model weights for VG150, please see [MODEL_ZOO.md](MODEL_ZOO.md)
 - [X] 03.12.2024: Official release of the [REACT model](https://arxiv.org/abs/2405.16116)
 - [X] 23.05.2024: Added support for Hyperparameters Tuning with the RayTune library, please check it out: [Hyperparameters Tuning](#hyperparameters-tuning)
 - [X] 23.05.2024: Added support for the YOLOV10 backbone and SQUAT relation head!
@@ -89,9 +91,11 @@ Check [DATASET.md](DATASET.md) for instructions regarding dataset preprocessing.
 
 ## DEMO
 
-You can also use the [SGDET_on_custom_images.ipynb](demo/SGDET_on_custom_images.ipynb) notebook to visualize detections on images.
+You can [download a pre-train model](MODEL_ZOO.md) or [train your own model](#perform-training-on-scene-graph-generation) and run my off-the-shelf demo!
 
-I also made a demo code to try SGDET with your webcam in the [demo folder](./demo/README.md), feel free to have a look! You will need a trained model in SGDET mode for the demo.
+You can use the [SGDET_on_custom_images.ipynb](demo/SGDET_on_custom_images.ipynb) notebook to visualize detections on images.
+
+I also made a demo code to try SGDET with your webcam in the [demo folder](./demo/README.md), feel free to have a look!
 
 ## Supported Models
 

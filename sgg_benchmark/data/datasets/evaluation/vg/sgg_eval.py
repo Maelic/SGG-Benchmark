@@ -1,19 +1,11 @@
-import logging
-import os
 import torch
 import torch.nn.functional as F
 import numpy as np
-import json
-from tqdm import tqdm
 from functools import reduce
 
 from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
-from sentence_transformers import SentenceTransformer, util
-import time
 
 from abc import ABC, abstractmethod
-
-# sim_model = SentenceTransformer('all-mpnet-base-v2',trust_remote_code=True) # clip-ViT-B-32
 
 class SceneGraphEvaluation(ABC):
     def __init__(self, result_dict):

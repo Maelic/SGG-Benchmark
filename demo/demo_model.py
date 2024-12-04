@@ -27,7 +27,6 @@ class SGG_Model(object):
 
         cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG = dcs
         # cfg.MODEL.BACKBONE.NMS_THRESH = 0.267
-        cfg.freeze()
         self.cfg = cfg
         self.show_fps = show_fps
 

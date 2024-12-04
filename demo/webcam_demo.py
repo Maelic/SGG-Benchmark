@@ -70,8 +70,8 @@ if __name__ == "__main__":
     parser.add_argument('--weights', type=str, required=True, help='Path to the weights file, e.g. model.pth')
     parser.add_argument('--classes', default="datasets/vg/VG-SGG-dicts-with-attri.json", type=str, help='Path to the classes dict file, e.g. VG-SGG-dicts.json')
     parser.add_argument('--tracking', action="store_true", help='Object tracking or not')
-    parser.add_argument('--rel_conf', type=float, default=0.1, help='Relation confidence threshold')
-    parser.add_argument('--box_conf', type=float, default=0.267, help='Box confidence threshold')
+    parser.add_argument('--rel_conf', type=float, default=0.01, help='Relation confidence threshold')
+    parser.add_argument('--box_conf', type=float, default=0.25, help='Box confidence threshold')
 
     parser.add_argument('--dcs', type=int, default=100, help='Dynamic Candidate Selection')
 

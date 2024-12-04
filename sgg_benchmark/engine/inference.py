@@ -309,7 +309,7 @@ def inference(
 
     # save preditions to .pth file
     if output_folder is not None and not load_prediction_from_cache:
-        #torch.save(predictions, os.path.join(output_folder, "predictions.pth"))
+        torch.save(predictions, os.path.join(output_folder, "predictions.pth"))
         latency = {
             'mean_syn': mean_syn,
             'mean_std': mean_std,
