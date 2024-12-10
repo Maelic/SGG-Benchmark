@@ -15,6 +15,9 @@ import cv2
 import seaborn as sns
 import os
 
+import networkx as nx
+from networkx.drawing.nx_agraph import to_agraph
+
 class SGG_Model(object):
     def __init__(self, config, weights, dcs=100, tracking=False, rel_conf=0.1, box_conf=0.5, show_fps=True) -> None:
         cfg.merge_from_file(config)
@@ -94,7 +97,7 @@ class SGG_Model(object):
             names = self.stats['obj_classes'].values()
             self.model.backbone.load_txt_feats(names)
 
-    def predict(self, image, visu=False):
+    def predict(self, image, visu_type='image'):
         self.model.roi_heads.eval()
         self.model.backbone.eval()
 
@@ -118,6 +121,9 @@ class SGG_Model(object):
         bboxes = bboxes.cpu().numpy()
         rels = rels.cpu().numpy()
         post_process_time = time.time()
+        
+        print("Objects detected: ", len(bboxes))
+        print("Relationships detected: ", len(rels))
 
         # update tracker
         if self.tracking and len(bboxes) > 0:
@@ -138,7 +144,7 @@ class SGG_Model(object):
                         bboxes[cur_id][1] = tracks[i][1]
                         bboxes[cur_id][2] = tracks[i][2]
                         bboxes[cur_id][3] = tracks[i][3]
-        if visu:
+        if visu_type == 'video':
             out_img = self.draw_full_graph(out_img, bboxes, rels)
                # Assuming out_img is the image and predictions is the dictionary containing the predictions
             image_height, image_width = out_img.shape[:2]
@@ -168,8 +174,6 @@ class SGG_Model(object):
             
             # cv2.putText(out_img, f"Objects: {len(bboxes)}", positions["objects"], cv2.FONT_HERSHEY_COMPLEX, font_scale, (0, 0, 255), 2)
             # cv2.putText(out_img, f"Relationships: {len(rels)}", positions["relationships"], cv2.FONT_HERSHEY_COMPLEX, font_scale, (0, 0, 255), 2)
-            print("Objects detected: ", len(bboxes))
-            print("Relationships detected: ", len(rels))
             
             cv2.putText(out_img, f"Detection: {det_time:.2f}ms", positions["detection"], cv2.FONT_HERSHEY_COMPLEX, font_scale, (0, 0, 255), 2)
 
@@ -185,7 +189,45 @@ class SGG_Model(object):
             # Convert the image to RGB
             out_img = cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB)
             return out_img, None
+        
+        elif visu_type == 'image':
+            graph_img = self.visualize_graph(rels, bboxes, image.shape[:2])
+            out_img = self.draw_boxes_image(bboxes, out_img)
+
+            return out_img, graph_img
+        
         return predictions, None
+    
+    def draw_boxes_image(self, bboxes, out_img):
+        bbox_labels = [self.stats['obj_classes'][int(b[5])] for b in bboxes]
+
+        for i, bbox in enumerate(bboxes):
+            bbox = [int(b) for b in bbox[:4]]
+            label = bbox_labels[i]
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.5
+            font_thickness = 1
+            text_padding = 2  # Padding around the text
+            
+            # Draw bounding box
+            cv2.rectangle(out_img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0), 1)
+            
+            text = f"{str(i)}_{label}"
+            
+            # Calculate text size (width, height) and baseline
+            (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, font_thickness)
+            
+            # Calculate rectangle coordinates for the background
+            rect_start = (bbox[0], bbox[1] - text_height - text_padding )
+            rect_end = (bbox[0] + text_width + text_padding * 2, bbox[1] + text_padding )
+            
+            # Draw background rectangle
+            cv2.rectangle(out_img, rect_start, rect_end, (255, 0, 0), cv2.FILLED)
+            
+            # Draw text
+            cv2.putText(out_img, text, (bbox[0] + text_padding, bbox[1] - text_padding ), font, font_scale, (255, 255, 255), font_thickness)
+        
+        return cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB)
     
     def draw_bbox(self, img, bbox, label):
         # Convert bbox to integer
@@ -230,6 +272,7 @@ class SGG_Model(object):
 
     def draw_full_graph(self, img, bboxes, rels):
         # Convert bboxes and rels to CPU and then to NumPy arrays
+        # bboxes is of type [x1, y1, x2, y2, score, class, id]
         
         # Precompute class labels
         bbox_labels = [self.stats['obj_classes'][int(b[5])] for b in bboxes]
@@ -267,7 +310,6 @@ class SGG_Model(object):
             # Draw the relation label
             cv2.putText(img, r_label, ((c_sub[0] + c_obj[0]) // 2, (c_sub[1] + c_obj[1]) // 2 - 5), cv2.FONT_HERSHEY_COMPLEX | cv2.FONT_ITALIC, font_scale, (255, 255, 255), 1)
 
-
         return img
     
     def draw_rounded_rectangle(self, img, top_left, bottom_right, color, thickness, radius):
@@ -281,18 +323,17 @@ class SGG_Model(object):
         cv2.ellipse(img, (bottom_right[0] - radius, bottom_right[1] - radius), (radius, radius), 0, 0, 90, color, thickness)
         cv2.ellipse(img, (top_left[0] + radius, bottom_right[1] - radius), (radius, radius), 90, 0, 90, color, thickness)
 
-    
-    def visualize_graph(self, predictions, img_size, color='blue'):
+    def visualize_graph(self, rels, bboxes, color='blue'):
+        bbox_labels = [self.stats['obj_classes'][int(b[5])] for b in bboxes]
         G = nx.MultiDiGraph()
-        for i, r_label in enumerate(predictions['rel_labels']):
-            r = predictions['rel_pairs'][i]
-            if 'track_id' in predictions:
-                subj = f"{predictions['track_id'][r[0]]}_{predictions['bbox_labels'][r[0]]}"
-                obj = f"{predictions['track_id'][r[1]]}_{predictions['bbox_labels'][r[1]]}"
-            else:
-                subj = str(r[0])+'_'+predictions['bbox_labels'][r[0]]
-                obj = str(r[1])+'_'+predictions['bbox_labels'][r[1]]
-            G.add_edge(str(subj), str(obj), label=r_label, color=color)
+        for i, r_label in enumerate(rels[:, 2]):
+            label_rel = self.stats['rel_classes'][int(r_label)]
+            r = rels[i]
+            # to int
+            r = r.astype(int)
+            subj = str(r[0])+'_'+bbox_labels[int(r[0])]
+            obj = str(r[1])+'_'+bbox_labels[int(r[1])]
+            G.add_edge(str(subj), str(obj), label=label_rel, color=color)
 
         # draw networkx graph with graphviz, display edge labels
         G.graph['edge'] = {'arrowsize': '0.6', 'splines': 'curved'}

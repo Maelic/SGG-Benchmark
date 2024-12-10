@@ -36,7 +36,7 @@ def main(args):
         ret, frame = cap.read()
         
         # Make prediction
-        img, graph = model.predict(frame, visu=True)
+        img, graph = model.predict(frame, visu_type='video')
 
         # avg_fps.append(fps)
 
