@@ -9,6 +9,10 @@ from pycocotools.cocoeval import COCOeval
 from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import *
 from sgg_benchmark.config.paths_catalog import DatasetCatalog
 
+from sgg_benchmark.structures.boxlist_ops import resize_boxes
+
+from ultralytics.utils import ops
+
 def do_vg_evaluation(
     cfg,
     dataset,
@@ -50,6 +54,8 @@ def do_vg_evaluation(
     else:
         mode = 'sgdet'
 
+    orig_size = (cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MAX_SIZE_TEST)
+
     num_rel_category = cfg.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
     multiple_preds = cfg.TEST.RELATION.MULTIPLE_PREDS
     iou_thres = cfg.TEST.RELATION.IOU_THRESHOLD
@@ -61,8 +67,9 @@ def do_vg_evaluation(
         image_width = img_info["width"]
         image_height = img_info["height"]
         # recover original size which is before transform
-        predictions[image_id] = prediction.resize((image_width, image_height))
-
+        # resized_boxes = resize_boxes(prediction[0][:,:4], (image_height, image_width), orig_size)
+        # prediction[0][:,:4] = resized_boxes
+        predictions[image_id] = prediction
         gt = dataset.get_groundtruth(image_id, evaluation=True)
         groundtruths.append(gt)
 
@@ -74,9 +81,14 @@ def do_vg_evaluation(
     if "bbox" in iou_types:
         # create a Coco-like object that we can use to evaluate detection!
         anns = []
+        print(groundtruths[0][0][:, :4])
+        print(groundtruths[0][0][:, 4])
+        print('#######################')
         for image_id, gt in enumerate(groundtruths):
-            labels = gt.get_field('labels').tolist() # integer
-            boxes = gt.bbox.tolist() # xyxy
+            labels = gt[0][:,4] # integer
+            boxes = gt[0][:,:4]
+            # to xyxy
+            boxes = ops.xywh2xyxy(boxes)
             for cls, box in zip(labels, boxes):
                 anns.append({
                     'area': (box[3] - box[1]) * (box[2] - box[0]),
@@ -100,13 +112,16 @@ def do_vg_evaluation(
 
         # format predictions to coco-like
         cocolike_predictions = []
+        print(predictions[0][0][:, :4])
+        print(predictions[0][0][:, 5])
+        print()
         for image_id, prediction in enumerate(predictions):
-            box = prediction.convert('xywh').bbox.detach().cpu().numpy() # xywh
-            score = prediction.get_field('pred_scores').detach().cpu().numpy() # (#objs,)
-            label = prediction.get_field('pred_labels').detach().cpu().numpy() # (#objs,)
+            box = prediction[0][:,:4].detach().cpu().numpy() # xywh
+            score = prediction[0][:,4].detach().cpu().numpy() # (#objs,)
+            label = prediction[0][:,5].detach().cpu().numpy() # (#objs,)
             # for predcls, we set label and score to groundtruth
             if mode == 'predcls':
-                label = prediction.get_field('labels').detach().cpu().numpy()
+                label = prediction[0][:,5].detach().cpu().numpy()
                 score = np.ones(label.shape[0])
                 assert len(label) == len(box)
             image_id = np.asarray([image_id]*len(box))
@@ -246,14 +261,14 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     mode = global_container['mode']
 
     local_container = {}
-    local_container['gt_rels'] = groundtruth.get_field('relation_tuple').long().detach().cpu().numpy()
+    local_container['gt_rels'] = groundtruth[2][0].long().detach().cpu().numpy()
 
     # if there is no gt relations for current image, then skip it
     if len(local_container['gt_rels']) == 0:
         return
 
-    local_container['gt_boxes'] = groundtruth.convert('xyxy').bbox.detach().cpu().numpy()                   # (#gt_objs, 4)
-    local_container['gt_classes'] = groundtruth.get_field('labels').long().detach().cpu().numpy()           # (#gt_objs, )
+    local_container['gt_boxes'] = groundtruth[0][:,:4].detach().cpu().numpy()                   # (#gt_objs, 4)
+    local_container['gt_classes'] = groundtruth[0][:,4].long().detach().cpu().numpy()           # (#gt_objs, )
 
     # about relations
     local_container['pred_rel_inds'] = prediction.get_field('rel_pair_idxs').long().detach().cpu().numpy()  # (#pred_rels, 2)

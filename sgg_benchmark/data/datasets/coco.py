@@ -2,7 +2,6 @@
 import torch
 import torchvision
 
-from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.segmentation_mask import SegmentationMask
 
 def _has_only_empty_bbox(anno):
@@ -56,19 +55,21 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
 
         boxes = [obj["bbox"] for obj in anno]
         boxes = torch.as_tensor(boxes).reshape(-1, 4)  # guard against no boxes
-        target = BoxList(boxes, img.size, mode="xywh").convert("xyxy")
+        boxes[:, 2:] += boxes[:, :2]  # convert from xywh to xyxy
 
         classes = [obj["category_id"] for obj in anno]
         classes = [self.json_category_id_to_contiguous_id[c] for c in classes]
         classes = torch.tensor(classes)
-        target.add_field("labels", classes)
+
+        target = {
+            "boxes": boxes,
+            "labels": classes
+        }
 
         if anno and "segmentation" in anno[0]:
             masks = [obj["segmentation"] for obj in anno]
             masks = SegmentationMask(masks, img.size, mode='poly')
-            target.add_field("masks", masks)
-
-        target = target.clip_to_image(remove_empty=True)
+            target["masks"] = masks
 
         if self._transforms is not None:
             img, target = self._transforms(img, target)

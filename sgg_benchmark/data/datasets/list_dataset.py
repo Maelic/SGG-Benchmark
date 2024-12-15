@@ -4,9 +4,7 @@ Simple dataset class that wraps a list of path names
 """
 
 from PIL import Image
-
-from sgg_benchmark.structures.bounding_box import BoxList
-
+import torch
 
 class ListDataset(object):
     def __init__(self, image_lists, transforms=None):
@@ -18,7 +16,7 @@ class ListDataset(object):
 
         # dummy target
         w, h = img.size
-        target = BoxList([[0, 0, w, h]], img.size, mode="xyxy")
+        target = torch.tensor([[0, 0, w, h]], dtype=torch.float32)
 
         if self.transforms is not None:
             img, target = self.transforms(img, target)

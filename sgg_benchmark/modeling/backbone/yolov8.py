@@ -10,8 +10,6 @@ from ultralytics.engine.results import Results
 from ultralytics.utils.plotting import feature_visualization
 from pathlib import Path
 
-from sgg_benchmark.structures.bounding_box import BoxList
-
 import numpy as np
 
 class YoloV8(DetectionModel):
@@ -97,39 +95,17 @@ class YoloV8(DetectionModel):
 
         if len(preds) == 0:
             # return a dummy box with size of all image
-            boxes = torch.tensor([[0, 0, image_sizes[0][1], image_sizes[0][0]]], device=self.device)
-            scores = torch.tensor([0.0], device=self.device)
-            labels = torch.tensor([0], device=self.device)
-            boxlist = BoxList(boxes, image_sizes[0], mode="xyxy")
-            boxlist.add_field("pred_labels", labels)
-            boxlist.add_field("pred_scores", scores)
-            return [boxlist]
+            empty_pred = torch.zeros((1, 6), device=self.device)
+            return [empty_pred]
         
 
         results = []
         for i, pred in enumerate(preds):
-            # flip
-            out_img_size = (image_sizes[i][1], image_sizes[i][0])
-
-            boxes = pred[:, :4]
-            # boxes = boxes.cpu()
-
-            boxlist = BoxList(boxes, out_img_size, mode="xyxy")
-
-            #boxlist = boxlist.clip_to_image(remove_empty=False)
-            scores = pred[:, 4]
-            labels = pred[:, 5].long()
-            boxlist.add_field("pred_labels", labels.detach().clone())
-            # add 1 to all labels to account for background class
-            labels += 1
-            # resize
-            boxlist.add_field("pred_scores", scores)
-            boxlist.add_field("labels", labels)
-
-            # assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
-            # boxlist.add_field("pred_logits", pred[:, 5:])
-
-            results.append(boxlist)
+            pred[..., :4] = ops.xywh2xyxy(pred[..., :4])
+            # # clip boxes to image bounds
+            pred[..., :4] = ops.clip_coords(pred[..., :4], image_sizes[i])
+            # tensor of shape [xmin, ymin, xmax, ymax, conf, class]
+            results.append(pred)
         return results
 
     

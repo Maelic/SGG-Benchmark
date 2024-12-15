@@ -4,7 +4,7 @@ from torch import nn
 
 from sgg_benchmark.modeling import registry
 from sgg_benchmark.modeling.make_layers import make_fc
-from sgg_benchmark.structures.boxlist_ops import boxlist_union
+from sgg_benchmark.structures.boxlist_ops import boxlist_union, resize_boxes
 from sgg_benchmark.modeling.roi_heads.box_head.roi_box_feature_extractors import make_roi_box_feature_extractor
 from sgg_benchmark.modeling.roi_heads.attribute_head.roi_attribute_feature_extractors import make_roi_attribute_feature_extractor
 
@@ -19,6 +19,7 @@ class RelationFeatureExtractor(nn.Module):
         # should corresponding to obj_feature_map function in neural-motifs
         resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
         pool_all_levels = cfg.MODEL.ROI_RELATION_HEAD.POOLING_ALL_LEVELS
+        self.orig_size = (cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MAX_SIZE_TEST)
 
         self.use_spatial = cfg.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
         self.use_union = cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
@@ -60,10 +61,13 @@ class RelationFeatureExtractor(nn.Module):
         union_proposals = []
         rect_inputs = []
         for proposal, rel_pair_idx in zip(proposals, rel_pair_idxs):
-            head_proposal = proposal[rel_pair_idx[:, 0]]
-            tail_proposal = proposal[rel_pair_idx[:, 1]]
+            # proposal is a dict of type {'boxes': Tensor, 'pred_labels': Tensor, 'pred_scores': Tensor}
+            # rel_pair_idx is a Tensor of shape (num_rel, 2)
+            head_proposal = proposal[rel_pair_idx[:, 0].long()]
+            tail_proposal = proposal[rel_pair_idx[:, 1].long()]
+            
             if self.use_union:
-                union_proposal = boxlist_union(head_proposal, tail_proposal)
+                union_proposal = boxlist_union(head_proposal[:, :4], tail_proposal[:, :4])
                 union_proposals.append(union_proposal)
 
             if self.use_spatial:
@@ -72,17 +76,18 @@ class RelationFeatureExtractor(nn.Module):
                 dummy_x_range = torch.arange(self.rect_size, device=device).view(1, 1, -1).expand(num_rel, self.rect_size, self.rect_size)
                 dummy_y_range = torch.arange(self.rect_size, device=device).view(1, -1, 1).expand(num_rel, self.rect_size, self.rect_size)
                 # resize bbox to the scale rect_size
-                head_proposal = head_proposal.resize((self.rect_size, self.rect_size))
-                tail_proposal = tail_proposal.resize((self.rect_size, self.rect_size))
-                head_rect = ((dummy_x_range >= head_proposal.bbox[:,0].floor().view(-1,1,1).long()).bool() & \
-                            (dummy_x_range <= head_proposal.bbox[:,2].ceil().view(-1,1,1).long()).bool() & \
-                            (dummy_y_range >= head_proposal.bbox[:,1].floor().view(-1,1,1).long()).bool() & \
-                            (dummy_y_range <= head_proposal.bbox[:,3].ceil().view(-1,1,1).long()).bool()).float()
+                head_proposal = resize_boxes(head_proposal[:, :4], (self.rect_size, self.rect_size), self.orig_size)
+                tail_proposal = resize_boxes(tail_proposal[:, :4], (self.rect_size, self.rect_size), self.orig_size)
 
-                tail_rect = ((dummy_x_range >= tail_proposal.bbox[:,0].floor().view(-1,1,1).long()).bool() & \
-                            (dummy_x_range <= tail_proposal.bbox[:,2].ceil().view(-1,1,1).long()).bool() & \
-                            (dummy_y_range >= tail_proposal.bbox[:,1].floor().view(-1,1,1).long()).bool() & \
-                            (dummy_y_range <= tail_proposal.bbox[:,3].ceil().view(-1,1,1).long()).bool()).float()
+                head_rect = ((dummy_x_range >= head_proposal[:,0].floor().view(-1,1,1).long()).bool() & \
+                            (dummy_x_range <= head_proposal[:,2].ceil().view(-1,1,1).long()).bool() & \
+                            (dummy_y_range >= head_proposal[:,1].floor().view(-1,1,1).long()).bool() & \
+                            (dummy_y_range <= head_proposal[:,3].ceil().view(-1,1,1).long()).bool()).float()
+
+                tail_rect = ((dummy_x_range >= tail_proposal[:,0].floor().view(-1,1,1).long()).bool() & \
+                            (dummy_x_range <= tail_proposal[:,2].ceil().view(-1,1,1).long()).bool() & \
+                            (dummy_y_range >= tail_proposal[:,1].floor().view(-1,1,1).long()).bool() & \
+                            (dummy_y_range <= tail_proposal[:,3].ceil().view(-1,1,1).long()).bool()).float()
 
                 rect_input = torch.stack((head_rect, tail_rect), dim=1) # (num_rel, 4, rect_size, rect_size)
                 rect_inputs.append(rect_input)

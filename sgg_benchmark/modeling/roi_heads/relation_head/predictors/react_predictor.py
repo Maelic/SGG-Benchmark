@@ -264,7 +264,7 @@ class REACTPredictor(BasePredictor):
         return entity_dists, rel_dists, add_losses
     
     def encode_obj_labels(self, proposals):
-        obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
+        obj_labels = cat([proposal[:, 5] for proposal in proposals], dim=0)
         obj_labels = obj_labels.long()
         obj_dists = to_onehot(obj_labels, self.num_obj_classes)
         return obj_dists, obj_labels

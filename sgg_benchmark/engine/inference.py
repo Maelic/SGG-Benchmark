@@ -35,7 +35,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
         #     break
         with torch.no_grad():
             images, targets, image_ids = batch
-            targets = [target.to(device) for target in targets]
+            targets = [[target[0].to(device), target[1].to(device)] for target in targets]
 
             if timer:
                 starter.record()
@@ -46,6 +46,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             else:
                 # compute GFLOPS
                 output = model(images.to(device), targets)
+
             if timer:
                 ender.record()
                 torch.cuda.synchronize()
@@ -61,12 +62,14 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
                     curr_time = starter2.elapsed_time(ender2)
                     timings2.append(curr_time)
 
-            output = [o.to(cpu_device) for o in output]
+            # to cpu device
+            for j in range(len(output)):
+                output[j] = [o.to(cpu_device) for o in output[j]]
 
             # add image_path to output
-            if output[0].has_field('image_path'):
+            if 'image_path' in output[0]:
                 for i, o in enumerate(output):
-                    o.add_field('image_path', targets[i].get_field('image_path'))
+                    o['image_path'] = targets[i]['image_path']
 
         if synchronize_gather:
             synchronize()
@@ -107,14 +110,14 @@ def init_informative_post_process():
 
 def informative_post_process(boxlist, obj_classes, pred_classes, informative_rels, top_n=100):
 
-    scores = boxlist.get_field('pred_rel_scores')[:top_n]
-    labels = boxlist.get_field('pred_rel_labels')[:top_n]
-    pd_rels = boxlist.get_field('rel_pair_idxs')[:top_n]
+    scores = boxlist['pred_rel_scores'][:top_n]
+    labels = boxlist['pred_rel_labels'][:top_n]
+    pd_rels = boxlist['rel_pair_idxs'][:top_n]
 
     if len(pd_rels) == 0:
         return
 
-    pd_labels = boxlist.get_field('pred_labels')
+    pd_labels = boxlist['pred_labels']
 
     pd_s_labels = pd_labels[pd_rels[:, 0]]
     pd_o_labels = pd_labels[pd_rels[:, 1]]
@@ -156,21 +159,17 @@ def informative_post_process(boxlist, obj_classes, pred_classes, informative_rel
     # # replace the first len(sorting_idx) elements of full_idx with sorting_idx
     # full_idx[:len(sorting_idx)] = sorting_idx
 
-    boxlist.remove_field('pred_rel_scores')
-    boxlist.remove_field('pred_rel_labels')
-    boxlist.remove_field('rel_pair_idxs')
-
-    boxlist.add_field('pred_rel_scores', scores[sorting_idx])
-    boxlist.add_field('pred_rel_labels', labels[sorting_idx])
-    boxlist.add_field('rel_pair_idxs', pd_rels[sorting_idx])
+    boxlist['pred_rel_scores'] = scores[sorting_idx]
+    boxlist['pred_rel_labels'] = labels[sorting_idx]
+    boxlist['rel_pair_idxs'] = pd_rels[sorting_idx]
     
 
 def generate_detect_sg(predictions, vg_dict, obj_thres = 0.5):
     
-    all_obj_labels = predictions.get_field('pred_labels')
-    all_obj_scores = predictions.get_field('pred_scores')
-    all_rel_pairs = predictions.get_field('rel_pair_idxs')
-    all_rel_prob = predictions.get_field('pred_rel_scores')
+    all_obj_labels = predictions['pred_labels']
+    all_obj_scores = predictions['pred_scores']
+    all_rel_pairs = predictions['rel_pair_idxs']
+    all_rel_prob = predictions['pred_rel_scores']
     all_rel_scores, all_rel_labels = all_rel_prob.max(-1)
 
     # filter objects and relationships
@@ -292,7 +291,6 @@ def inference(
         logger.info(
             "Standard deviation of latency: {}ms".format(mean_std)
         )
-
     if not load_prediction_from_cache:
         predictions = _accumulate_predictions_from_multiple_gpus(predictions, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER)
 
@@ -345,34 +343,34 @@ def inference(
 def custom_sgg_post_precessing(predictions):
     output_dict = {}
     for idx, boxlist in enumerate(predictions):
-        xyxy_bbox = boxlist.convert('xyxy').bbox
+        xyxy_bbox = boxlist['bbox']
         # current sgg info
         current_dict = {}
         # sort bbox based on confidence
-        sortedid, id2sorted = get_sorted_bbox_mapping(boxlist.get_field('pred_scores').tolist())
+        sortedid, id2sorted = get_sorted_bbox_mapping(boxlist['pred_scores'].tolist())
         # sorted bbox label and score
         bbox = []
         bbox_labels = []
         bbox_scores = []
         for i in sortedid:
             bbox.append(xyxy_bbox[i].tolist())
-            bbox_labels.append(boxlist.get_field('pred_labels')[i].item())
-            bbox_scores.append(boxlist.get_field('pred_scores')[i].item())
+            bbox_labels.append(boxlist['pred_labels'][i].item())
+            bbox_scores.append(boxlist['pred_scores'][i].item())
         current_dict['bbox'] = bbox
         current_dict['bbox_labels'] = bbox_labels
         current_dict['bbox_scores'] = bbox_scores
         # sorted relationships
-        rel_sortedid, _ = get_sorted_bbox_mapping(boxlist.get_field('pred_rel_scores')[:,1:].max(1)[0].tolist())
+        rel_sortedid, _ = get_sorted_bbox_mapping(boxlist['pred_rel_scores'][:,1:].max(1)[0].tolist())
         # sorted rel
         rel_pairs = []
         rel_labels = []
         rel_scores = []
         rel_all_scores = []
         for i in rel_sortedid:
-            rel_labels.append(boxlist.get_field('pred_rel_scores')[i][1:].max(0)[1].item() + 1)
-            rel_scores.append(boxlist.get_field('pred_rel_scores')[i][1:].max(0)[0].item())
-            rel_all_scores.append(boxlist.get_field('pred_rel_scores')[i].tolist())
-            old_pair = boxlist.get_field('rel_pair_idxs')[i].tolist()
+            rel_labels.append(boxlist['pred_rel_scores'][i][1:].max(0)[1].item() + 1)
+            rel_scores.append(boxlist['pred_rel_scores'][i][1:].max(0)[0].item())
+            rel_all_scores.append(boxlist['pred_rel_scores'][i].tolist())
+            old_pair = boxlist['rel_pair_idxs'][i].tolist()
             rel_pairs.append([id2sorted[old_pair[0]], id2sorted[old_pair[1]]])
         current_dict['rel_pairs'] = rel_pairs
         current_dict['rel_labels'] = rel_labels

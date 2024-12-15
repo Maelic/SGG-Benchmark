@@ -37,7 +37,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, logger, cfg, s
         end = time.time()
 
         images = images.to(device)
-        targets = [target.to(device) for target in targets]
+        # all tensors to device
+        targets = [[t[0].to(device), t[1].to(device)] for t in targets]
 
         # Note: If mixed precision is not used, this ends up doing nothing
         with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):

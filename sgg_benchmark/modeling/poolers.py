@@ -86,16 +86,15 @@ class Pooler(nn.Module):
 
 
     def convert_to_roi_format(self, boxes):
-        concat_boxes = cat([b.bbox for b in boxes], dim=0)
+
+        concat_boxes = torch.cat([b[:, :4] for b in boxes], dim=0)
         device, dtype = concat_boxes.device, concat_boxes.dtype
-        ids = cat(
-            [
-                torch.full((len(b), 1), i, dtype=dtype, device=device)
-                for i, b in enumerate(boxes)
-            ],
-            dim=0,
-        )
+
+        num_boxes = torch.tensor([len(b[:, :4]) for b in boxes]).to(device)
+        ids = torch.arange(len(boxes), dtype=dtype, device=device).repeat_interleave(num_boxes).unsqueeze(1)
+
         rois = torch.cat([ids, concat_boxes], dim=1)
+
         return rois
 
     def forward(self, x, boxes):
@@ -109,6 +108,8 @@ class Pooler(nn.Module):
         num_levels = len(self.poolers)
         rois = self.convert_to_roi_format(boxes)
         assert rois.size(0) > 0
+        rois = rois.to(dtype=x[0].dtype)
+
         if num_levels == 1:
             return self.poolers[0](x[0], rois)
 

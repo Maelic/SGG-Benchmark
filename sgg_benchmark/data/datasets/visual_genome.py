@@ -10,9 +10,6 @@ from tqdm import tqdm
 import random
 import cv2
 
-from sgg_benchmark.structures.bounding_box import BoxList
-from sgg_benchmark.structures.boxlist_ops import boxlist_iou
-
 BOX_SCALE = 1024  # Scale at which we have the boxes
 try:
     from loguru import logger
@@ -120,9 +117,9 @@ class VGDataset(torch.utils.data.Dataset):
         if self.transforms is not None:
             img, target = self.transforms(img, target)
 
-        target.add_field("image_path", self.filenames[index], is_triplet=True)
+        #target["image_path"] = self.filenames[index]
 
-        return img, target, index
+        return img, target, index #, self.filenames[index]
 
 
     def get_statistics(self):
@@ -211,10 +208,9 @@ class VGDataset(torch.utils.data.Dataset):
             new_xmax = w - box[:,0]
             box[:,0] = new_xmin
             box[:,2] = new_xmax
-        target = BoxList(box, (w, h), 'xyxy') # xyxy
-
-        target.add_field("labels", torch.from_numpy(self.gt_classes[index]))
-        #target.add_field("attributes", torch.from_numpy(self.gt_attributes[index]))
+        classes = torch.from_numpy(self.gt_classes[index])
+        # combine to a tensor of size [N, 5]
+        target = torch.cat((box, classes.float().unsqueeze(1)), dim=1)
 
         relation = self.relationships[index].copy() # (num_rel, 3)
         if self.filter_duplicate_rels:
@@ -227,7 +223,7 @@ class VGDataset(torch.utils.data.Dataset):
             relation = np.array(relation, dtype=np.int32)
         
         # add relation to target
-        num_box = len(target)
+        num_box = target.shape[0]
         relation_map = torch.zeros((num_box, num_box), dtype=torch.int64)
         for i in range(relation.shape[0]):
             if relation_map[int(relation[i,0]), int(relation[i,1])] > 0:
@@ -235,34 +231,34 @@ class VGDataset(torch.utils.data.Dataset):
                     relation_map[int(relation[i,0]), int(relation[i,1])] = int(relation[i,2])
             else:
                 relation_map[int(relation[i,0]), int(relation[i,1])] = int(relation[i,2])
-        target.add_field("relation", relation_map, is_triplet=True)
+        # create a new tensor which combine boxes and relation with shape[[N, 5], [N, N]]
+        new_target = [target, relation_map]
 
         if evaluation:
-            target = target.clip_to_image(remove_empty=False)
-            target.add_field("relation_tuple", torch.LongTensor(relation)) # for evaluation
+            new_target = self.clip_to_image(new_target, (w, h), remove_empty=False)
+            new_target.append(torch.LongTensor(relation)) # for evaluation
+
             if self.informative_graphs is not None:
-                target.add_field("informative_rels", self.informative_graphs[str(img_info['image_id'])])
+                new_target.append(self.informative_graphs[str(img_info['image_id'])])
+                # new target is [target, relation_map, gt_rels, informative_rels]
         else:
-            target = target.clip_to_image(remove_empty=True)        
+            new_target = self.clip_to_image(new_target, (w, h), remove_empty=True)    
+            # new target is  [target, relation_map]    
+
+        return new_target
+
+    def clip_to_image(self, target, size, remove_empty=True):
+        TO_REMOVE = 1
+        boxes = target[0][:, :4]
+        boxes[:, 0::2].clamp_(min=0, max=size[0] - TO_REMOVE)
+        boxes[:, 1::2].clamp_(min=0, max=size[1] - TO_REMOVE)
+        if remove_empty:
+            box = boxes.view(-1, 4)
+            keep = (box[:, 3] > box[:, 1]) & (box[:, 2] > box[:, 0])
+            target[0] = target[0][keep]
+            target[1] = target[1][keep][:, keep]
 
         return target
-    # original from ietrans, replaced by pred_weights in get_VG_statistics
-    # def _get_reweighting_dic(self):
-    #     """
-    #     weights for each predicate
-    #     weight is the inverse frequency normalized by the median
-    #     Returns:
-    #         {1: f1, 2: f2, ... 50: f50}
-    #     """
-    #     rels = [x["relations"][:, 2] for x in self.data]
-    #     rels = [int(y) for x in rels for y in x]
-    #     rels = Counter(rels)
-    #     rels = dict(rels)
-    #     rels = [rels[i] for i in sorted(rels.keys())]
-    #     vals = sorted(rels)
-    #     rels = torch.tensor([-1.]+rels)
-    #     rels = (1./rels) * np.median(vals)
-    #     return rels
     
     def __len__(self):
         if self.custom_eval:
@@ -557,8 +553,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
             assert split == 'train'
             # construct BoxList object to apply boxlist_iou method
             # give a useless (height=0, width=0)
-            boxes_i_obj = BoxList(boxes_i, (1000, 1000), 'xyxy')
-            inters = boxlist_iou(boxes_i_obj, boxes_i_obj)
+            inters = boxlist_iou(boxes_i, boxes_i)
             rel_overs = inters[rels[:, 0], rels[:, 1]]
             inc = np.where(rel_overs > 0.0)[0]
 

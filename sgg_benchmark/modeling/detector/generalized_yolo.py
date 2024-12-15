@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from sgg_benchmark.structures.image_list import to_image_list
-from sgg_benchmark.structures.boxlist_ops import cat_boxlist
+from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 
 from ..backbone import build_backbone
 from ..roi_heads.roi_heads import build_roi_heads
@@ -29,24 +29,16 @@ class GeneralizedYOLO(nn.Module):
         self.add_gt = self.cfg.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN
         self.export = False
 
-        # # new empty cfg
-        # new_cfg = self.cfg.clone()
-        # # unfreeze
-        # new_cfg.defrost()
-        # # set the backbone to dinov2
-        # new_cfg.MODEL.BACKBONE.TYPE = "dinov2"
-        # self.feat_backbone = build_backbone(new_cfg)
-
     def forward(self, images, targets=None, logger=None):
         """
         Arguments:
             images (list[Tensor] or ImageList): images to be processed
-            targets (list[BoxList]): ground-truth boxes present in the image (optional)
+            targets (list[Tensor]): ground-truth boxes present in the image (optional)
 
         Returns:
-            result (list[BoxList] or dict[Tensor]): the output from the model.
+            result (list[Tensor] or dict[Tensor]): the output from the model.
                 During training, it returns a dict[Tensor] which contains the losses.
-                During testing, it returns list[BoxList] contains additional fields
+                During testing, it returns list[Tensor] contains additional fields
                 like `scores`, `labels` and `mask` (for Mask R-CNN models).
 
         """
@@ -59,26 +51,24 @@ class GeneralizedYOLO(nn.Module):
             outputs, features = self.backbone(images.tensors, visualize=False, embed=True)
             # get dino features
             proposals = self.backbone.postprocess(outputs, images.image_sizes)
-            # features = self.feat_backbone.get_intermediate_layers(images.tensors, 4, reshape=True)
 
         if self.roi_heads.training and (targets is not None) and self.add_gt:
             proposals = self.add_gt_proposals(proposals,targets)
 
         # to avoid the empty list to be passed into roi_heads during testing and cause error in the pooler
-        if not self.training and len(proposals[0].bbox) == 0:
+        if not self.training and len(proposals[0]) == 0:
             # add empty missing fields
             for p in proposals:
-                p.add_field("pred_rel_scores", torch.tensor([], dtype=torch.float32, device=p.bbox.device))
-                p.add_field("pred_rel_labels", torch.tensor([], dtype=torch.float32, device=p.bbox.device))
-                p.add_field("rel_pair_idxs", torch.tensor([], dtype=torch.int64, device=p.bbox.device))
+                p["pred_rel_scores"] = torch.tensor([], dtype=torch.float32, device=p.device)
+                p["pred_rel_labels"] = torch.tensor([], dtype=torch.float32, device=p.device)
+                p["rel_pair_idxs"] = torch.tensor([], dtype=torch.int64, device=p.device)
             return proposals
 
         if self.roi_heads:
             if self.predcls: # in predcls mode, we pass the targets as proposals
                 for t in targets:
-                    t.remove_field("image_path")
-                    t.add_field("pred_labels", t.get_field("labels"))
-                    t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
+                    t["pred_labels"] = t["labels"]
+                    t["pred_scores"] = torch.ones_like(t["labels"], dtype=torch.float32)
                 x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, targets)
             else:
                 x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
@@ -94,35 +84,43 @@ class GeneralizedYOLO(nn.Module):
 
         if self.export:
             boxes, rels = self.generate_detect_sg(result[0])
-            return [boxes, rels] 
+            return [boxes, rels]
         return result
         
     def add_gt_proposals(self, proposals, targets):
         """
         Arguments:
-            proposals: list[BoxList]
-            targets: list[BoxList]
+            proposals: list[Tensor]
+            targets: list[Tensor]
         """
-        new_targets = []
-        for t in targets:
-            new_t = t.copy_with_fields(["labels"])
-            new_t.add_field("pred_labels", t.get_field("labels"))
-            new_t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
-            new_targets.append(new_t)
+        # new_targets = []
+        # for t in targets:
+        #     new_t = t.copy()
+        #     new_t["pred_labels"] = t["labels"]
+        #     new_t["pred_scores"] = torch.ones_like(t["labels"], dtype=torch.float32)
+        #     new_targets.append(new_t)
 
-        proposals = [
-            cat_boxlist((proposal, gt_box))
-            for proposal, gt_box in zip(proposals, new_targets)
-        ]
+        # compute iou
+        for i in range(len(proposals)):
+            target_boxes = targets[i][0] # only boxes from target
+            ious = boxlist_iou(target_boxes, proposals[i])
+
+            # get gt_boxes with iou < 0.5
+            gt_boxes = target_boxes[ious.max(1).values < 0.5]
+            # add one dim for fake conf in index 4, add the labels back after in index 5
+            gt_boxes = torch.cat((gt_boxes[:, :4], torch.ones_like(gt_boxes[:, 0:1]), gt_boxes[:, 4:5]), dim=1)
+
+            # add gt_boxes to proposals
+            proposals[i] = torch.cat((proposals[i], gt_boxes), dim=0)
 
         return proposals
     
     def generate_detect_sg(self, predictions, obj_thres = 0.5):
-        all_obj_labels = predictions.get_field('pred_labels')
-        all_obj_scores = predictions.get_field('pred_scores')
-        all_rel_pairs = predictions.get_field('rel_pair_idxs')
-        all_rel_prob = predictions.get_field('pred_rel_scores')
-        all_boxes = predictions.convert('xyxy').bbox
+        all_obj_labels = predictions["pred_labels"]
+        all_obj_scores = predictions["pred_scores"]
+        all_rel_pairs = predictions["rel_pair_idxs"]
+        all_rel_prob = predictions["pred_rel_scores"]
+        all_boxes = predictions["bbox"]
 
         all_rel_scores, all_rel_labels = all_rel_prob.max(-1)
 

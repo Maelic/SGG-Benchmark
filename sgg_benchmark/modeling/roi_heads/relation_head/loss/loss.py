@@ -79,7 +79,7 @@ class RelationLossComputation(object):
 
         relation_logits = cat(relation_logits, dim=0)
 
-        fg_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
+        fg_labels = cat([proposal[:, 5] for proposal in proposals], dim=0)
         rel_labels = cat(rel_labels, dim=0)
 
         loss_relation = self.criterion_loss(relation_logits, rel_labels)

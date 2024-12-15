@@ -109,13 +109,13 @@ class RelationSampling(object):
         rel_labels = []
         rel_sym_binarys = []
         for img_id, (proposal, target) in enumerate(zip(proposals, targets)):
-            device = proposal.bbox.device
-            prp_box = proposal.bbox
-            prp_lab = proposal.get_field("labels").long()
-            tgt_lab = target.get_field("labels").long()
-            tgt_rel_matrix = target.get_field("relation") # [tgt, tgt]
+            device = proposal.device
+            prp_box = proposal[:, :4]
+            prp_lab = proposal[:, 5]
+            tgt_lab = target[0][:, 4]
+            tgt_rel_matrix = target[1] # [tgt, tgt]
             # IoU matching
-            ious = boxlist_iou(target, proposal)  # [tgt, prp]
+            ious = boxlist_iou(target[0], proposal)  # [tgt, prp]
             is_match = ((tgt_lab[:,None] == prp_lab[None]).bool() & (ious > self.fg_thres).bool())
             # Proposal self IoU to filter non-overlap
             prp_self_iou = boxlist_iou(proposal, proposal)  # [prp, prp]

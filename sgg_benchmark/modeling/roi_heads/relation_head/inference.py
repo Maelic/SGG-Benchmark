@@ -36,7 +36,7 @@ class PostProcessor(nn.Module):
         Arguments:
             x (tuple[tensor, tensor]): x contains the relation logits
                 and finetuned object logits from the relation model.
-            rel_pair_idxs （list[tensor]): subject and object indice of each relation,
+            rel_pair_idxs (list[tensor]): subject and object indice of each relation,
                 the size of tensor is (num_rel, 2)
             boxes (list[BoxList]): bounding boxes that are used as
                 reference, one for each image
@@ -87,26 +87,19 @@ class PostProcessor(nn.Module):
                 assert obj_scores.shape[0] == num_obj_bbox
             else:
                 rel_logit, rel_pair_idx, box = current_it
-                obj_scores = box.get_field('pred_scores')
-                obj_pred = box.get_field('pred_labels')
+                obj_scores = box[:, 4]
+                obj_pred = box[:, 5].long()
                 obj_pred = obj_pred + 1
            
             obj_class = obj_pred
+            out_list = []
 
-            if self.use_gt_box or self.proposals_as_gt:
-                boxlist = box
-            else:
+            if not( self.use_gt_box or self.proposals_as_gt):
                 # mode==sgdet
-                # apply regression based on finetuned object class
-                device = obj_class.device
-                batch_size = obj_class.shape[0]
-                regressed_box_idxs = obj_class
-                boxlist = BoxList(box.get_field('boxes_per_cls')[torch.arange(batch_size, device=device), regressed_box_idxs], box.size, 'xyxy')
-            boxlist.add_field('pred_labels', obj_class) # (#obj, )
-            boxlist.add_field('pred_scores', obj_scores) # (#obj, )
-
-            if self.attribute_on:
-                boxlist.add_field('pred_attributes', att_prob)
+                # replace obj_class with regressed_box_idxs
+                box = torch.cat((box[:, :5], obj_class.view(-1, 1).float()), dim=1)
+            
+            out_list.append(box)
             
             # sorting triples according to score production
             obj_scores0 = obj_scores[rel_pair_idx[:, 0]]
@@ -121,15 +114,16 @@ class PostProcessor(nn.Module):
             rel_class_prob = rel_class_prob[sorting_idx]
             rel_labels = rel_class[sorting_idx]
 
-            boxlist.add_field('rel_pair_idxs', rel_pair_idx) # (#rel, 2)
-            boxlist.add_field('pred_rel_scores', rel_class_prob) # (#rel, #rel_class)
-            boxlist.add_field('pred_rel_labels', rel_labels) # (#rel, )
-            # should have fields : rel_pair_idxs, pred_rel_class_prob, pred_rel_labels, pred_labels, pred_scores
-            # Note
-            # TODO Kaihua: add a new type of element, which can have different length with boxlist (similar to field, except that once 
-            # the boxlist has such an element, the slicing operation should be forbidden.)
-            # it is not safe to add fields about relation into boxlist!
-            results.append(boxlist)
+            # stack the rel_pair_idx, rel_labels and rel_class_prob tohether
+            rel_tensor = torch.stack((rel_pair_idx[:, 0], rel_pair_idx[:, 1], rel_labels), dim=1)
+            out_list.append(rel_tensor)
+            out_list.append(rel_class_prob)
+
+            if self.attribute_on:
+                out_list.append(att_prob)
+
+            # final shape is [box, rel_tensor, att_prob]
+            results.append(out_list)
         return results
     
 

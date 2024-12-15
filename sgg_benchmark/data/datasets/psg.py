@@ -8,7 +8,6 @@ import json
 import cv2
 import os
 
-from sgg_benchmark.structures.bounding_box import BoxList
 from tqdm import tqdm
 
 class PSGDataset(torch.utils.data.Dataset):
@@ -139,9 +138,9 @@ class PSGDataset(torch.utils.data.Dataset):
 
         if self.transforms is not None:
             img, target = self.transforms(img, target)
-        target.add_field("image_path", img_path, is_triplet=True)
+        #target["image_path"] = img_path
 
-        return img, target, index
+        return img, target, index #, img_path
 
     def get_groundtruth(self, idx, evaluation=False):
         d = self.data[idx]
@@ -181,8 +180,10 @@ class PSGDataset(torch.utils.data.Dataset):
 
         gt_bboxes = torch.from_numpy(gt_bboxes).reshape(-1, 4)
 
-        target = BoxList(gt_bboxes, (w, h), 'xyxy') # xyxy
-        target.add_field("labels", torch.from_numpy(gt_labels.copy()))
+        target = {
+            "boxes": gt_bboxes,
+            "labels": torch.from_numpy(gt_labels.copy())
+        }
         del gt_labels
 
         # Process relationship annotations
@@ -219,16 +220,16 @@ class PSGDataset(torch.utils.data.Dataset):
                              int(gt_rels[i, 1])] = int(gt_rels[i, 2])
                 
         relation_map = torch.from_numpy(relation_map)
-        target.add_field("relation", relation_map, is_triplet=True)
+        target["relation"] = relation_map
 
         if evaluation:
-            target = target.clip_to_image(remove_empty=False)
-            target.add_field("relation_tuple", torch.LongTensor(gt_rels)) # for evaluation
+            target = self.clip_to_image(target, (w, h), remove_empty=False)
+            target["relation_tuple"] = torch.LongTensor(gt_rels)
             if self.informative_graphs is not None:
-                target.add_field("informative_rels", self.informative_graphs[str(self.data_infos[idx]['id'])])
+                target["informative_rels"] = self.informative_graphs[str(self.data_infos[idx]['id'])]
             return target
         else:
-            target = target.clip_to_image(remove_empty=True)
+            target = self.clip_to_image(target, (w, h), remove_empty=True)
             return target
         
     def get_statistics(self):
@@ -313,6 +314,21 @@ class PSGDataset(torch.utils.data.Dataset):
                     triplet_freq[triplet] = freq
 
         return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weights
+
+    def clip_to_image(self, target, size, remove_empty=True):
+        TO_REMOVE = 1
+        boxes = target["boxes"]
+        boxes[:, 0::2].clamp_(min=0, max=size[0] - TO_REMOVE)
+        boxes[:, 1::2].clamp_(min=0, max=size[1] - TO_REMOVE)
+        if remove_empty:
+            box = boxes.view(-1, 4)
+            keep = (box[:, 3] > box[:, 1]) & (box[:, 2] > box[:, 0])
+            boxes = boxes[keep]
+            target["boxes"] = boxes
+            for field in ["labels", "relation"]:
+                if field in target:
+                    target[field] = target[field][keep]
+        return target
 
 def box_filter(boxes, must_overlap=False):
     """ Only include boxes that overlap as possible relations. 

@@ -57,12 +57,12 @@ class ROIRelationHead(torch.nn.Module):
         """
         Arguments:
             features (list[Tensor]): feature-maps from possibly several levels
-            proposals (list[BoxList]): proposal boxes. Note: it has been post-processed (regression, nms) in sgdet mode
-            targets (list[BoxList], optional): the ground-truth targets.
+            proposals (list[Tensor]): proposal boxes. Note: it has been post-processed (regression, nms) in sgdet mode
+            targets (list[Tensor], optional): the ground-truth targets.
 
         Returns:
             x (Tensor): the result of the feature extractor
-            proposals (list[BoxList]): during training, the subsampled proposals
+            proposals (list[Tensor]): during training, the subsampled proposals
                 are returned. During testing, the predicted boxlists are returned
             losses (dict[Tensor]): During training, returns the losses for the
                 head. During testing, returns an empty dict.
