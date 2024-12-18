@@ -348,6 +348,7 @@ https://github.com/rowanz/neural-motifs
 class SGRecall(SceneGraphEvaluation):
     def __init__(self, result_dict):
         super(SGRecall, self).__init__(result_dict)
+        self.number_matches = 0
 
     def register_container(self, mode):
         self.result_dict[mode + '_recall'] = {20: [], 50: [], 100: []}
@@ -358,6 +359,7 @@ class SGRecall(SceneGraphEvaluation):
             result_str += '    R @ %d: %.4f; ' % (k, np.mean(v))
         result_str += ' for mode=%s, type=Recall (Main).' % mode
         result_str += '\n'
+        print("Number of matches: ", self.number_matches)
         return result_str
 
     def calculate(self, global_container, local_container, mode):
@@ -376,11 +378,19 @@ class SGRecall(SceneGraphEvaluation):
         pred_scores = rel_scores[:,1:].max(1)
 
         gt_triplets, gt_triplet_boxes, _ = _triplet(gt_rels, gt_classes, gt_boxes)
+        # for g in gt_triplets:
+        #     print("GT: ")
+        #     print(str(global_container['ind_to_classes'][g[0]]) + " " + str(global_container['ind_to_predicates'][g[1]]) + " " + str(global_container['ind_to_classes'][g[2]]))
         local_container['gt_triplets'] = gt_triplets
         local_container['gt_triplet_boxes'] = gt_triplet_boxes
 
         pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(
                 pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
+        
+        # for i, p in enumerate(pred_triplets):
+        #     p_score = pred_triplet_scores[i][0] * pred_triplet_scores[i][1] * pred_triplet_scores[i][2]
+        #     if p_score > 0.1:
+        #         print("Pred: " + str(global_container['ind_to_classes'][p[0]]) + " " + str(global_container['ind_to_predicates'][p[1]]) + " " + str(global_container['ind_to_classes'][p[2]]) + " : " + str(p_score))
 
         # Compute recall. It's most efficient to match once and then do recall after
         pred_to_gt = _compute_pred_matches(
@@ -392,6 +402,9 @@ class SGRecall(SceneGraphEvaluation):
             global_container,
             phrdet=mode=='phrdet',
         )
+        match = reduce(np.union1d, pred_to_gt)
+        self.number_matches += len(match)
+
         local_container['pred_to_gt'] = pred_to_gt
 
         for k in self.result_dict[mode + '_recall']:
@@ -982,10 +995,12 @@ def _compute_pred_matches(gt_triplets, pred_triplets,
     keeps = intersect_2d(gt_triplets, pred_triplets)
     gt_has_match = keeps.any(1)
     pred_to_gt = [[] for x in range(pred_boxes.shape[0])]
+    i=0
     for gt_ind, gt_box, keep_inds in zip(np.where(gt_has_match)[0],
                                          gt_boxes[gt_has_match],
                                          keeps[gt_has_match],
                                          ):
+        i+=1
         boxes = pred_boxes[keep_inds]
         if phrdet:
             # Evaluate where the union box > 0.5

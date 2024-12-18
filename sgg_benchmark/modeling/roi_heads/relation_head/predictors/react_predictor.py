@@ -75,8 +75,8 @@ class REACTPredictor(BasePredictor):
         self.so_linear_layer = nn.Linear(self.mlp_dim*2, self.mlp_dim)
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None):
-        if self.text_only:
-            return self.text_only_forward(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
+        # if self.text_only:
+        #     return self.text_only_forward(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
         
         add_losses = {}
 
@@ -91,7 +91,7 @@ class REACTPredictor(BasePredictor):
         entity_embeds = self.obj_embed(entity_preds) # obtaining the word embedding of entities with GloVe 
 
         num_rels = [r.shape[0] for r in rel_pair_idxs]
-        num_objs = [len(b) for b in proposals]
+        num_objs = [b.shape[0] for b in proposals]
 
         sub_reps = sub_rep.split(num_objs, dim=0)
         obj_reps = obj_rep.split(num_objs, dim=0)

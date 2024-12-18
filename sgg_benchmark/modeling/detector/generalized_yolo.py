@@ -44,19 +44,17 @@ class GeneralizedYOLO(nn.Module):
         """
         if self.roi_heads.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
-        
         images = to_image_list(images)
 
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, visualize=False, embed=True)
-            # get dino features
             proposals = self.backbone.postprocess(outputs, images.image_sizes)
 
         if self.roi_heads.training and (targets is not None) and self.add_gt:
             proposals = self.add_gt_proposals(proposals,targets)
 
-        # to avoid the empty list to be passed into roi_heads during testing and cause error in the pooler
-        if not self.training and len(proposals[0]) == 0:
+        # to avoid the empty list to be passed into roi_heads during testing and cause errors
+        if not self.training and proposals[0].shape[0] == 0:
             # add empty missing fields
             for p in proposals:
                 p["pred_rel_scores"] = torch.tensor([], dtype=torch.float32, device=p.device)
@@ -108,8 +106,7 @@ class GeneralizedYOLO(nn.Module):
             # get gt_boxes with iou < 0.5
             gt_boxes = target_boxes[ious.max(1).values < 0.5]
             # add one dim for fake conf in index 4, add the labels back after in index 5
-            gt_boxes = torch.cat((gt_boxes[:, :4], torch.ones_like(gt_boxes[:, 0:1]), gt_boxes[:, 4:5]), dim=1)
-
+            gt_boxes = torch.cat((gt_boxes[:, :4], torch.ones_like(gt_boxes[:, 0:1]), gt_boxes[:, 4:5], proposals[i][0][6].repeat(gt_boxes.shape[0], 1), proposals[i][0][7].repeat(gt_boxes.shape[0], 1)), dim=1)
             # add gt_boxes to proposals
             proposals[i] = torch.cat((proposals[i], gt_boxes), dim=0)
 

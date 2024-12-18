@@ -38,9 +38,7 @@ class PostProcessor(nn.Module):
                 and finetuned object logits from the relation model.
             rel_pair_idxs (list[tensor]): subject and object indice of each relation,
                 the size of tensor is (num_rel, 2)
-            boxes (list[BoxList]): bounding boxes that are used as
-                reference, one for each image
-
+            boxes (list[Tensor]): bounding boxes that are used as reference, of shape [xmin, ymin, xmax, ymax, score, class, img_h, img_w]
         Returns:
             results (list[BoxList]): one BoxList for each image, containing
                 the extra fields labels and scores
@@ -89,18 +87,18 @@ class PostProcessor(nn.Module):
                 rel_logit, rel_pair_idx, box = current_it
                 obj_scores = box[:, 4]
                 obj_pred = box[:, 5].long()
-                obj_pred = obj_pred + 1
-           
-            obj_class = obj_pred
+                # obj_pred = obj_pred + 1
             out_list = []
 
-            if not( self.use_gt_box or self.proposals_as_gt):
-                # mode==sgdet
-                # replace obj_class with regressed_box_idxs
-                box = torch.cat((box[:, :5], obj_class.view(-1, 1).float()), dim=1)
+            # obj_class = obj_pred
+
+            # if not self.use_gt_box:
+            #     # mode==sgdet
+            #     # replace index 5 with obj_class
+            #     box[:, 5] = obj_class
             
             out_list.append(box)
-            
+
             # sorting triples according to score production
             obj_scores0 = obj_scores[rel_pair_idx[:, 0]]
             obj_scores1 = obj_scores[rel_pair_idx[:, 1]]
@@ -113,20 +111,18 @@ class PostProcessor(nn.Module):
             rel_pair_idx = rel_pair_idx[sorting_idx]
             rel_class_prob = rel_class_prob[sorting_idx]
             rel_labels = rel_class[sorting_idx]
+            rel_scores = rel_scores[sorting_idx]
 
             # stack the rel_pair_idx, rel_labels and rel_class_prob tohether
-            rel_tensor = torch.stack((rel_pair_idx[:, 0], rel_pair_idx[:, 1], rel_labels), dim=1)
+            rel_tensor = torch.stack((rel_pair_idx[:, 0], rel_pair_idx[:, 1], rel_labels, rel_scores), dim=1)
             out_list.append(rel_tensor)
-            out_list.append(rel_class_prob)
 
             if self.attribute_on:
                 out_list.append(att_prob)
 
-            # final shape is [box, rel_tensor, att_prob]
+            # final shape is [box, rel_tensor]
             results.append(out_list)
         return results
-    
-
 
 class HierarchPostProcessor(nn.Module):
     """

@@ -2,16 +2,13 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from ultralytics.nn.tasks import DetectionModel
-from sgg_benchmark.data.transforms import LetterBox
 
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
-from ultralytics.engine.results import Results
 from ultralytics.utils.plotting import feature_visualization
 from pathlib import Path
 
-import numpy as np
-
+from sgg_benchmark.structures.boxlist_ops import clip_boxes
 class YoloV8(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
         yolo_cfg = cfg.MODEL.YOLO.SIZE+'.yaml'
@@ -98,16 +95,20 @@ class YoloV8(DetectionModel):
             empty_pred = torch.zeros((1, 6), device=self.device)
             return [empty_pred]
         
-
         results = []
         for i, pred in enumerate(preds):
-            pred[..., :4] = ops.xywh2xyxy(pred[..., :4])
-            # # clip boxes to image bounds
-            pred[..., :4] = ops.clip_coords(pred[..., :4], image_sizes[i])
-            # tensor of shape [xmin, ymin, xmax, ymax, conf, class]
+            pred[:, :4] = clip_boxes(pred[:, :4], image_sizes[i])
+
+            img_size = image_sizes[i]
+            pred[:,5] = pred[:,5] + 1
+            # add img_size to the prediction at index 6 and 7
+
+            img_size_repeated_0 = torch.full((pred.shape[0], 1), img_size[0], device=self.device)
+            img_size_repeated_1 = torch.full((pred.shape[0], 1), img_size[1], device=self.device)
+            
+            pred = torch.cat((pred, img_size_repeated_0, img_size_repeated_1), dim=1)
             results.append(pred)
         return results
-
     
     @staticmethod
     def _reset_ckpt_args(args):

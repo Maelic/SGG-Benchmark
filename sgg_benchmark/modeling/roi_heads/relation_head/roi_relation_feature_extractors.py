@@ -4,7 +4,7 @@ from torch import nn
 
 from sgg_benchmark.modeling import registry
 from sgg_benchmark.modeling.make_layers import make_fc
-from sgg_benchmark.structures.boxlist_ops import boxlist_union, resize_boxes
+from sgg_benchmark.structures.boxlist_ops import boxlist_union, scale_boxes
 from sgg_benchmark.modeling.roi_heads.box_head.roi_box_feature_extractors import make_roi_box_feature_extractor
 from sgg_benchmark.modeling.roi_heads.attribute_head.roi_attribute_feature_extractors import make_roi_attribute_feature_extractor
 
@@ -19,7 +19,6 @@ class RelationFeatureExtractor(nn.Module):
         # should corresponding to obj_feature_map function in neural-motifs
         resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
         pool_all_levels = cfg.MODEL.ROI_RELATION_HEAD.POOLING_ALL_LEVELS
-        self.orig_size = (cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MAX_SIZE_TEST)
 
         self.use_spatial = cfg.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
         self.use_union = cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
@@ -61,7 +60,7 @@ class RelationFeatureExtractor(nn.Module):
         union_proposals = []
         rect_inputs = []
         for proposal, rel_pair_idx in zip(proposals, rel_pair_idxs):
-            # proposal is a dict of type {'boxes': Tensor, 'pred_labels': Tensor, 'pred_scores': Tensor}
+            orig_size = (proposal[0][6], proposal[0][7])
             # rel_pair_idx is a Tensor of shape (num_rel, 2)
             head_proposal = proposal[rel_pair_idx[:, 0].long()]
             tail_proposal = proposal[rel_pair_idx[:, 1].long()]
@@ -76,8 +75,8 @@ class RelationFeatureExtractor(nn.Module):
                 dummy_x_range = torch.arange(self.rect_size, device=device).view(1, 1, -1).expand(num_rel, self.rect_size, self.rect_size)
                 dummy_y_range = torch.arange(self.rect_size, device=device).view(1, -1, 1).expand(num_rel, self.rect_size, self.rect_size)
                 # resize bbox to the scale rect_size
-                head_proposal = resize_boxes(head_proposal[:, :4], (self.rect_size, self.rect_size), self.orig_size)
-                tail_proposal = resize_boxes(tail_proposal[:, :4], (self.rect_size, self.rect_size), self.orig_size)
+                head_proposal = scale_boxes(orig_size, head_proposal, (self.rect_size, self.rect_size), padding=False)
+                tail_proposal = scale_boxes(orig_size, tail_proposal, (self.rect_size, self.rect_size), padding=False)
 
                 head_rect = ((dummy_x_range >= head_proposal[:,0].floor().view(-1,1,1).long()).bool() & \
                             (dummy_x_range <= head_proposal[:,2].ceil().view(-1,1,1).long()).bool() & \

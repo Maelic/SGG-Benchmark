@@ -28,6 +28,8 @@ def do_vg_evaluation(
 
     if cfg.TEST.INFORMATIVE:
         metrics_to_eval['relations'].extend(['informative_recall'])
+    else:
+        informative = False
     
     metrics_map = {'recall': SGRecall, 'recall_nogc': SGNoGraphConstraintRecall, 'zeroshot_recall': SGZeroShotRecall, 'ng_zeroshot_recall': SGNGZeroShotRecall, 'informative_recall': SGInformativeRecall, 'mean_recall': SGMeanRecall, 'recall_relative': SGRecallRelative, 'mean_recall_relative': SGMeanRecallRelative, 'f1_score': SGF1Score, 'weighted_recall': SGWeightedRecall, 'weighted_mean_recall': SGWeightedMeanRecall}
 
@@ -66,9 +68,10 @@ def do_vg_evaluation(
         img_info = dataset.get_img_info(image_id)
         image_width = img_info["width"]
         image_height = img_info["height"]
-        # recover original size which is before transform
-        # resized_boxes = resize_boxes(prediction[0][:,:4], (image_height, image_width), orig_size)
-        # prediction[0][:,:4] = resized_boxes
+        # apply xmax = width - xmin, ymax = height - ymin to reshape to xywh
+        # prediction[0][:,2] = prediction[0][:,2] - prediction[0][:,0]
+        # prediction[0][:,3] = prediction[0][:,3] - prediction[0][:,1]
+
         predictions[image_id] = prediction
         gt = dataset.get_groundtruth(image_id, evaluation=True)
         groundtruths.append(gt)
@@ -81,18 +84,21 @@ def do_vg_evaluation(
     if "bbox" in iou_types:
         # create a Coco-like object that we can use to evaluate detection!
         anns = []
-        print(groundtruths[0][0][:, :4])
-        print(groundtruths[0][0][:, 4])
-        print('#######################')
+
         for image_id, gt in enumerate(groundtruths):
-            labels = gt[0][:,4] # integer
+            labels = gt[0][:,4].to(torch.int).tolist()
+            # gt[0][:,2] = gt[0][:,2] - gt[0][:,0]
+            # gt[0][:,3] = gt[0][:,3] - gt[0][:,1]
             boxes = gt[0][:,:4]
+
+            # boxes = ops.scale_boxes((image_height, image_width), boxes, orig_size)
+            boxes = boxes.numpy().tolist()
             # to xyxy
-            boxes = ops.xywh2xyxy(boxes)
+            # boxes = ops.xywh2xyxy(boxes)
             for cls, box in zip(labels, boxes):
                 anns.append({
                     'area': (box[3] - box[1]) * (box[2] - box[0]),
-                    'bbox': [box[0], box[1], box[2] - box[0], box[3] - box[1]], # xywh
+                    'bbox': box, # xywh
                     'category_id': cls,
                     'id': len(anns),
                     'image_id': image_id,
@@ -112,13 +118,14 @@ def do_vg_evaluation(
 
         # format predictions to coco-like
         cocolike_predictions = []
-        print(predictions[0][0][:, :4])
-        print(predictions[0][0][:, 5])
-        print()
         for image_id, prediction in enumerate(predictions):
-            box = prediction[0][:,:4].detach().cpu().numpy() # xywh
+            box = prediction[0][:,:4].detach().cpu().numpy() # (#objs, 4)
+            # h,w = prediction[0][:,6][0].item(), prediction[0][:,7][0].item()
+            # box = ops.scale_boxes((h,w), box, (image_height, image_width))
+
             score = prediction[0][:,4].detach().cpu().numpy() # (#objs,)
-            label = prediction[0][:,5].detach().cpu().numpy() # (#objs,)
+            label = prediction[0][:,5].detach().cpu().to(torch.int)
+            label = label.numpy().tolist() # (#objs,)
             # for predcls, we set label and score to groundtruth
             if mode == 'predcls':
                 label = prediction[0][:,5].detach().cpu().numpy()
@@ -165,10 +172,10 @@ def do_vg_evaluation(
         #global_container['attribute_on'] = attribute_on
         #global_container['num_attributes'] = num_attributes
 
-        if informative:
-            stats = dataset.get_statistics()
-            global_container['ind_to_predicates'] = stats['rel_classes']
-            global_container['ind_to_classes'] = stats['obj_classes']
+        #if informative:
+        stats = dataset.get_statistics()
+        global_container['ind_to_predicates'] = stats['rel_classes']
+        global_container['ind_to_classes'] = stats['obj_classes']
         
         for groundtruth, prediction in tqdm(zip(groundtruths, predictions), desc='Evaluating', total=len(groundtruths), disable=not(informative)):
             evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator, informative=informative)
@@ -261,7 +268,7 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     mode = global_container['mode']
 
     local_container = {}
-    local_container['gt_rels'] = groundtruth[2][0].long().detach().cpu().numpy()
+    local_container['gt_rels'] = groundtruth[2].long().detach().cpu().numpy()
 
     # if there is no gt relations for current image, then skip it
     if len(local_container['gt_rels']) == 0:
@@ -271,13 +278,14 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     local_container['gt_classes'] = groundtruth[0][:,4].long().detach().cpu().numpy()           # (#gt_objs, )
 
     # about relations
-    local_container['pred_rel_inds'] = prediction.get_field('rel_pair_idxs').long().detach().cpu().numpy()  # (#pred_rels, 2)
-    local_container['rel_scores'] = prediction.get_field('pred_rel_scores').detach().cpu().numpy()          # (#pred_rels, num_pred_class)
+    local_container['pred_rel_inds'] = prediction[1][:,:2].long().detach().cpu().numpy()  # (#pred_rels, 2)
+    local_container['rel_scores'] = prediction[1][:,3].detach().cpu().numpy()          # (#pred_rels, num_pred_class)
 
     # about objects
-    local_container['pred_boxes'] = prediction.convert('xyxy').bbox.detach().cpu().numpy()                  # (#pred_objs, 4)
-    local_container['pred_classes'] = prediction.get_field('pred_labels').long().detach().cpu().numpy()     # (#pred_objs, )
-    local_container['obj_scores'] = prediction.get_field('pred_scores').detach().cpu().numpy()              # (#pred_objs, )
+    local_container['pred_boxes'] = prediction[0][:,:4].detach().cpu().numpy()                  # (#pred_objs, 4)
+    # lab = prediction[0][:,5]-1
+    local_container['pred_classes'] = prediction[0][:,5].long().detach().cpu().numpy()     # (#pred_objs, )
+    local_container['obj_scores'] = prediction[0][:,4].detach().cpu().numpy()              # (#pred_objs, )
     
     if informative:
         local_container['informative_rels'] = groundtruth.get_field('informative_rels')

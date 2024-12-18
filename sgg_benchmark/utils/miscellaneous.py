@@ -83,7 +83,7 @@ def argsort_desc(scores):
     """
     return np.column_stack(np.unravel_index(np.argsort(-scores.ravel()), scores.shape))
 
-def bbox_overlaps(boxes1, boxes2):
+def bbox_overlaps_legacy(boxes1, boxes2):
     """
     Parameters:
         boxes1 (m, 4) [List or np.array] : bounding boxes of (x1,y1,x2,y2)
@@ -93,5 +93,19 @@ def bbox_overlaps(boxes1, boxes2):
     """
     boxes1 = BoxList(boxes1, (0, 0), 'xyxy')
     boxes2 = BoxList(boxes2, (0, 0), 'xyxy')
+    iou = boxlist_iou(boxes1, boxes2).cpu().numpy()
+    return iou
+
+def bbox_overlaps(boxes1, boxes2):
+    """
+    Parameters:
+        boxes1 (m, 4) [List or np.array] : bounding boxes of (x1,y1,x2,y2)
+        boxes2 (n, 4) [List or np.array] : bounding boxes of (x1,y1,x2,y2)
+    Return:
+        iou (m, n) [np.array]
+    """
+    # to tensors
+    boxes1 = torch.from_numpy(boxes1).float()
+    boxes2 = torch.from_numpy(boxes2).float()
     iou = boxlist_iou(boxes1, boxes2).cpu().numpy()
     return iou

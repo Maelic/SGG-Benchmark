@@ -31,7 +31,7 @@ class RelationSampling(object):
         # prepare object pairs for relation prediction
         rel_pair_idxs = []
         for p in proposals:
-            n = len(p)
+            n = p.shape[0]
             cand_matrix = torch.ones((n, n), device=device) - torch.eye(n, device=device)
             # mode==sgdet and require_overlap
             if (not self.use_gt_box) and self.test_overlap:
@@ -92,7 +92,6 @@ class RelationSampling(object):
 
         return proposals, rel_labels, rel_idx_pairs, rel_sym_binarys
 
-
     def detect_relsample(self, proposals, targets):
         # corresponding to rel_assignments function in neural-motifs
         """
@@ -101,8 +100,8 @@ class RelationSampling(object):
         Note: this function keeps a state.
 
         Arguments:
-            proposals (list[BoxList])  contain fields: labels, predict_logits
-            targets (list[BoxList]) contain fields: labels
+            proposals (list[Tensor])  with shape [xmin, ymin, xmax, ymax, label, score, im_w, im_h]
+            targets (list[Tensor])  with shape [num_obj, 5] (x1, y1, x2, y2, label)
         """
         self.num_pos_per_img = int(self.batch_size_per_image * self.positive_fraction)
         rel_idx_pairs = []

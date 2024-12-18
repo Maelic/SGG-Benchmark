@@ -549,19 +549,19 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
             assert not filter_empty_rels
             rels = np.zeros((0, 3), dtype=np.int32)
 
-        if filter_non_overlap:
-            assert split == 'train'
-            # construct BoxList object to apply boxlist_iou method
-            # give a useless (height=0, width=0)
-            inters = boxlist_iou(boxes_i, boxes_i)
-            rel_overs = inters[rels[:, 0], rels[:, 1]]
-            inc = np.where(rel_overs > 0.0)[0]
+        # if filter_non_overlap:
+        #     assert split == 'train'
+        #     # construct BoxList object to apply boxlist_iou method
+        #     # give a useless (height=0, width=0)
+        #     inters = boxlist_iou(boxes_i, boxes_i)
+        #     rel_overs = inters[rels[:, 0], rels[:, 1]]
+        #     inc = np.where(rel_overs > 0.0)[0]
 
-            if inc.size > 0:
-                rels = rels[inc]
-            else:
-                split_mask[image_index[i]] = 0
-                continue
+        #     if inc.size > 0:
+        #         rels = rels[inc]
+        #     else:
+        #         split_mask[image_index[i]] = 0
+        #         continue
 
         boxes.append(boxes_i)
         gt_classes.append(gt_classes_i)

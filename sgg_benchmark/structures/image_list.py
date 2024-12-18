@@ -44,7 +44,7 @@ def to_image_list(tensors, size_divisible=0):
         if tensors.dim() == 3:
             tensors = tensors[None]
         assert tensors.dim() == 4
-        image_sizes = [tensor.shape[-2:] for tensor in tensors]
+        image_sizes = [tensors.shape[-2:]]
         return ImageList(tensors, image_sizes)
     elif isinstance(tensors, (tuple, list)):
         max_size = tuple(max(s) for s in zip(*[img.shape for img in tensors]))
@@ -65,6 +65,7 @@ def to_image_list(tensors, size_divisible=0):
         for img, pad_img in zip(tensors, batched_imgs):
             pad_img[: img.shape[0], : img.shape[1], : img.shape[2]].copy_(img)
 
+        # return image_sizes as a tensor, not a list of torch.Size
         image_sizes = [im.shape[-2:] for im in tensors]
 
         return ImageList(batched_imgs, image_sizes)
