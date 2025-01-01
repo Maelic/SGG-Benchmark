@@ -169,7 +169,7 @@ For training an SGG model with YOLO as a backbone, you need to modify the `META_
 
 ## Faster R-CNN pre-training (legacy)
 
-:warning: Faster-RCNN pre-training is not officially supported anymore in this codebase, please use a YOLO backbone instead.
+:warning: Faster-RCNN pre-training is not officially supported anymore in this codebase, please use a YOLO backbone instead (see above). Using `detector_pretrain_net.py` will NOT WORK with a YOLO backbone.
 
 The following command can be used to train your own Faster R-CNN model:
 ```bash
