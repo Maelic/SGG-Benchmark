@@ -187,7 +187,7 @@ For **Predicate Classification (PredCls)**, we need to set:
 ``` bash
 --task predcls
 ```
-For **Scene Graph Classification (SGCls)**:
+For **Scene Graph Classification (SGCls)**: :warning: SGCls mode is currently LEGACY and NOT SUPPORTED anymore for any YOLO-based model, please find the reason why [in this issue](https://github.com/Maelic/SGG-Benchmark/issues/45).
 ``` bash
 --task sgcls
 ```
