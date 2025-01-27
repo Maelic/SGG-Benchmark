@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from ultralytics.nn.tasks import DetectionModel
 from sgg_benchmark.modeling.backbone.utils import non_max_suppression
+from sgg_benchmark.modeling.backbone.utils import non_max_suppression
 
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
@@ -88,6 +89,7 @@ class YoloV8(DetectionModel):
             preds = [p[:self.max_det] for p in preds]
         else:
             preds, indices = non_max_suppression(
+            preds, indices = non_max_suppression(
                 preds,
                 nc=self.nc,
                 conf_thres=self.conf_thres,
@@ -108,6 +110,7 @@ class YoloV8(DetectionModel):
             return [boxlist]
         
         results = []
+        for i, (pred, idx) in enumerate(zip(preds, indices)):
         for i, (pred, idx) in enumerate(zip(preds, indices)):
             # flip
             out_img_size = image_sizes[i]
