@@ -10,6 +10,7 @@ from ultralytics.engine.results import Results
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
+from sgg_benchmark.modeling.backbone.utils import non_max_suppression
 
 import numpy as np
 import cv2
@@ -104,30 +105,6 @@ class YoloV8World(WorldModel):
             im /= 255  # 0 - 255 to 0.0 - 1.0
 
         return im
-
-    def features_extract(self, x):
-        """
-        Perform a forward pass through the network.
-
-        Args:
-            x (torch.Tensor): The input tensor to the model.
-            profile (bool):  Print the computation time of each layer if True, defaults to False.
-            visualize (bool): Save the feature maps of the model if True, defaults to False.
-            embed (list, optional): A list of feature vectors/embeddings to return.
-
-        Returns:
-            (torch.Tensor): The last output of the model.
-        """
-        y, embeddings = [], []  # outputs
-        for m in self.model.model:
-            if m.f != -1:  # if not from previous layer
-                x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
-            x = m(x)  # run
-            y.append(x if m.i in self.save else None)  # save output
-            embeddings.append(nn.functional.adaptive_avg_pool2d(x, (1, 1)).squeeze(-1).squeeze(-1))  # flatten
-            if m.i == max(self.features_layers):
-                return torch.unbind(torch.cat(embeddings, 1), dim=0)
-        return x
     
     def preprocess(self, batch):
         """Preprocesses batch of images for YOLO training."""
@@ -162,7 +139,7 @@ class YoloV8World(WorldModel):
     
     def postprocess(self, preds, image_sizes):
         """Post-processes predictions and returns a list of Results objects."""
-        preds = ops.non_max_suppression(
+        preds, indices = non_max_suppression(
             preds,
             nc=self.nc,
             conf_thres=self.conf_thres,
@@ -178,31 +155,28 @@ class YoloV8World(WorldModel):
             boxlist = BoxList(boxes, image_sizes[0], mode="xyxy")
             boxlist.add_field("pred_labels", labels)
             boxlist.add_field("pred_scores", scores)
+            boxlist.add_field("labels", labels)
+            boxlist.add_field("feat_idx", torch.tensor([0], device=self.device))
             return [boxlist]
         
-
         results = []
-        for i, pred in enumerate(preds):
+        for i, (pred, idx) in enumerate(zip(preds, indices)):
             # flip
-            out_img_size = (image_sizes[i][1], image_sizes[i][0])
+            out_img_size = image_sizes[i]
 
             boxes = pred[:, :4]
-            # boxes = boxes.cpu()
+            boxes = ops.scale_boxes((self.input_size, self.input_size), boxes, (out_img_size[1], out_img_size[0]))
 
             boxlist = BoxList(boxes, out_img_size, mode="xyxy")
 
-            #boxlist = boxlist.clip_to_image(remove_empty=False)
             scores = pred[:, 4]
             labels = pred[:, 5].long()
             boxlist.add_field("pred_labels", labels.detach().clone())
             # add 1 to all labels to account for background class
             labels += 1
-            # resize
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
-
-            # assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
-            # boxlist.add_field("pred_logits", pred[:, 5:])
+            boxlist.add_field("feat_idx", idx.long())
 
             results.append(boxlist)
         return results

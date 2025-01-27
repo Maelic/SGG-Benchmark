@@ -114,6 +114,7 @@ class RelationSampling(object):
             prp_lab = proposal.get_field("labels").long()
             tgt_lab = target.get_field("labels").long()
             tgt_rel_matrix = target.get_field("relation") # [tgt, tgt]
+
             # IoU matching
             ious = boxlist_iou(target, proposal)  # [tgt, prp]
             is_match = ((tgt_lab[:,None] == prp_lab[None]).bool() & (ious > self.fg_thres).bool())
