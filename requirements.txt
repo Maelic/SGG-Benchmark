@@ -14,3 +14,5 @@ h5py
 networkx
 sentence-transformers
 ultralytics==8.2.70
+dill
+calflops

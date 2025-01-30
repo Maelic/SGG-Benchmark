@@ -11,6 +11,38 @@ from sgg_benchmark.modeling.matcher import Matcher
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.modeling.utils import cat
 
+class EdgeDensityLoss(nn.Module):
+    """
+    Based on 
+    [1] B. Knyazev, H. de Vries, C. Cangea, G.W. Taylor, A. Courville, E. Belilovsky.
+    Graph Density-Aware Losses for Novel Compositions in Scene Graph Generation. BMVC 2020.
+    https://arxiv.org/abs/2005.08230
+    """
+
+    def __init__(self, loss_weight=1.0):
+        super(EdgeDensityLoss, self).__init__()
+        self.loss_weight = loss_weight
+
+        self.crit_loss =  nn.CrossEntropyLoss()
+
+    def forward(self, input, target):
+        loss = self.crit_loss(input, target)
+
+        idx_fg = torch.nonzero(target > 0).data.view(-1)
+        idx_bg = torch.nonzero(target == 0).data.view(-1)
+
+        M_FG, M_BG, M = len(idx_fg), len(idx_bg), len(input)
+
+        edge_weights = torch.ones(M).to(input)
+        if M_FG > 0:
+            edge_weights[idx_fg] = 1 / M_FG
+        if M_BG > 0 and M_FG > 0:
+            edge_weights[idx_bg] = 1 / M_FG
+
+        loss = loss * torch.autograd.Variable(edge_weights)
+        return torch.sum(loss)
+
+
 class CEForSoftLabel(nn.Module):
     """
     Given a soft label, choose the class with max class as the GT.

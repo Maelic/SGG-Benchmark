@@ -11,7 +11,7 @@ from sgg_benchmark.modeling.matcher import Matcher
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.modeling.utils import cat
 
-from .reweight_loss import ReweightingCE, CEForSoftLabel
+from .reweight_loss import ReweightingCE, CEForSoftLabel, EdgeDensityLoss
 
 class RelationLossComputation(object):
     """
@@ -52,6 +52,8 @@ class RelationLossComputation(object):
             self.criterion_loss = ReweightingCE(pred_weight)
         elif rel_loss == "CrossEntropyLoss":
             self.criterion_loss = nn.CrossEntropyLoss()
+        elif rel_loss == "EdgeDensityLoss":
+            self.criterion_loss = EdgeDensityLoss()
 
 
     def __call__(self, proposals, rel_labels, relation_logits, refine_logits=None):
