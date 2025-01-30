@@ -57,7 +57,7 @@ class PSGDataset(torch.utils.data.Dataset):
             ]
 
         # Get split
-        assert split in {'train', 'test', 'val'}
+        assert split in {'train', 'test', 'val', 'all'}
         if split == 'train':
             self.data = [
                 d for d in dataset['data']
@@ -76,6 +76,8 @@ class PSGDataset(torch.utils.data.Dataset):
                 if d['image_id'] not in dataset['test_image_ids']
             ]
             self.data = self.data[:1000]
+        elif split == 'all':
+            self.data = dataset['data']
 
         # Init image infos
         self.data_infos = []
@@ -226,6 +228,7 @@ class PSGDataset(torch.utils.data.Dataset):
             target.add_field("relation_tuple", torch.LongTensor(gt_rels)) # for evaluation
             if self.informative_graphs is not None:
                 target.add_field("informative_rels", self.informative_graphs[str(self.data_infos[idx]['id'])])
+            target.add_field("image_path", self.img_prefix + '/' + self.img_ids[idx])
             return target
         else:
             target = target.clip_to_image(remove_empty=True)
@@ -235,7 +238,7 @@ class PSGDataset(torch.utils.data.Dataset):
         fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weight = self.get_PSG_statistics()
         eps = 1e-3
         bg_matrix += 1
-        fg_matrix[:, :, 0] = bg_matrix
+        # fg_matrix[:, :, 0] = bg_matrix
         pred_dist = np.log(fg_matrix / fg_matrix.sum(2)[:, :, None] + eps)
 
         result = {
@@ -259,7 +262,9 @@ class PSGDataset(torch.utils.data.Dataset):
         fg_matrix = np.zeros((num_obj_classes, num_obj_classes, num_rel_classes), dtype=np.int64)
         bg_matrix = np.zeros((num_obj_classes, num_obj_classes), dtype=np.int64)
 
-        for d in tqdm(self.data):
+        dat = PSGDataset('all', self.img_prefix, self.ann_file, filter_empty_rels=False, filter_duplicate_rels=False, informative_file="").data
+
+        for d in tqdm(dat):
             gt_classes = np.array([a['category_id'] for a in d['annotations']])
             gt_relations =np.array(d['relations'])
             gt_boxes = np.array([a['bbox'] for a in d['annotations']])
@@ -273,18 +278,13 @@ class PSGDataset(torch.utils.data.Dataset):
             for (o1, o2) in o1o2_total:
                 bg_matrix[o1, o2] += 1
         
-        # for GCL only
         stats_pred = {i: 0 for i in range(num_rel_classes)}
         for k in fg_matrix:
             for p in k:
                 for i, x in enumerate(p):
                     stats_pred[i] += x
-        # we want the diversity of predicate, i.e. the number of different pair for each predicate
-        pred_prop = np.zeros(num_rel_classes)
-        for i in range(num_rel_classes):
-            pred_prop[i] = np.sum(fg_matrix[:, :, i] > 0)
 
-        assert len(pred_prop) == num_rel_classes
+        pred_freq = [stats_pred[i] / sum(stats_pred.values()) for i in range(num_rel_classes)]
         
         # weight is the inverse frequency normalized by the median
         pred_weights = torch.tensor(np.sum(fg_matrix, axis=(0, 1)))
@@ -312,7 +312,7 @@ class PSGDataset(torch.utils.data.Dataset):
                     # Add the triplet and its frequency to the dictionary
                     triplet_freq[triplet] = freq
 
-        return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq, pred_weights
+        return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_freq, triplet_freq, pred_weights
 
 def box_filter(boxes, must_overlap=False):
     """ Only include boxes that overlap as possible relations. 

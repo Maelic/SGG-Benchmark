@@ -2,7 +2,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from ultralytics.nn.tasks import DetectionModel
-from sgg_benchmark.data.transforms import LetterBox
+from sgg_benchmark.modeling.backbone.utils import non_max_suppression
+from sgg_benchmark.modeling.backbone.utils import non_max_suppression
 
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
@@ -87,7 +88,8 @@ class YoloV8(DetectionModel):
             preds = [p[p[:, 4].argsort(descending=True)] for p in preds]
             preds = [p[:self.max_det] for p in preds]
         else:
-            preds = ops.non_max_suppression(
+            preds, indices = non_max_suppression(
+            preds, indices = non_max_suppression(
                 preds,
                 nc=self.nc,
                 conf_thres=self.conf_thres,
@@ -103,31 +105,29 @@ class YoloV8(DetectionModel):
             boxlist = BoxList(boxes, image_sizes[0], mode="xyxy")
             boxlist.add_field("pred_labels", labels)
             boxlist.add_field("pred_scores", scores)
+            boxlist.add_field("labels", labels)
+            boxlist.add_field("feat_idx", torch.tensor([0], device=self.device))
             return [boxlist]
         
-
         results = []
-        for i, pred in enumerate(preds):
+        for i, (pred, idx) in enumerate(zip(preds, indices)):
+        for i, (pred, idx) in enumerate(zip(preds, indices)):
             # flip
-            out_img_size = (image_sizes[i][1], image_sizes[i][0])
+            out_img_size = image_sizes[i]
 
             boxes = pred[:, :4]
-            # boxes = boxes.cpu()
+            boxes = ops.scale_boxes((self.input_size, self.input_size), boxes, (out_img_size[1], out_img_size[0]))
 
             boxlist = BoxList(boxes, out_img_size, mode="xyxy")
 
-            #boxlist = boxlist.clip_to_image(remove_empty=False)
             scores = pred[:, 4]
             labels = pred[:, 5].long()
             boxlist.add_field("pred_labels", labels.detach().clone())
             # add 1 to all labels to account for background class
             labels += 1
-            # resize
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
-
-            # assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
-            # boxlist.add_field("pred_logits", pred[:, 5:])
+            boxlist.add_field("feat_idx", idx.long())
 
             results.append(boxlist)
         return results

@@ -9,7 +9,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/PSG/BACKBONE/YOLOV8m/best.pt"
+  PRETRAINED_DETECTOR_CKPT: "checkpoints/IndoorVG4/Backbones/yolov8m/best.pt" #"/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/IndoorVG4/Backbones/yolov8m/yolov8m_indoorvg.pt"
   BACKBONE:
     TYPE: "yolov8"
     NMS_THRESH: 0.001
@@ -34,6 +34,7 @@ MODEL:
     FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
     NUM_CLASSES: 85              # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 512
+    POOLER_SCALES: (0.125, 0.0625, 0.03125)
   ROI_RELATION_HEAD:
     EMBED_DIM: 200
     USE_GT_BOX: False

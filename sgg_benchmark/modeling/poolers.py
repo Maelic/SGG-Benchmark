@@ -55,7 +55,7 @@ class Pooler(nn.Module):
     # NOTE: cat_all_levels is added for relationship detection. We want to concatenate 
     # all levels, since detector is fixed in relation detection. Without concatenation
     # if there is any difference among levels, it can not be finetuned anymore. 
-    def __init__(self, output_size, scales, sampling_ratio, in_channels=512, cat_all_levels=False):
+    def __init__(self, output_size, scales, sampling_ratio, in_channels=256, cat_all_levels=False):
         """
         Arguments:
             output_size (list[tuple[int]] or list[int]): output size for the pooled region
@@ -83,7 +83,6 @@ class Pooler(nn.Module):
         # reduce the channels
         if self.cat_all_levels:
             self.reduce_channel = make_conv3x3(in_channels * len(self.poolers), in_channels, dilation=1, stride=1, use_relu=True)
-
 
     def convert_to_roi_format(self, boxes):
         concat_boxes = cat([b.bbox for b in boxes], dim=0)
@@ -126,8 +125,6 @@ class Pooler(nn.Module):
             device=device,
         )
         for level, (per_level_feature, pooler) in enumerate(zip(x, self.poolers)):
-            if per_level_feature.shape[1] != self.in_channels:
-                per_level_feature = nn.Conv2d(per_level_feature.shape[1], self.in_channels, kernel_size=1, stride=1, padding=0, device=device)(per_level_feature)
 
             if self.cat_all_levels:
                 result[:,level*num_channels:(level+1)*num_channels,:,:] = pooler(per_level_feature, rois).to(dtype)

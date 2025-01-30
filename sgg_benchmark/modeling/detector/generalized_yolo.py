@@ -29,14 +29,6 @@ class GeneralizedYOLO(nn.Module):
         self.add_gt = self.cfg.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN
         self.export = False
 
-        # # new empty cfg
-        # new_cfg = self.cfg.clone()
-        # # unfreeze
-        # new_cfg.defrost()
-        # # set the backbone to dinov2
-        # new_cfg.MODEL.BACKBONE.TYPE = "dinov2"
-        # self.feat_backbone = build_backbone(new_cfg)
-
     def forward(self, images, targets=None, logger=None):
         """
         Arguments:
@@ -57,9 +49,8 @@ class GeneralizedYOLO(nn.Module):
 
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, visualize=False, embed=True)
-            # get dino features
-            proposals = self.backbone.postprocess(outputs, images.image_sizes)
-            # features = self.feat_backbone.get_intermediate_layers(images.tensors, 4, reshape=True)
+            img_sizes = [t.size for t in targets] # original image sizes
+            proposals = self.backbone.postprocess(outputs, img_sizes)
 
         if self.roi_heads.training and (targets is not None) and self.add_gt:
             proposals = self.add_gt_proposals(proposals,targets)
@@ -108,6 +99,7 @@ class GeneralizedYOLO(nn.Module):
             new_t = t.copy_with_fields(["labels"])
             new_t.add_field("pred_labels", t.get_field("labels"))
             new_t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
+            new_t.add_field("feat_idx", torch.ones_like(t.get_field("labels"), dtype=torch.long))
             new_targets.append(new_t)
 
         proposals = [
@@ -154,8 +146,6 @@ class GeneralizedYOLO(nn.Module):
         filter_rel = rel_matrix[filter_pair[:, 0], filter_pair[:, 1]]
         filter_scores = triplet_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
         filter_rel_scores = rel_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
-        # assert that filter_rel and filter_scores are same shape:
-        # assert(filter_rel.size() == filter_scores.size() == filter_rel_scores.size())
         
         # make 2 output tensors: one for boxes, one for relations
         # boxes tensor is shape (num_obj, 6) with columns (x1, y1, x2, y2, label, score)

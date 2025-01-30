@@ -44,7 +44,7 @@ class VGDataset(torch.utils.data.Dataset):
         # num_im = 10000
         # num_val_im = 4
 
-        assert split in {'train', 'val', 'test'}
+        assert split in {'train', 'val', 'test', 'all'}
         self.flip_aug = flip_aug
         self.split = split
         self.img_dir = img_dir
@@ -93,14 +93,13 @@ class VGDataset(torch.utils.data.Dataset):
                     json.dump(final_dict, f)
 
     def __getitem__(self, index):
-        #if self.split == 'train':
-        #    while(random.random() > self.img_info[index]['anti_prop']):
-        #        index = int(random.random() * len(self.filenames))
         if self.custom_eval:
             img = Image.open(self.custom_files[index]).convert("RGB")
             target = torch.LongTensor([-1])
             if self.transforms is not None:
                 img, target = self.transforms(img, target)
+            w, h = img.size
+            target = BoxList(torch.tensor([0, 0, 0, 0]), (w, h), 'xyxy')
             return img, target, index
         flip_img = (random.random() > 0.5) and self.flip_aug and (self.split == 'train')
 
@@ -108,11 +107,6 @@ class VGDataset(torch.utils.data.Dataset):
 
         img = cv2.imread(self.filenames[index])
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            # return img, target, index
-
-        # img = Image.open(self.filenames[index]).convert("RGB")        
-        # if img.size[0] != self.img_info[index]['width'] or img.size[1] != self.img_info[index]['height']:
-        #     logger.debug('='*20, ' ERROR index ', str(index), ' ', str(img.size), ' ', str(self.img_info[index]['width']), ' ', str(self.img_info[index]['height']), ' ', '='*20)        
 
         if flip_img:
             img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
@@ -130,7 +124,8 @@ class VGDataset(torch.utils.data.Dataset):
                                                 image_file=self.image_file, zeroshot_file=self.zeroshot_file, must_overlap=True)
         eps = 1e-3
         bg_matrix += 1
-        fg_matrix[:, :, 0] = bg_matrix
+        #print("Number of non zero in fg_matrix: ", np.count_nonzero(fg_matrix))
+        #fg_matrix[:, :, 0] = bg_matrix
         pred_dist = np.log(fg_matrix / fg_matrix.sum(2)[:, :, None] + eps)
 
         result = {
@@ -198,6 +193,7 @@ class VGDataset(torch.utils.data.Dataset):
         # it will take a while, you only need to do it once
 
         # correct_img_info(self.img_dir, self.image_file)
+        # print(self.img_info)
         return self.img_info[index]
 
     def get_groundtruth(self, index, evaluation=False, flip_img=False):
@@ -242,27 +238,11 @@ class VGDataset(torch.utils.data.Dataset):
             target.add_field("relation_tuple", torch.LongTensor(relation)) # for evaluation
             if self.informative_graphs is not None:
                 target.add_field("informative_rels", self.informative_graphs[str(img_info['image_id'])])
+            target.add_field("image_path", self.filenames[index], is_triplet=False)
         else:
             target = target.clip_to_image(remove_empty=True)        
 
         return target
-    # original from ietrans, replaced by pred_weights in get_VG_statistics
-    # def _get_reweighting_dic(self):
-    #     """
-    #     weights for each predicate
-    #     weight is the inverse frequency normalized by the median
-    #     Returns:
-    #         {1: f1, 2: f2, ... 50: f50}
-    #     """
-    #     rels = [x["relations"][:, 2] for x in self.data]
-    #     rels = [int(y) for x in rels for y in x]
-    #     rels = Counter(rels)
-    #     rels = dict(rels)
-    #     rels = [rels[i] for i in sorted(rels.keys())]
-    #     vals = sorted(rels)
-    #     rels = torch.tensor([-1.]+rels)
-    #     rels = (1./rels) * np.median(vals)
-    #     return rels
     
     def __len__(self):
         if self.custom_eval:
@@ -271,7 +251,7 @@ class VGDataset(torch.utils.data.Dataset):
 
 
 def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file, must_overlap=True):
-    train_data = VGDataset(split='train', img_dir=img_dir, roidb_file=roidb_file, 
+    train_data = VGDataset(split='all', img_dir=img_dir, roidb_file=roidb_file, 
                         dict_file=dict_file, image_file=image_file, zeroshot_file=zeroshot_file, num_val_im=5000, 
                         filter_duplicate_rels=False)
     num_obj_classes = len(train_data.ind_to_classes)
@@ -293,21 +273,14 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
         for (o1, o2) in o1o2_total:
             bg_matrix[o1, o2] += 1
     
-    # for GCL only
+    
     stats_pred = {i: 0 for i in range(num_rel_classes)}
     for k in fg_matrix:
         for p in k:
             for i, x in enumerate(p):
                 stats_pred[i] += x
-    # we want the diversity of predicate, i.e. the number of different pair for each predicate
-    pred_prop = np.zeros(num_rel_classes)
-    for i in range(num_rel_classes):
-        pred_prop[i] = np.sum(fg_matrix[:, :, i] > 0)
-
-    assert len(pred_prop) == num_rel_classes
-
-    # we want the frequency of each predicate
-    pred_freq = pred_prop / np.sum(pred_prop)
+    
+    pred_freq = [stats_pred[i] / sum(stats_pred.values()) for i in range(num_rel_classes)]
     
     # weight is the inverse frequency normalized by the median
     pred_weights = torch.tensor(np.sum(fg_matrix, axis=(0, 1)))
@@ -501,7 +474,12 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
                 image_index = image_index[:num_val_im]
             elif split == 'train':
                 image_index = image_index[num_val_im:]
-
+    
+    if split == 'all':
+        # image_index is all images with roi_h5['img_to_first_rel'][:] != -1
+        split_mask = roi_h5['img_to_first_rel'][:] != -1
+        image_index = np.where(split_mask)[0]
+        
 
     split_mask = np.zeros_like(data_split).astype(bool)
     split_mask[image_index] = True

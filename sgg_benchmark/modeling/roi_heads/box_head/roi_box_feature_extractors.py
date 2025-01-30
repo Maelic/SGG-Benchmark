@@ -8,11 +8,20 @@ from sgg_benchmark.modeling.backbone import resnet
 from sgg_benchmark.modeling.poolers import Pooler, PoolerYOLO
 from sgg_benchmark.modeling.make_layers import group_norm
 from sgg_benchmark.modeling.make_layers import make_fc
+from math import gcd
 
-@registry.ROI_BOX_FEATURE_EXTRACTORS.register("YOLOV8FeatureExtractor")
-class YOLOV8FeatureExtractor(nn.Module):
+from ultralytics.utils.plotting import feature_visualization
+
+from pathlib import Path
+from PIL import Image, ImageDraw
+
+import matplotlib.pyplot as plt
+import math
+
+@registry.ROI_BOX_FEATURE_EXTRACTORS.register("YOLOV8FeatureExtractor2")
+class YOLOV8FeatureExtractor2(nn.Module):
     def __init__(self, cfg, in_channels, half_out=False, cat_all_levels=False):
-        super(YOLOV8FeatureExtractor, self).__init__()
+        super(YOLOV8FeatureExtractor2, self).__init__()
 
         resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
         sampling_ratio = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
@@ -22,7 +31,6 @@ class YOLOV8FeatureExtractor(nn.Module):
             cat_all_levels=cat_all_levels,
             in_channels=in_channels,
             scales=cfg.MODEL.ROI_BOX_HEAD.POOLER_SCALES,
-            # out_channels=cfg.MODEL.YOLO.OUT_CHANNELS,
         )
 
         self.pooler = pooler
@@ -39,8 +47,88 @@ class YOLOV8FeatureExtractor(nn.Module):
             out_dim = representation_size
         
         self.fc7 = make_fc(representation_size, out_dim, use_gn)
+
+        self.fc8 = make_fc(cfg.MODEL.YOLO.OUT_CHANNELS, out_dim, use_gn)
+        self.fc9 = make_fc(out_dim, out_dim, use_gn)
         self.resize_channels = input_size
         self.out_channels = out_dim
+
+    def forward(self, x, proposals):
+        idxs = [proposal.get_field("feat_idx") for proposal in proposals]
+
+        s = gcd(*[feat.shape[1] for feat in x]) # smallest vector length (64 for YOLOv8)
+
+        obj_feats = torch.cat([x.permute(0, 2, 3, 1).reshape(x.shape[0], -1, s, x.shape[1] // s).mean(dim=-1) for x in x], dim=1)
+
+        feats = torch.cat([feats[idx] for feats, idx in zip(obj_feats, idxs)])
+
+        feats = F.relu(self.fc8(feats))
+        feats = F.relu(self.fc9(feats))
+        return feats
+    
+    def feat_visualization(self, x, idxs, stage, save_dir, n=32):
+        _, channels, height, width = x.shape  # batch, channels, height, width
+        f = save_dir / f"stage{stage}_{idxs}_features.png"  # filename
+
+        blocks = torch.chunk(x[0].cpu(), channels, dim=0)  # select batch index 0, block by channels
+
+        n = min(n, channels)  # number of plots
+        _, ax = plt.subplots(math.ceil(n / 8), 8, tight_layout=True)  # 8 rows x n/8 cols
+        ax = ax.ravel()
+        plt.subplots_adjust(wspace=0.05, hspace=0.05)
+        for i in range(n):
+            ax[i].imshow(blocks[i].squeeze())  # cmap='gray'
+            ax[i].axis("off")
+
+        plt.savefig(f, dpi=300, bbox_inches="tight")
+        plt.close()
+    
+    def forward_without_pool(self, x):
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc6(x))
+        x = F.relu(self.fc7(x))
+        return x
+    
+@registry.ROI_BOX_FEATURE_EXTRACTORS.register("YOLOV8FeatureExtractor")
+class YOLOV8FeatureExtractor(nn.Module):
+    def __init__(self, cfg, in_channels, half_out=False, cat_all_levels=False):
+        super(YOLOV8FeatureExtractor, self).__init__()
+
+        resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
+        sampling_ratio = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
+        pooler = Pooler(
+            output_size=(resolution, resolution),
+            sampling_ratio=sampling_ratio,
+            cat_all_levels=cat_all_levels,
+            in_channels=in_channels,
+            scales=cfg.MODEL.ROI_BOX_HEAD.POOLER_SCALES,
+        )
+
+        self.pooler = pooler
+
+        input_size = in_channels * resolution ** 2
+        representation_size = cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM
+        use_gn = cfg.MODEL.ROI_BOX_HEAD.USE_GN
+        self.pooler = pooler
+        self.fc6 = make_fc(input_size, representation_size, use_gn)
+
+        if half_out:
+            out_dim = int(representation_size / 2)
+        else:
+            out_dim = representation_size
+        
+        self.fc7 = make_fc(representation_size, out_dim, use_gn)
+        self.fc8 = make_fc(cfg.MODEL.YOLO.OUT_CHANNELS, out_dim, use_gn)
+        self.resize_channels = input_size
+        self.out_channels = out_dim
+
+        self.down_sample = nn.ModuleList()
+        channels_scale = [in_channels, in_channels*2, in_channels*3]
+        for i in range(len(channels_scale)):
+            if channels_scale[i] != in_channels:
+                self.down_sample.append(nn.Conv2d(channels_scale[i], in_channels, kernel_size=1, stride=1, padding=0))
+            else:
+                self.down_sample.append(None)
 
     def forward(self, x, proposals):
         x = self.pooler(x, proposals)

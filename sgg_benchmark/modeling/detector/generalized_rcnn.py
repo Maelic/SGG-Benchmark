@@ -43,7 +43,7 @@ class GeneralizedRCNN(nn.Module):
                 like `scores`, `labels` and `mask` (for Mask R-CNN models).
 
         """
-        if self.training and targets is None:
+        if self.roi_heads.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
         images = to_image_list(images)
         features = self.backbone(images.tensors)
@@ -57,7 +57,7 @@ class GeneralizedRCNN(nn.Module):
             result = proposals
             detector_losses = {}
         
-        if self.training:
+        if self.roi_heads.training:
             losses = {}
             losses.update(detector_losses)
             if not self.cfg.MODEL.RELATION_ON:
