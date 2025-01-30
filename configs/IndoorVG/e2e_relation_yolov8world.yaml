@@ -11,7 +11,7 @@ MODEL:
   WEIGHT: ""
   PRETRAINED_DETECTOR_CKPT: "checkpoints/IndoorVG4/Backbones/yolov8x_world/custom_yolov8x_world.pt"
   BACKBONE:
-    TYPE: "yolov8world"
+    TYPE: "yoloworld"
     NMS_THRESH: 0.001
     FREEZE: True
   YOLO:

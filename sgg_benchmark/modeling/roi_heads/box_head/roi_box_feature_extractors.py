@@ -118,12 +118,12 @@ class YOLOV8FeatureExtractor(nn.Module):
             out_dim = representation_size
         
         self.fc7 = make_fc(representation_size, out_dim, use_gn)
-        self.fc8 = make_fc(cfg.MODEL.YOLO.OUT_CHANNELS, out_dim, use_gn)
+        self.fc8 = make_fc(cfg.MODEL.YOLO.OUT_CHANNELS[0], out_dim, use_gn)
         self.resize_channels = input_size
         self.out_channels = out_dim
 
         self.down_sample = nn.ModuleList()
-        channels_scale = [in_channels, in_channels*2, in_channels*3]
+        channels_scale = cfg.MODEL.YOLO.OUT_CHANNELS
         for i in range(len(channels_scale)):
             if channels_scale[i] != in_channels:
                 self.down_sample.append(nn.Conv2d(channels_scale[i], in_channels, kernel_size=1, stride=1, padding=0))
@@ -131,6 +131,9 @@ class YOLOV8FeatureExtractor(nn.Module):
                 self.down_sample.append(None)
 
     def forward(self, x, proposals):
+        for i, down_sample in enumerate(self.down_sample):
+            if down_sample is not None:
+                x[i] = down_sample(x[i])
         x = self.pooler(x, proposals)
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc6(x))

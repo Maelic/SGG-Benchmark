@@ -10,12 +10,12 @@ MODEL:
   WEIGHT: ""
   PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/Backbones/yolov9-c-small/weights/best.pt"
   BACKBONE:
-    TYPE: "yolov8"
+    TYPE: "yolo"
     NMS_THRESH: 0.001
     FREEZE: True
   YOLO:
     SIZE: "yolov9c"
-    OUT_CHANNELS: 256 # 192 for yolov8m, 256 for yolov8l
+    OUT_CHANNELS: [192,384,576] # 192 for yolov8m, 256 for yolov8l
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
     STRIDE_IN_1X1: False

@@ -11,7 +11,7 @@ MODEL:
   WEIGHT: ""
   PRETRAINED_DETECTOR_CKPT: "checkpoints/VG150/Backbones/yolov8x-worldv2/weights/best.pt"
   BACKBONE:
-    TYPE: "yolov8world"
+    TYPE: "yoloworld"
     NMS_THRESH: 0.001
     FREEZE: True
   YOLO:

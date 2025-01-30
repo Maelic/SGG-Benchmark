@@ -22,7 +22,7 @@ from ultralytics.nn.modules import (
     WorldDetect,
 )
 
-class YoloV8World(WorldModel):
+class YoloWorldModel(WorldModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
         yolo_cfg = cfg.MODEL.YOLO.SIZE+'.yaml'
         self.cfg = cfg

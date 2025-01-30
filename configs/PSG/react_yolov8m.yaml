@@ -9,14 +9,14 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/PSG/BACKBONE/YOLOV8m/best.pt"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/PSG/BACKBONE/yolo11m/weights/best.pt"
   BACKBONE:
-    TYPE: "yolov8"
+    TYPE: "yolo"
     NMS_THRESH: 0.001
     FREEZE: True
   YOLO:
-    SIZE: "yolov8m"
-    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
+    SIZE: "yolo11m"
+    OUT_CHANNELS: [256,512,512] # [192,384,576] for yolov8m, [256,512,768] for yolov8l, [256,512,512] for yolo11m
   RELATION_ON: True
   ATTRIBUTE_ON: False
   FLIP_AUG: False            # if there is any left-right relation, FLIP AUG should be false

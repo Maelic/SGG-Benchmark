@@ -9,8 +9,8 @@ from sgg_benchmark.modeling.make_layers import conv_with_kaiming_uniform
 from . import fpn as fpn_module
 from . import resnet
 from . import vgg
-from .yolov8 import YoloV8
-from .yolov8world import YoloV8World
+from .yolo import YoloModel
+from .yoloworld import YoloWorldModel
 
 @registry.BACKBONES.register("dinov2")
 def build_dinov2_backbone(cfg):
@@ -18,21 +18,21 @@ def build_dinov2_backbone(cfg):
     model.out_channels = 768
     return model
 
-@registry.BACKBONES.register("yolov8")
-def build_yolov8_backbone(cfg):
+@registry.BACKBONES.register("yolo")
+def build_yolo_backbone(cfg):
     nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
 
-    model = YoloV8(cfg, nc=nc)
-    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS
+    model = YoloModel(cfg, nc=nc)
+    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS[0]
 
     return model
 
-@registry.BACKBONES.register("yolov8world")
-def build_yolov8world_backbone(cfg):
+@registry.BACKBONES.register("yoloworld")
+def build_yoloworld_backbone(cfg):
     nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
 
-    model = YoloV8World(cfg, nc=nc)
-    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS
+    model = YoloWorldModel(cfg, nc=nc)
+    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS[0]
 
     return model
 
@@ -40,8 +40,8 @@ def build_yolov8world_backbone(cfg):
 def build_yolov5_backbone(cfg):
     nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
 
-    model = YoloV8(cfg, nc=nc)
-    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS
+    model = YoloModel(cfg, nc=nc)
+    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS[0]
 
     return model
 

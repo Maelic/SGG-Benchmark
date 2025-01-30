@@ -126,7 +126,9 @@ class VGDataset(torch.utils.data.Dataset):
         bg_matrix += 1
         #print("Number of non zero in fg_matrix: ", np.count_nonzero(fg_matrix))
         #fg_matrix[:, :, 0] = bg_matrix
-        pred_dist = np.log(fg_matrix / fg_matrix.sum(2)[:, :, None] + eps)
+        fg_sum = fg_matrix.sum(2)[:, :, None]
+        # Avoid division by zero by using np.where
+        pred_dist = np.log(np.where(fg_sum > 0, fg_matrix / fg_sum, 1e-10) + eps)  # Use a small value if sum is zero
 
         result = {
             'fg_matrix': torch.from_numpy(fg_matrix),

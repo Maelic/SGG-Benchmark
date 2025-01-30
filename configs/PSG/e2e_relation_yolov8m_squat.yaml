@@ -11,12 +11,12 @@ MODEL:
   WEIGHT: ""
   PRETRAINED_DETECTOR_CKPT: "checkpoints/PSG/BACKBONE/YOLOV8m/best.pt"
   BACKBONE:
-    TYPE: "yolov8"
+    TYPE: "yolo"
     NMS_THRESH: 0.001
     FREEZE: True
   YOLO:
     SIZE: "yolov8m"
-    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
+    OUT_CHANNELS: [192,384,576] # 192 for yolov8m, 256 for yolov8l
   RELATION_ON: True
   ATTRIBUTE_ON: False
   FLIP_AUG: False            # if there is any left-right relation, FLIP AUG should be false

@@ -138,14 +138,6 @@ def train(cfg, logger, args):
     use_amp = True if cfg.DTYPE == "float16" else False
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
-    if args['distributed']:
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args['local_rank']], output_device=args['local_rank'],
-            # this should be removed if we update BatchNorm stats
-            broadcast_buffers=False,
-            find_unused_parameters=True,
-        )
-
     arguments = {}
     arguments["iteration"] = 0
 
@@ -170,6 +162,15 @@ def train(cfg, logger, args):
             # load backbone weights
             logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
     
+
+    if args['distributed']:
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[args['local_rank']], output_device=args['local_rank'],
+            # this should be removed if we update BatchNorm stats
+            broadcast_buffers=False,
+            find_unused_parameters=True,
+        )
+
     trained_params = [n for n, p in model.named_parameters() if p.requires_grad]
     pretrain_mask = (cfg.MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.PRETRAIN_MASK and cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == "SquatPredictor")
     if pretrain_mask:

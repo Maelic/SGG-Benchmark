@@ -107,7 +107,7 @@ _C.MODEL.BACKBONE = CN()
 # The string must match a function that is imported in modeling.model_builder
 # (e.g., 'FPN.add_fpn_ResNet101_conv5_body' to specify a ResNet-101-FPN
 # backbone)
-_C.MODEL.BACKBONE.TYPE = "R-50-C4" # Can be yolov8 or yolov5 or VGG-16 or R-50-C4 or R-50-C5 or R-101-C4 or R-101-C5 or R-50-FPN or R-101-FPN or R-152-FPN
+_C.MODEL.BACKBONE.TYPE = "R-50-C4" # Can be yolo or yolov5 or VGG-16 or R-50-C4 or R-50-C5 or R-101-C4 or R-101-C5 or R-50-FPN or R-101-FPN or R-152-FPN
 _C.MODEL.BACKBONE.EXTRA_CONFIG = ""
 # Add StopGrad at a specified stage so the bottom layers are frozen
 _C.MODEL.BACKBONE.FREEZE_CONV_BODY_AT = 2
@@ -142,7 +142,10 @@ _C.MODEL.YOLO = CN()
 _C.MODEL.YOLO.WEIGHTS = ""
 _C.MODEL.YOLO.SIZE = "yolov8l" # Can be nano, small, medium or large
 _C.MODEL.YOLO.IMG_SIZE = 640 # input image size
-_C.MODEL.YOLO.OUT_CHANNELS = 256 # dim for the last layer of the YOLOv8 head
+_C.MODEL.YOLO.OUT_CHANNELS = [192,384,576] # dim for the last layer of the YOLOv8 head
+# for YOLOV8, 9, 10: [192,384,576]
+# for YOLOV11: [256,512,512]
+
 _C.MODEL.BOX_HEAD = True # for Yolov8 we do not need box head
 
 # ---------------------------------------------------------------------------- #
@@ -542,10 +545,12 @@ _C.TEST.RELATION.SYNC_GATHER = False
 
 _C.TEST.ALLOW_LOAD_FROM_CACHE = True
 
-
 _C.TEST.CUSTUM_EVAL = False
 _C.TEST.CUSTUM_PATH = '.'
 _C.TEST.TOP_K = 100
+
+_C.TEST.COMPUTE_DCS = False
+
 
 # ---------------------------------------------------------------------------- #
 # Misc options

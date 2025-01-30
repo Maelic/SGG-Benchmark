@@ -239,7 +239,9 @@ class PSGDataset(torch.utils.data.Dataset):
         eps = 1e-3
         bg_matrix += 1
         # fg_matrix[:, :, 0] = bg_matrix
-        pred_dist = np.log(fg_matrix / fg_matrix.sum(2)[:, :, None] + eps)
+        fg_sum = fg_matrix.sum(2)[:, :, None]
+        # Avoid division by zero by using np.where
+        pred_dist = np.log(np.where(fg_sum > 0, fg_matrix / fg_sum, 1e-10) + eps)  # Use a small value if sum is zero
 
         result = {
             'fg_matrix': torch.from_numpy(fg_matrix),

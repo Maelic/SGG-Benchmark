@@ -1,28 +1,23 @@
 import torch
-from torch import nn
-import torch.nn.functional as F
 from ultralytics.nn.tasks import DetectionModel
 from sgg_benchmark.modeling.backbone.utils import non_max_suppression
 from sgg_benchmark.modeling.backbone.utils import non_max_suppression
 
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
-from ultralytics.engine.results import Results
 from ultralytics.utils.plotting import feature_visualization
 from pathlib import Path
 
 from sgg_benchmark.structures.bounding_box import BoxList
 
-import numpy as np
-
-class YoloV8(DetectionModel):
+class YoloModel(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
         yolo_cfg = cfg.MODEL.YOLO.SIZE+'.yaml'
         if cfg.VERBOSE in ["DEBUG", "INFO"]:
             verbose = True
         else:
             verbose = False
-        super().__init__(yolo_cfg, nc=nc, verbose=False)
+        super().__init__(yolo_cfg, nc=nc, verbose=verbose)
         # self.features_layers = [len(self.model) - 2]
         self.conf_thres = cfg.MODEL.BACKBONE.NMS_THRESH
         self.iou_thres = cfg.MODEL.ROI_HEADS.NMS
@@ -31,7 +26,7 @@ class YoloV8(DetectionModel):
         self.nc = nc
         self.max_det = cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG
 
-        if self.end2end:
+        if self.end2end or '11' in yolo_cfg:
             self.layers_to_extract = [16, 19, 22]
         else:
             self.layers_to_extract = [15, 18, 21]
@@ -89,7 +84,6 @@ class YoloV8(DetectionModel):
             preds = [p[:self.max_det] for p in preds]
         else:
             preds, indices = non_max_suppression(
-            preds, indices = non_max_suppression(
                 preds,
                 nc=self.nc,
                 conf_thres=self.conf_thres,
@@ -110,7 +104,6 @@ class YoloV8(DetectionModel):
             return [boxlist]
         
         results = []
-        for i, (pred, idx) in enumerate(zip(preds, indices)):
         for i, (pred, idx) in enumerate(zip(preds, indices)):
             # flip
             out_img_size = image_sizes[i]
