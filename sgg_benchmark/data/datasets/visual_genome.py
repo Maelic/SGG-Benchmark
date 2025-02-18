@@ -99,7 +99,7 @@ class VGDataset(torch.utils.data.Dataset):
             if self.transforms is not None:
                 img, target = self.transforms(img, target)
             w, h = img.size
-            target = BoxList(torch.tensor([0, 0, 0, 0]), (w, h), 'xyxy')
+            target = BoxList(torch.zeros((1, 4)), (w, h), 'xyxy')
             return img, target, index
         flip_img = (random.random() > 0.5) and self.flip_aug and (self.split == 'train')
 

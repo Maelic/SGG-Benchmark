@@ -22,7 +22,8 @@ class RelationFeatureExtractor(nn.Module):
 
         self.use_spatial = cfg.MODEL.ROI_RELATION_HEAD.USE_SPATIAL_FEATURES
         self.use_union = cfg.MODEL.ROI_RELATION_HEAD.USE_UNION_FEATURES
-
+        self.yolo_backbone = True if 'yolo' in cfg.MODEL.BACKBONE.TYPE else False
+        
         assert self.use_spatial or self.use_union, 'No features selected for the relation head'
         
         if cfg.MODEL.ATTRIBUTE_ON:
@@ -59,12 +60,14 @@ class RelationFeatureExtractor(nn.Module):
         device = x[0].device
         union_proposals = []
         rect_inputs = []
-        for proposal, rel_pair_idx in zip(proposals, rel_pair_idxs):
+        for i, (proposal, rel_pair_idx) in enumerate(zip(proposals, rel_pair_idxs)):
             head_proposal = proposal[rel_pair_idx[:, 0]]
             tail_proposal = proposal[rel_pair_idx[:, 1]]
             if self.use_union:
                 union_proposal = boxlist_union(head_proposal, tail_proposal)
                 union_proposals.append(union_proposal)
+                if self.yolo_backbone: # for yolo backbone, we need to retrieve the index of the union features
+                    self.affect_union_indices(union_proposals, proposals)
 
             if self.use_spatial:
                 # use range to construct rectangle, sized (rect_size, rect_size)
@@ -74,6 +77,7 @@ class RelationFeatureExtractor(nn.Module):
                 # resize bbox to the scale rect_size
                 head_proposal = head_proposal.resize((self.rect_size, self.rect_size))
                 tail_proposal = tail_proposal.resize((self.rect_size, self.rect_size))
+
                 head_rect = ((dummy_x_range >= head_proposal.bbox[:,0].floor().view(-1,1,1).long()).bool() & \
                             (dummy_x_range <= head_proposal.bbox[:,2].ceil().view(-1,1,1).long()).bool() & \
                             (dummy_y_range >= head_proposal.bbox[:,1].floor().view(-1,1,1).long()).bool() & \
@@ -118,6 +122,30 @@ class RelationFeatureExtractor(nn.Module):
             union_features = torch.cat((union_features, union_features_att), dim=-1)
             
         return union_features
+
+    def affect_union_indices(self, union_proposals, proposals):
+        levels = torch.tensor([6399, 7999, 8399], device=union_proposals[0].bbox.device)
+        for union_boxes, boxes in zip(union_proposals, proposals):
+            # get the areas of the union boxes
+            union_areas = union_boxes.area()
+
+            min_max = boxes.get_field('min_max')[0].flatten()
+            # contains 3 values for the 3 threshold levels
+            # e.g. [25.36, 50.72, 101.44] corresponds to the max area for level 0, 1, 2
+            # for each area, find the corresponding level by using the values in min_max
+            # for instance, if the area is 20, then the level is 0, if area is 200 then the level is 2
+
+            # get the level for each union box
+            level_unions = torch.zeros_like(union_areas, dtype=torch.int64)
+            sqrt_areas = union_areas.sqrt()  # Compute sqrt for all areas
+            # level_unions will hold for each sqrt_areas element, the index in min_max where it should be inserted
+            level_unions = torch.searchsorted(min_max, sqrt_areas) - 1 # -1 to get the correct index
+
+            level_unions = torch.clamp(level_unions, min=0, max=levels.size(0) - 1)
+            feat_idx = torch.gather(levels, 0, level_unions)
+
+            # affect the corresponding index using the levels array, level 0 wilm be 6399, level 1 will be 7999, level 2 will be 8399
+            union_boxes.add_field('feat_idx', feat_idx)
 
 def make_roi_relation_feature_extractor(cfg, in_channels):
     func = registry.ROI_RELATION_FEATURE_EXTRACTORS[

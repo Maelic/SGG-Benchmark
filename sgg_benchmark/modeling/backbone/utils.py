@@ -115,9 +115,17 @@ def non_max_suppression(
     t = time.time()
     output = [torch.zeros((0, 6 + nm), device=prediction.device)] * bs
     feati = [torch.zeros((0, 1), device=prediction.device)] * bs
+    levels = [6399,7999,8399] # [80**2-1, 80**2-1 + 40**2, 80**2-1 + 40**2 + 20**2], would need to be find a better way to do this
+    min_max = torch.zeros((len(prediction), 3), device=prediction.device)
     for xi, (x, xk) in enumerate(zip(prediction, xinds)):  # image index, image inference
         # Apply constraints
         # x[((x[:, 2:4] < min_wh) | (x[:, 2:4] > max_wh)).any(1), 4] = 0  # width-height
+        
+        # Here we save the threshold for every feature map, this will be used later on to retrieve the corresponding indices for the union features
+        for i in levels:
+            area = (x[i][2] - x[i][0] + 1) * (x[i][3] - x[i][1] + 1)
+            min_max[xi, levels.index(i)] = torch.sqrt(area)
+
         filt = xc[xi]
         x = x[filt]  # confidence
         xk = xk[filt] # indices update
@@ -136,7 +144,6 @@ def non_max_suppression(
 
         # Detections matrix nx6 (xyxy, conf, cls)
         box, cls, mask = x.split((4, nc, nm), 1)
-
         if multi_label:
             i, j = torch.where(cls > conf_thres)
             x = torch.cat((box[i], x[i, 4 + j, None], j[:, None].float(), mask[i]), 1)
@@ -193,7 +200,7 @@ def non_max_suppression(
         if (time.time() - t) > time_limit:
             print(f"WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded")
             break  # time limit exceeded
-    return output, feati
+    return output, feati, min_max
 
 
 def feature_visualization(x, module_type, stage, n=32, save_dir=Path("runs/detect/exp")):

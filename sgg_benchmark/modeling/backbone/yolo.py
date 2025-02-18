@@ -1,7 +1,6 @@
 import torch
 from ultralytics.nn.tasks import DetectionModel
 from sgg_benchmark.modeling.backbone.utils import non_max_suppression
-from sgg_benchmark.modeling.backbone.utils import non_max_suppression
 
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
@@ -33,27 +32,21 @@ class YoloModel(DetectionModel):
 
     # custom implementation of forward method based on
     # https://github.com/ultralytics/ultralytics/blob/3df9d278dce67eec7fdb4fddc0aab22fee62588f/ultralytics/nn/tasks.py#L122
-    def forward(self, x, profile=False, visualize=False, embed=None):
+    def forward(self, x, profile=False, visualize=False, embed=None, save_directory=None):
         y, feature_maps = [], []  # outputs
         for i, m in enumerate(self.model):
             if m.f != -1:  # if not from previous layer
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
             x = m(x)  # run
             y.append(x if m.i in self.save else None)  # save output
-            """
-            We extract features from the following layers:
-            15: 80x80
-            18: 40x40
-            21: 20x20
-            For different object scales, as in original YOLOV8 implementation.
-            """
-            if visualize:
-                feature_visualization(x, m.type, m.i, save_dir=Path('/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/demo/test_custom/results'))
+
             if embed:
                 if i in self.layers_to_extract:  # if current layer is one of the feature extraction layers
                     feature_maps.append(x)
+                if visualize:
+                    feature_visualization(x, m.type, m.i, save_dir=Path(save_directory))
         if embed:
-            return x, feature_maps
+            return x, feature_maps, None
         else:
             return x
 
@@ -77,13 +70,13 @@ class YoloModel(DetectionModel):
 
         if self.end2end:
             preds = preds[0]
-            mask = preds[..., 4] > self.conf_thres
-            preds = [p[mask[idx]] for idx, p in enumerate(preds)]
+            indices = preds[..., 4] > self.conf_thres
+            preds = [p[indices[idx]] for idx, p in enumerate(preds)]
             # sort by confidence
             preds = [p[p[:, 4].argsort(descending=True)] for p in preds]
             preds = [p[:self.max_det] for p in preds]
         else:
-            preds, indices = non_max_suppression(
+            preds, indices, min_max = non_max_suppression(
                 preds,
                 nc=self.nc,
                 conf_thres=self.conf_thres,
@@ -101,6 +94,7 @@ class YoloModel(DetectionModel):
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
             boxlist.add_field("feat_idx", torch.tensor([0], device=self.device))
+            boxlist.add_field("min_max", torch.tensor([]), dtype=torch.float32)
             return [boxlist]
         
         results = []
@@ -109,7 +103,6 @@ class YoloModel(DetectionModel):
             out_img_size = image_sizes[i]
 
             boxes = pred[:, :4]
-            boxes = ops.scale_boxes((self.input_size, self.input_size), boxes, (out_img_size[1], out_img_size[0]))
 
             boxlist = BoxList(boxes, out_img_size, mode="xyxy")
 
@@ -121,7 +114,7 @@ class YoloModel(DetectionModel):
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
             boxlist.add_field("feat_idx", idx.long())
-
+            boxlist.add_field("min_max", min_max[i].repeat(len(labels),1))
             results.append(boxlist)
         return results
 

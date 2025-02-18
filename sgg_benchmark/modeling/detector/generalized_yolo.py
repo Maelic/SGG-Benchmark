@@ -11,6 +11,7 @@ from sgg_benchmark.structures.boxlist_ops import cat_boxlist
 
 from ..backbone import build_backbone
 from ..roi_heads.roi_heads import build_roi_heads
+from ultralytics.utils import ops
 
 class GeneralizedYOLO(nn.Module):
     """
@@ -28,6 +29,7 @@ class GeneralizedYOLO(nn.Module):
         self.predcls = self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL
         self.add_gt = self.cfg.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN
         self.export = False
+        self.input_size = self.cfg.INPUT.MIN_SIZE_TRAIN
 
     def forward(self, images, targets=None, logger=None):
         """
@@ -48,7 +50,8 @@ class GeneralizedYOLO(nn.Module):
         images = to_image_list(images)
 
         with torch.no_grad():
-            outputs, features = self.backbone(images.tensors, visualize=False, embed=True)
+            outputs, features, txt_feats = self.backbone(images.tensors, visualize=False, embed=True)
+
             img_sizes = [t.size for t in targets] # original image sizes
             proposals = self.backbone.postprocess(outputs, img_sizes)
 
@@ -70,9 +73,14 @@ class GeneralizedYOLO(nn.Module):
                     t.remove_field("image_path")
                     t.add_field("pred_labels", t.get_field("labels"))
                     t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
-                x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, targets)
+                x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, targets, txt_feats)
             else:
-                x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
+                x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals, txt_feats)
+            
+            # rescale boxes
+            for i in range(len(proposals)):
+                proposals[i].bbox = ops.scale_boxes((self.input_size, self.input_size), proposals[i].bbox, (img_sizes[i][1], img_sizes[i][0]))
+
         else:
             # RPN-only models don't have roi_heads
             result = proposals
@@ -100,6 +108,7 @@ class GeneralizedYOLO(nn.Module):
             new_t.add_field("pred_labels", t.get_field("labels"))
             new_t.add_field("pred_scores", torch.ones_like(t.get_field("labels"), dtype=torch.float32))
             new_t.add_field("feat_idx", torch.ones_like(t.get_field("labels"), dtype=torch.long))
+            new_t.add_field("min_max", torch.zeros((len(t), 3), dtype=torch.float32, device=t.bbox.device))
             new_targets.append(new_t)
 
         proposals = [

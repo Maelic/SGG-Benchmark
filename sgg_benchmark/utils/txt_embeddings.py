@@ -1,4 +1,3 @@
-import clip
 import torch
 import array
 import os
@@ -28,6 +27,7 @@ def obj_edge_vectors(names, wv_dir='', wv_type='glove', wv_dim=300, use_cache=Fa
                     vectors[i] = wv_arr[wv_index]
         return vectors
     elif wv_type == 'clip':
+        import clip
         # check cache
         if use_cache:
             cache_file = os.path.join(wv_dir, wv_type + '_obj.pt')
@@ -81,6 +81,7 @@ def rel_vectors(names, wv_dir='', wv_type='clip', wv_dim=300, use_cache=False):
 
         return vectors
     elif wv_type == "clip":
+        import clip
         # check cache
         if use_cache:
             cache_file = os.path.join(wv_dir, wv_type + '_rel.pt')

@@ -9,8 +9,6 @@ from tqdm import tqdm
 import sys
 from sgg_benchmark.modeling.utils import cat
 
-import clip
-
 def normalize_sigmoid_logits(orig_logits):
     orig_logits = torch.sigmoid(orig_logits)
     orig_logits = orig_logits / (orig_logits.sum(1).unsqueeze(-1) + 1e-12)

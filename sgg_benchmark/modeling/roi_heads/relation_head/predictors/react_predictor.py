@@ -90,7 +90,7 @@ class REACTPredictor(BasePredictor):
             self.obj_embed.weight.copy_(obj_embed_vecs, non_blocking=True)
         self.so_linear_layer = nn.Linear(self.mlp_dim*2, self.mlp_dim)
 
-    def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None):
+    def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None, txt_feats=None):
         if self.text_only:
             return self.text_only_forward(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
         
@@ -107,8 +107,16 @@ class REACTPredictor(BasePredictor):
         sub_rep = entity_rep[:, 1].contiguous().view(-1, self.mlp_dim)    # xs
         obj_rep = entity_rep[:, 0].contiguous().view(-1, self.mlp_dim)    # xo
 
-        entity_embeds = self.obj_embed(entity_preds) # obtaining the word embedding of entities with GloVe 
-
+        if txt_feats is not None:
+            entity_embeds = []
+            for i, p in enumerate(proposals):
+                labels = p.get_field("pred_labels")
+                txt_feat = txt_feats[i]
+                txt_feat = txt_feat.index_select(0, labels)
+                entity_embeds.append(txt_feat)
+            entity_embeds = cat(entity_embeds, dim=0)
+        else:
+            entity_embeds = self.obj_embed(entity_preds) # obtaining the word embedding of entities with GloVe 
         num_rels = [r.shape[0] for r in rel_pair_idxs]
         num_objs = [len(b) for b in proposals]
 

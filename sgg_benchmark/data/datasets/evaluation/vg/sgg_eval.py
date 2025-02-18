@@ -30,12 +30,12 @@ class SGF1Score(SceneGraphEvaluation):
         super(SGF1Score, self).__init__(result_dict)
 
     def register_container(self, mode):
-        self.result_dict[mode + '_f1'] = {20: [], 50: [], 100: []}
+        self.result_dict[mode + '_f1_score'] = {20: [], 50: [], 100: []}
 
     def generate_print_string(self, mode):
         result_str = 'SGG eval: '
-        for k in self.result_dict[mode + '_f1']:
-            result_str += '    F1 @ %d: %.4f; ' % (k, self.result_dict[mode + '_f1'][k])
+        for k in self.result_dict[mode + '_f1_score']:
+            result_str += '    F1 @ %d: %.4f; ' % (k, self.result_dict[mode + '_f1_score'][k])
         result_str += ' for mode=%s, type=F1.' % mode
         result_str += '\n'
         return result_str
@@ -49,7 +49,7 @@ class SGF1Score(SceneGraphEvaluation):
                 f1 = 2 * recall_k * mean_reacall_k / (recall_k + mean_reacall_k)
             else:
                 f1 = 0
-            self.result_dict[mode + '_f1'][k] = f1
+            self.result_dict[mode + '_f1_score'][k] = f1
 
 class SGRecallRelative(SceneGraphEvaluation):
     def __init__(self, result_dict):

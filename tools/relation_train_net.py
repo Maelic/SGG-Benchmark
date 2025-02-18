@@ -25,6 +25,7 @@ from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
 from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, save_config, set_seed
 from sgg_benchmark.utils.parser import default_argument_parser
+from sgg_benchmark.data import get_dataset_statistics
                            
 def train_one_epoch(model, optimizer, data_loader, device, epoch, logger, cfg, scaler, use_wandb=False, use_amp=True):
     pbar = tqdm.tqdm(total=len(data_loader))
@@ -162,6 +163,10 @@ def train(cfg, logger, args):
             # load backbone weights
             logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
     
+    if "world" in cfg.MODEL.BACKBONE.TYPE:
+        stats = get_dataset_statistics(cfg)
+        obj_classes = stats['obj_classes'][1:]
+        model.backbone.load_txt_feats(obj_classes)
 
     if args['distributed']:
         model = torch.nn.parallel.DistributedDataParallel(

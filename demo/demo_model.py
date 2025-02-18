@@ -10,6 +10,7 @@ from sgg_benchmark.config import cfg
 from sgg_benchmark.data.build import build_transforms
 from sgg_benchmark.utils.logger import setup_logger
 from sgg_benchmark.data import get_dataset_statistics
+from sgg_benchmark.structures.bounding_box import BoxList
 
 import cv2
 import seaborn as sns
@@ -103,9 +104,8 @@ class SGG_Model(object):
 
         out_img = image.copy()
         self.last_time = time.time()
-        img_list, _ = self._pre_processing(image)
+        img_list, targets = self._pre_processing(image)
         img_list = img_list.to(self.device)
-        targets = None
         pre_process_time =(time.time()-self.last_time)*1000
         self.pre_time_bench.append(pre_process_time)
         
@@ -345,7 +345,13 @@ class SGG_Model(object):
 
         img_graph = to_agraph(G)
         # Layout the graph
-        img_graph.layout('dot')
+        img_graph.layout('dot')      
+
+        dpi = 300
+        img_graph.graph_attr['dpi'] = str(dpi)
+
+        # make it square
+        img_graph.graph_attr['size'] = '10,10'
 
         # Draw the graph directly to a byte array
         png_byte_array = img_graph.draw(format='png', prog='dot')
@@ -371,15 +377,15 @@ class SGG_Model(object):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # reshape to 480,640
         image = cv2.resize(image, (640, 640))
-
-        target = torch.LongTensor([-1])
+        w, h = image.shape[1], image.shape[0]
+        target = BoxList(torch.zeros((1, 4)), (w, h), 'xyxy')
         transform = build_transforms(self.cfg, is_train=False)
 
         image, target = transform(image, target)
         # image = image[None,:] # add batch dimension
         image_list = to_image_list(image, self.cfg.DATALOADER.SIZE_DIVISIBILITY)
 
-        return image_list, target
+        return image_list, [target]
     
     def _post_process(self, boxlist, rel_threshold=0.1, box_thres=0.1, orig_size=(640,640)):
         height, width = orig_size

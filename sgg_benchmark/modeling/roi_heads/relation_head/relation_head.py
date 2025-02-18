@@ -53,7 +53,7 @@ class ROIRelationHead(torch.nn.Module):
             self.pred_freq[0] = 0
             self.pred_freq = self.pred_freq.to(self.cfg.MODEL.DEVICE)
 
-    def forward(self, features, proposals, targets=None, logger=None):
+    def forward(self, features, proposals, targets=None, logger=None, txt_feats=None):
         """
         Arguments:
             features (list[Tensor]): feature-maps from possibly several levels
@@ -107,7 +107,7 @@ class ROIRelationHead(torch.nn.Module):
             else:
                 output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine)
         else:
-            _, relation_logits, add_losses = self.predictor(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
+            _, relation_logits, add_losses = self.predictor(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger) #txt_feats
             # for test
             if not self.training:
                 if self.use_LA:

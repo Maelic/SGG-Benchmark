@@ -19,7 +19,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         if cfg.MODEL.MASK_ON and cfg.MODEL.ROI_MASK_HEAD.SHARE_BOX_FEATURE_EXTRACTOR:
             self.mask.feature_extractor = self.box.feature_extractor
 
-    def forward(self, features, proposals, targets=None, logger=None, detections=None):
+    def forward(self, features, proposals, targets=None, logger=None, detections=None, txt_feats=None):
         losses = {}
         if self.cfg.MODEL.BOX_HEAD or detections is None:
             x, detections, loss_box = self.box(features, proposals, targets)
@@ -50,7 +50,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # it may be not safe to share features due to post processing
             # During training, self.box() will return the unaltered proposals as "detections"
             # this makes the API consistent during training and testing
-            x, detections, loss_relation = self.relation(features, detections, targets, logger)
+            x, detections, loss_relation = self.relation(features, detections, targets, logger, txt_feats)
             losses.update(loss_relation)
 
         return x, detections, losses
