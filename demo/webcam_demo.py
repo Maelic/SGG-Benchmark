@@ -8,15 +8,13 @@ from sgg_benchmark.utils.miscellaneous import get_path
 # main
 def main(args):
     config_path = args.config
-    dict_file = args.classes
     weights = args.weights
     tracking = args.tracking
     rel_conf = args.rel_conf
     box_conf = args.box_conf
     dcs = args.dcs
     save_path = args.save_path
-
-
+    visu_type = args.visu_type
 
     # this will create and load the model according to the config file
     # please make sure that the path in MODEL.WEIGHT in the config file is correct
@@ -36,9 +34,12 @@ def main(args):
         ret, frame = cap.read()
 
         # Make prediction
-        img, graph = model.predict(frame, visu=True)
+        img, graph = model.predict(frame, visu_type=visu_type)
 
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if visu_type == 'image':
+            graph = cv2.cvtColor(graph, cv2.COLOR_BGR2RGB)
+            cv2.imshow('Graph', graph)
         #graph = cv2.cvtColor(graph, cv2.COLOR_BGR2RGB)
 
         # Display the resulting frames
@@ -76,6 +77,8 @@ if __name__ == "__main__":
     parser.add_argument('--dcs', type=int, default=100, help='Dynamic Candidate Selection')
 
     parser.add_argument('--save_path', type=str, default=None, help='Path to save the video')
+
+    parser.add_argument('--visu_type', type=str, default='video', help='Visualization type: video or image')
 
     args = parser.parse_args()
 
