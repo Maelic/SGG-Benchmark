@@ -64,6 +64,12 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         help="Only save the best epoch to save space",
     )
 
+    parser.add_argument("--amp",
+                        dest="amp",
+                        action="store_true",
+                        help="Initialize mixed-precision if necessary",
+                        )
+
     parser.add_argument("opts",
         help="Modify config options using the command-line",
         default=None,

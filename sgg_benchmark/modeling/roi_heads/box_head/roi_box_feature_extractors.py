@@ -118,7 +118,7 @@ class YOLOV8FeatureExtractor(nn.Module):
             out_dim = representation_size
         
         self.fc7 = make_fc(representation_size, out_dim, use_gn)
-        self.fc8 = make_fc(cfg.MODEL.YOLO.OUT_CHANNELS[0], out_dim, use_gn)
+        # self.fc8 = make_fc(cfg.MODEL.YOLO.OUT_CHANNELS[0], out_dim, use_gn)
         self.resize_channels = input_size
         self.out_channels = out_dim
 

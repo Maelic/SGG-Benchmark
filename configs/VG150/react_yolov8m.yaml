@@ -16,7 +16,7 @@ MODEL:
     FREEZE: True
   YOLO:
     SIZE: "yolov8m"
-    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
+    OUT_CHANNELS: [192,] # 192 for yolov8m, 256 for yolov8l
   RELATION_ON: True
   ATTRIBUTE_ON: False
   FLIP_AUG: False            # if there is any left-right relation, FLIP AUG should be false
@@ -34,7 +34,7 @@ MODEL:
     FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
     NUM_CLASSES: 151              # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 512
-    POOLER_SCALES: (0.125, 0.0625, 0.03125)
+    POOLER_SCALES: (0.0625, )
   ROI_RELATION_HEAD:
     EMBED_DIM: 200
     USE_GT_BOX: False
