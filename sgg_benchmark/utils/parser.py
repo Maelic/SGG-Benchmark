@@ -24,7 +24,7 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         help="Name of dataset dir or path to dataset yaml file",
     )
 
-    parser.add_argument("--local_rank", type=int, default=0)
+    parser.add_argument("--local-rank", type=int, default=0)
 
     parser.add_argument("--skip-test",
         dest="skip_test",
