@@ -24,7 +24,7 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         help="Name of dataset dir or path to dataset yaml file",
     )
 
-    parser.add_argument("--local_rank", type=int, default=0)
+    parser.add_argument("--local-rank", type=int, default=0)
 
     parser.add_argument("--skip-test",
         dest="skip_test",
@@ -63,6 +63,12 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         action="store_true",
         help="Only save the best epoch to save space",
     )
+
+    parser.add_argument("--amp",
+                        dest="amp",
+                        action="store_true",
+                        help="Initialize mixed-precision if necessary",
+                        )
 
     parser.add_argument("opts",
         help="Modify config options using the command-line",

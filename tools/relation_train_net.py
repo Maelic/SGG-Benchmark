@@ -104,7 +104,8 @@ def train(cfg, logger, args):
         eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
         fix_eval_modules(eval_modules)
     else:
-        model.backbone.eval()
+        eval_modules = (model.backbone,)
+        fix_eval_modules(eval_modules)
 
     # NOTE, we slow down the LR of the layers start with the names in slow_heads
     if cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == "IMPPredictor":
@@ -138,6 +139,14 @@ def train(cfg, logger, args):
     use_amp = True if cfg.DTYPE == "float16" else False
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
+    if args['distributed']:
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[args['local_rank']], output_device=args['local_rank'],
+            # this should be removed if we update BatchNorm stats
+            broadcast_buffers=False,
+            find_unused_parameters=True,
+        )
+
     arguments = {}
     arguments["iteration"] = 0
 
@@ -157,19 +166,14 @@ def train(cfg, logger, args):
             # load_mapping is only used when we init current model from detection model.
             checkpointer.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT, with_optim=False, load_mapping=load_mapping)
         else:
-            model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
-            model.backbone.model.to(device)
+            if args['distributed']:
+                model.module.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
+                model.module.backbone.model.to(device)
+            else:
+                model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
+                model.backbone.model.to(device)
             # load backbone weights
             logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
-    
-
-    if args['distributed']:
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args['local_rank']], output_device=args['local_rank'],
-            # this should be removed if we update BatchNorm stats
-            broadcast_buffers=False,
-            find_unused_parameters=True,
-        )
 
     trained_params = [n for n, p in model.named_parameters() if p.requires_grad]
     pretrain_mask = (cfg.MODEL.ROI_RELATION_HEAD.SQUAT_MODULE.PRETRAIN_MASK and cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == "SquatPredictor")
@@ -215,13 +219,13 @@ def train(cfg, logger, args):
                 if n in trained_params: 
                     p.requires_grad = True
 
-        if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
-            model.train()
-            eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
-            fix_eval_modules(eval_modules)
+        if args['distributed']:
+            model.module.roi_heads.train()
+            model.module.backbone.eval()
         else:
             model.roi_heads.train()
             model.backbone.eval()
+        # fix_eval_modules(eval_modules)
 
         start_epoch_time = time.time()
         _ = train_one_epoch(model, optimizer, train_data_loader, device, epoch, logger, cfg, scaler, args['use_wandb'], use_amp)
@@ -409,6 +413,7 @@ def assert_mode(cfg, task):
         cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = True
     if task == "predcls":
         cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = True
+
 
 def main():
     args = default_argument_parser()

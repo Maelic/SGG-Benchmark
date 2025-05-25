@@ -10,9 +10,10 @@ from pathlib import Path
 
 from sgg_benchmark.structures.bounding_box import BoxList
 
+
 class YoloModel(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
-        yolo_cfg = cfg.MODEL.YOLO.SIZE+'.yaml'
+        yolo_cfg = cfg.MODEL.YOLO.SIZE + '.yaml'
         if cfg.VERBOSE in ["DEBUG", "INFO"]:
             verbose = True
         else:
@@ -48,7 +49,8 @@ class YoloModel(DetectionModel):
             For different object scales, as in original YOLOV8 implementation.
             """
             if visualize:
-                feature_visualization(x, m.type, m.i, save_dir=Path('/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/demo/test_custom/results'))
+                feature_visualization(x, m.type, m.i, save_dir=Path(
+                    '/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/demo/test_custom/results'))
             if embed:
                 if i in self.layers_to_extract:  # if current layer is one of the feature extraction layers
                     feature_maps.append(x)
@@ -56,7 +58,6 @@ class YoloModel(DetectionModel):
             return x, feature_maps
         else:
             return x
-
 
     def load(self, weights_path: str, task=None):
         """
@@ -71,7 +72,7 @@ class YoloModel(DetectionModel):
 
         if weights:
             super().load(weights)
-    
+
     def postprocess(self, preds, image_sizes):
         """Post-processes predictions and returns a list of Results objects."""
 
@@ -102,7 +103,7 @@ class YoloModel(DetectionModel):
             boxlist.add_field("labels", labels)
             boxlist.add_field("feat_idx", torch.tensor([0], device=self.device))
             return [boxlist]
-        
+
         results = []
         for i, (pred, idx) in enumerate(zip(preds, indices)):
             # flip
@@ -125,7 +126,6 @@ class YoloModel(DetectionModel):
             results.append(boxlist)
         return results
 
-    
     @staticmethod
     def _reset_ckpt_args(args):
         """Reset arguments when loading a PyTorch model."""
