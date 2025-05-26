@@ -6,8 +6,8 @@ import copy
 
 
 class DatasetCatalog(object):
-    DATA_DIR = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/"
-    IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
+    DATA_DIR = "./"
+    IMG_DIR = "./datasets/VG150/"
     DATASETS = {
         "VG150": {
             "img_dir": IMG_DIR+"VG_100K",

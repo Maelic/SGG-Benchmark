@@ -92,18 +92,6 @@ class YoloModel(DetectionModel):
                 max_det=self.max_det,
             )
 
-        if len(preds) == 0:
-            # return a dummy box with size of all image
-            boxes = torch.tensor([[0, 0, image_sizes[0][1], image_sizes[0][0]]], device=self.device)
-            scores = torch.tensor([0.0], device=self.device)
-            labels = torch.tensor([0], device=self.device)
-            boxlist = BoxList(boxes, image_sizes[0], mode="xyxy")
-            boxlist.add_field("pred_labels", labels)
-            boxlist.add_field("pred_scores", scores)
-            boxlist.add_field("labels", labels)
-            boxlist.add_field("feat_idx", torch.tensor([0], device=self.device))
-            return [boxlist]
-
         results = []
         for i, (pred, idx) in enumerate(zip(preds, indices)):
             # flip
@@ -122,6 +110,17 @@ class YoloModel(DetectionModel):
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
             boxlist.add_field("feat_idx", idx.long())
+
+            if len(pred) == 0:
+                # return a dummy box with size of all image
+                boxes = torch.tensor([[0, 0, image_sizes[0][1], image_sizes[0][0]]], device=self.device)
+                scores = torch.tensor([0.0], device=self.device)
+                labels = torch.tensor([0], device=self.device)
+                boxlist = BoxList(boxes, out_img_size, mode="xyxy")
+                boxlist.add_field("pred_labels", labels)
+                boxlist.add_field("pred_scores", scores)
+                boxlist.add_field("labels", labels)
+                boxlist.add_field("feat_idx", torch.tensor([0], device=self.device))
 
             results.append(boxlist)
         return results
