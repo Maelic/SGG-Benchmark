@@ -17,18 +17,20 @@ from .bbox_aug import im_detect_bbox_aug
 import networkx as nx
 import datetime
 
-def compute_on_dataset(model, data_loader, device, synchronize_gather=True, timer=None, silence=False, informative=False):
+
+def compute_on_dataset(model, data_loader, device, synchronize_gather=True, timer=None, silence=False,
+                       informative=False):
     model.eval()
     results_dict = {}
     cpu_device = torch.device("cpu")
     starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
 
-    timings=[]
+    timings = []
 
     if informative:
         obj_classes, pred_classes, informative_rels = init_informative_post_process()
         starter2, ender2 = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-        timings2=[]
+        timings2 = []
 
     for i, batch in enumerate(tqdm(data_loader, disable=silence)):
         # if i == 100:
@@ -54,7 +56,8 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
 
             if informative:
                 for boxlist in output:
-                    informative_post_process(boxlist=boxlist, obj_classes=obj_classes, pred_classes=pred_classes, informative_rels=informative_rels)
+                    informative_post_process(boxlist=boxlist, obj_classes=obj_classes, pred_classes=pred_classes,
+                                             informative_rels=informative_rels)
                 if timer:
                     ender2.record()
                     torch.cuda.synchronize()
@@ -78,13 +81,14 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             results_dict.update(
                 {img_id: result for img_id, result in zip(image_ids, output)}
             )
-            #detected_sgg = custom_sgg_post_precessing(results_dict)
-            #clean_graph = generate_detect_sg(detected_sgg, vg_dict)
+            # detected_sgg = custom_sgg_post_precessing(results_dict)
+            # clean_graph = generate_detect_sg(detected_sgg, vg_dict)
             # save the detected sgg to npy file
-            #np.save(os.path.join(save_dir, 'sgg_{}.npy'.format(image_id)), clean_graph)
+            # np.save(os.path.join(save_dir, 'sgg_{}.npy'.format(image_id)), clean_graph)
     torch.cuda.empty_cache()
     if not informative: timings2 = timings
     return results_dict, timings, timings2
+
 
 def init_informative_post_process():
     classes_dict = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/datasets/IndoorVG_4/VG-SGG-dicts.json"
@@ -105,8 +109,8 @@ def init_informative_post_process():
 
     return obj_classes, pred_classes, informative_rels
 
-def informative_post_process(boxlist, obj_classes, pred_classes, informative_rels, top_n=100):
 
+def informative_post_process(boxlist, obj_classes, pred_classes, informative_rels, top_n=100):
     scores = boxlist.get_field('pred_rel_scores')[:top_n]
     labels = boxlist.get_field('pred_rel_labels')[:top_n]
     pd_rels = boxlist.get_field('rel_pair_idxs')[:top_n]
@@ -134,10 +138,13 @@ def informative_post_process(boxlist, obj_classes, pred_classes, informative_rel
     obj_ids = pd_rels[:, 1]
 
     # Compute inform_score and add edges to nx_graph
-    inform_scores = np.array([informative_rels.get(f"{sub_str} {pred} {obj_str}", 0.0) for sub_str, obj_str, pred in zip(subj_strs, obj_strs, pred_strs)])
+    inform_scores = np.array([informative_rels.get(f"{sub_str} {pred} {obj_str}", 0.0) for sub_str, obj_str, pred in
+                              zip(subj_strs, obj_strs, pred_strs)])
     sub_strs = np.array([str(sub_id.item()) + subj_str for sub_id, subj_str in zip(sub_ids, subj_strs)])
     obj_strs = np.array([str(obj_id.item()) + obj_str for obj_id, obj_str in zip(obj_ids, obj_strs)])
-    nx_graph.add_edges_from([(sub, obj, {'weight': inform_score, 'distance': 1 - inform_score}) for sub, obj, inform_score in zip(sub_strs, obj_strs, inform_scores)])
+    nx_graph.add_edges_from(
+        [(sub, obj, {'weight': inform_score, 'distance': 1 - inform_score}) for sub, obj, inform_score in
+         zip(sub_strs, obj_strs, inform_scores)])
 
     # Compute edge betweenness centrality and normalize values_norm
     betw = nx.edge_betweenness_centrality(nx_graph, normalized=True, weight='distance')
@@ -147,7 +154,7 @@ def informative_post_process(boxlist, obj_classes, pred_classes, informative_rel
 
     # Compute triple_scores
     # max_scores = scores[:,1:].max(1)[0].tolist()
-    triple_scores = (values_norm + inform_scores) / 2 #0.5 * (values_norm + inform_scores)
+    triple_scores = (values_norm + inform_scores) / 2  # 0.5 * (values_norm + inform_scores)
 
     # Sort the scores in descending order and get the sorting indices
     sorting_idx = list(np.argsort(triple_scores)[::-1])
@@ -163,10 +170,9 @@ def informative_post_process(boxlist, obj_classes, pred_classes, informative_rel
     boxlist.add_field('pred_rel_scores', scores[sorting_idx])
     boxlist.add_field('pred_rel_labels', labels[sorting_idx])
     boxlist.add_field('rel_pair_idxs', pd_rels[sorting_idx])
-    
 
-def generate_detect_sg(predictions, vg_dict, obj_thres = 0.5):
-    
+
+def generate_detect_sg(predictions, vg_dict, obj_thres=0.5):
     all_obj_labels = predictions.get_field('pred_labels')
     all_obj_scores = predictions.get_field('pred_scores')
     all_rel_pairs = predictions.get_field('rel_pair_idxs')
@@ -187,7 +193,10 @@ def generate_detect_sg(predictions, vg_dict, obj_thres = 0.5):
     rel_scores_matrix = torch.zeros((num_obj, num_obj))
     for k in range(num_rel):
         if rel_mask[k]:
-            rel_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], triplet_scores_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], rel_scores_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])] = all_rel_labels[k], triplet_score[k], all_rel_scores[k]
+            rel_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], triplet_scores_matrix[
+                int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], rel_scores_matrix[
+                int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])] = all_rel_labels[k], triplet_score[k], \
+            all_rel_scores[k]
     rel_matrix = rel_matrix[obj_mask][:, obj_mask].long()
     triplet_scores_matrix = triplet_scores_matrix[obj_mask][:, obj_mask].float()
     rel_scores_matrix = rel_scores_matrix[obj_mask][:, obj_mask].float()
@@ -197,12 +206,13 @@ def generate_detect_sg(predictions, vg_dict, obj_thres = 0.5):
     filter_scores = triplet_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
     filter_rel_scores = rel_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
     # assert that filter_rel and filter_scores are same shape:
-    assert(filter_rel.size() == filter_scores.size() == filter_rel_scores.size())
+    assert (filter_rel.size() == filter_scores.size() == filter_rel_scores.size())
     # generate labels
     pred_objs = [vg_dict['idx_to_label'][str(i)] for i in filter_obj.tolist()]
-    pred_rels = [[i[0], i[1], vg_dict['idx_to_predicate'][str(j)], s, z] for i, j, s, z in zip(filter_pair.tolist(), filter_rel.tolist(), filter_scores.tolist(), filter_rel_scores.tolist())]
+    pred_rels = [[i[0], i[1], vg_dict['idx_to_predicate'][str(j)], s, z] for i, j, s, z in
+                 zip(filter_pair.tolist(), filter_rel.tolist(), filter_scores.tolist(), filter_rel_scores.tolist())]
 
-    output = [{'entities' : pred_objs, 'relations' : pred_rels}, ]
+    output = [{'entities': pred_objs, 'relations': pred_rels}, ]
 
     return output
 
@@ -220,7 +230,7 @@ def _accumulate_predictions_from_multiple_gpus(predictions_per_gpu, synchronize_
         predictions = {}
         for p in all_predictions:
             predictions.update(p)
-    
+
     # convert a dict where the key is the index in a list
     image_ids = list(sorted(predictions.keys()))
     if len(image_ids) != image_ids[-1] + 1:
@@ -251,7 +261,8 @@ def inference(
         informative=False,
         silence=False,
 ):
-    load_prediction_from_cache = cfg.TEST.ALLOW_LOAD_FROM_CACHE and output_folder is not None and os.path.exists(os.path.join(output_folder, "predictions.pth"))
+    load_prediction_from_cache = cfg.TEST.ALLOW_LOAD_FROM_CACHE and output_folder is not None and os.path.exists(
+        os.path.join(output_folder, "predictions.pth"))
 
     # convert to a torch.device for efficiency
     device = torch.device(device)
@@ -263,19 +274,21 @@ def inference(
     logger.info("Start evaluation on {} dataset({} images).".format(dataset_name, len(dataset)))
     # get dataset name
     p = dataset_name.rfind("_")
-    name, split = dataset_name[:p], dataset_name[p+1:]
+    name, split = dataset_name[:p], dataset_name[p + 1:]
 
     if load_prediction_from_cache:
         pred_path = os.path.join(output_folder, "predictions.pth")
         predictions = torch.load(pred_path, map_location=torch.device("cpu"))
         logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:
-        predictions, timings, timings2 = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=True, silence=silence, informative=False)
+        predictions, timings, timings2 = compute_on_dataset(model, data_loader, device,
+                                                            synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER,
+                                                            timer=True, silence=silence, informative=False)
         # wait for all processes to complete before measuring the time
         synchronize()
         batch_size = int(cfg.TEST.IMS_PER_BATCH)
 
-        total_time_str = str(datetime.timedelta(seconds=int(sum(timings2)/1000)))
+        total_time_str = str(datetime.timedelta(seconds=int(sum(timings2) / 1000)))
         avg_per_image = np.mean(timings2) / batch_size
         logger.info(
             "Total run time: {} ({} ms / img per device, on {} devices)".format(
@@ -294,7 +307,8 @@ def inference(
         )
 
     if not load_prediction_from_cache:
-        predictions = _accumulate_predictions_from_multiple_gpus(predictions, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER)
+        predictions = _accumulate_predictions_from_multiple_gpus(predictions,
+                                                                 synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER)
 
     if not is_main_process():
         return -1.0
@@ -326,12 +340,12 @@ def inference(
 
     if cfg.TEST.CUSTUM_EVAL:
         detected_sgg = custom_sgg_post_precessing(predictions)
-        with open(os.path.join(cfg.DETECTED_SGG_DIR, 'custom_prediction.json'), 'w') as outfile:  
+        with open(os.path.join(cfg.DETECTED_SGG_DIR, 'custom_prediction.json'), 'w') as outfile:
             json.dump(detected_sgg, outfile)
         print('=====> ' + str(os.path.join(cfg.DETECTED_SGG_DIR, 'custom_prediction.json')) + ' SAVED !')
         return -1.0
 
-    #return None
+    # return None
     return evaluate(cfg=cfg,
                     dataset=dataset,
                     dataset_name=name,
@@ -339,7 +353,6 @@ def inference(
                     output_folder=output_folder,
                     logger=logger,
                     **extra_args)
-
 
 
 def custom_sgg_post_precessing(predictions):
@@ -362,7 +375,7 @@ def custom_sgg_post_precessing(predictions):
         current_dict['bbox_labels'] = bbox_labels
         current_dict['bbox_scores'] = bbox_scores
         # sorted relationships
-        rel_sortedid, _ = get_sorted_bbox_mapping(boxlist.get_field('pred_rel_scores')[:,1:].max(1)[0].tolist())
+        rel_sortedid, _ = get_sorted_bbox_mapping(boxlist.get_field('pred_rel_scores')[:, 1:].max(1)[0].tolist())
         # sorted rel
         rel_pairs = []
         rel_labels = []
@@ -380,9 +393,10 @@ def custom_sgg_post_precessing(predictions):
         current_dict['rel_all_scores'] = rel_all_scores
         output_dict[idx] = current_dict
     return output_dict
-    
+
+
 def get_sorted_bbox_mapping(score_list):
     sorted_scoreidx = sorted([(s, i) for i, s in enumerate(score_list)], reverse=True)
     sorted2id = [item[1] for item in sorted_scoreidx]
-    id2sorted = [item[1] for item in sorted([(j,i) for i, j in enumerate(sorted2id)])]
+    id2sorted = [item[1] for item in sorted([(j, i) for i, j in enumerate(sorted2id)])]
     return sorted2id, id2sorted
