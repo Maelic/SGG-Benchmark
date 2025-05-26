@@ -5,7 +5,7 @@
 ![PyTorch](https://img.shields.io/badge/pytorch-2.2.1-%237732a8)
 [![arXiv](https://img.shields.io/badge/arXiv-2405.16116-b31b1b.svg)](https://arxiv.org/abs/2405.16116)
 
-# :warning: We are looking for contributors to add the task of SGG directly to the [ultralytics codebase](https://github.com/ultralytics/ultralytics)! If you are interested, please contact me at [teoneau@gmail.com](mailto:teoneau@gmail.com)! :warning:
+## :warning: We are looking for contributors to add the task of SGG directly to the [ultralytics codebase](https://github.com/ultralytics/ultralytics)! If you are interested, please contact me at [teoneau@gmail.com](mailto:teoneau@gmail.com)! :warning:
 
 ## :rocket: [REAL-TIME SCENE GRAPH GENERATION](https://arxiv.org/abs/2405.16116) :rocket:
 
