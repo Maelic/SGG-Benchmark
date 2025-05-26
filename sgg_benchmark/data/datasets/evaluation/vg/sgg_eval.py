@@ -30,12 +30,12 @@ class SGF1Score(SceneGraphEvaluation):
         super(SGF1Score, self).__init__(result_dict)
 
     def register_container(self, mode):
-        self.result_dict[mode + '_f1'] = {20: [], 50: [], 100: []}
+        self.result_dict[mode + '_f1_score'] = {20: [], 50: [], 100: []}
 
     def generate_print_string(self, mode):
         result_str = 'SGG eval: '
-        for k in self.result_dict[mode + '_f1']:
-            result_str += '    F1 @ %d: %.4f; ' % (k, self.result_dict[mode + '_f1'][k])
+        for k in self.result_dict[mode + '_f1_score']:
+            result_str += '    F1 @ %d: %.4f; ' % (k, self.result_dict[mode + '_f1_score'][k])
         result_str += ' for mode=%s, type=F1.' % mode
         result_str += '\n'
         return result_str
@@ -49,9 +49,16 @@ class SGF1Score(SceneGraphEvaluation):
                 f1 = 2 * recall_k * mean_reacall_k / (recall_k + mean_reacall_k)
             else:
                 f1 = 0
-            self.result_dict[mode + '_f1'][k] = f1
+            self.result_dict[mode + '_f1_score'][k] = f1
 
 class SGRecallRelative(SceneGraphEvaluation):
+    """
+    Recall Relative, implement based on myself, inspired by https://arxiv.org/pdf/2404.09616.
+    The recall is calculated relative to the number of relationships in the ground truth, for each image.
+    The goal is to alleviate the bias towards images with more relationships. For instance, if an image has only 1 GT relationship,
+    a perfect Recall with the traditional implementation can be attained by predicting this relationship ranked at number 19, 
+    even though 18 other relationships are predicted with higher confidence. This implementation alleviates this bias.
+    """
     def __init__(self, result_dict):
         super(SGRecallRelative, self).__init__(result_dict)
         
@@ -79,6 +86,13 @@ class SGRecallRelative(SceneGraphEvaluation):
         return local_container
     
 class SGMeanRecallRelative(SceneGraphEvaluation):
+    """
+    Mean Recall Relative, implement based on myself, inspired by https://arxiv.org/pdf/2404.09616.
+    The mean recall is calculated relative to the number of relationships in the ground truth, for each image.
+    The goal is to alleviate the bias towards images with more relationships. For instance, if an image has only 1 GT relationship,
+    a perfect Mean Recall with the traditional implementation can be attained by predicting this relationship ranked at number 19, 
+    even though 18 other relationships are predicted with higher confidence. This implementation alleviates this bias.
+    """
     def __init__(self, result_dict, num_rel, ind_to_predicates, print_detail=True):
         super(SGMeanRecallRelative, self).__init__(result_dict)
         self.num_rel = num_rel
@@ -113,8 +127,7 @@ class SGMeanRecallRelative(SceneGraphEvaluation):
 
         # the following code are copied from Neural-MOTIFS
         match = reduce(np.union1d, pred_to_gt[:k])
-        # NOTE: by kaihua, calculate Mean Recall for each category independently
-        # this metric is proposed by: CVPR 2019 oral paper "Learning to Compose Dynamic Tree Structures for Visual Contexts"
+
         recall_hit = [0] * self.num_rel
         recall_count = [0] * self.num_rel
         for idx in range(gt_rels.shape[0]):
@@ -147,7 +160,16 @@ class SGMeanRecallRelative(SceneGraphEvaluation):
 
 class SGInformativeRecallWeighted(SceneGraphEvaluation):
     def __init__(self, result_dict, sim='mpnet'):
+        """
+        Informative Recall, implement based on:
+        https://www.sciencedirect.com/science/article/pii/S016786552500008X
+        This class requires the informative_rels to be provided in the local_container. Need to be obtained externally.
+        The informative_rels should be a list of strings extracted from corresponding image captions (using a caption SG parser), 
+        where each string is a triplet in the format "subject predicate object".
+        """
+
         super(SGInformativeRecall, self).__init__(result_dict)
+        from sentence_transformers import SentenceTransformer, util
 
         self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
         if sim not in self.sim_options:
@@ -247,7 +269,15 @@ class SGInformativeRecallWeighted(SceneGraphEvaluation):
 
 class SGInformativeRecall(SceneGraphEvaluation):
     def __init__(self, result_dict, sim='mpnet'):
+        """
+        Informative Recall, implement based on:
+        https://www.sciencedirect.com/science/article/pii/S016786552500008X
+        This class requires the informative_rels to be provided in the local_container. Need to be obtained externally.
+        The informative_rels should be a list of strings extracted from corresponding image captions (using a caption SG parser), 
+        where each string is a triplet in the format "subject predicate object".
+        """
         super(SGInformativeRecall, self).__init__(result_dict)
+        from sentence_transformers import SentenceTransformer, util
 
         self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm', 'mpnet', 'clip']
         if sim not in self.sim_options:

@@ -5,6 +5,8 @@
 ![PyTorch](https://img.shields.io/badge/pytorch-2.2.1-%237732a8)
 [![arXiv](https://img.shields.io/badge/arXiv-2405.16116-b31b1b.svg)](https://arxiv.org/abs/2405.16116)
 
+# :warning: We are looking for contributors to add the task of SGG directly to the [ultralytics codebase](https://github.com/ultralytics/ultralytics)! If you are interested, please contact me at [teoneau@gmail.com](mailto:teoneau@gmail.com)! :warning:
+
 ## :rocket: [REAL-TIME SCENE GRAPH GENERATION](https://arxiv.org/abs/2405.16116) :rocket:
 
 Previous work (PE-NET model) | Our REACT model for Real-Time SGG
@@ -29,8 +31,8 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 
 ## Recent Updates
 
-
-- [ ] TODO: Change Dataloader to COCO format (in progress).
+- [X] 26.05.2025: I have added some explanation for two new metrics: InformativeRecall@K and Recall@K Relative. InformativeRecall@K is defined in [Mining Informativeness in Scene Graphs](https://www.sciencedirect.com/science/article/pii/S016786552500008X) and can help to measure the pertinence and robustness of models for real-world applications. Please check the [METRICS.md](METRICS.md) file for more information.
+- [X] 26.05.2025: The codebase now supports also YOLOV12, see [configs/VG150/react_yolov12m.yaml](configs/VG150/react_yolov12m.yaml).
 - [X] 04.12.2024: Official release of the REACT model weights for VG150, please see [MODEL_ZOO.md](MODEL_ZOO.md)
 - [X] 03.12.2024: Official release of the [REACT model](https://arxiv.org/abs/2405.16116)
 - [X] 23.05.2024: Added support for Hyperparameters Tuning with the RayTune library, please check it out: [Hyperparameters Tuning](#hyperparameters-tuning)
@@ -266,14 +268,14 @@ We provide a training loop for hyperparameters tuning in [hyper_param_tuning.py]
 To launch the script, do as follow:
 
 ```
-CUDA_VISIBLE_DEVICES=0 python tools/hyper_param_tuning.py --save-best --task sgdet --config-file "/home/maelic/SGG-Benchmark/configs/IndoorVG/e2e_relation_yolov10.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR PrototypeEmbeddingNetwork DTYPE "float16" SOLVER.PRE_VAL True GLOVE_DIR /home/maelic/glove OUTPUT_DIR /home/maelic/SGG-Benchmark/checkpoints/IndoorVG4/SGDET/penet-yolov10m SOLVER.IMS_PER_BATCH 8
+CUDA_VISIBLE_DEVICES=0 python tools/hyper_param_tuning.py --save-best --task sgdet --config-file "./configs/IndoorVG/e2e_relation_yolov10.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR PrototypeEmbeddingNetwork DTYPE "float16" SOLVER.PRE_VAL True GLOVE_DIR /home/maelic/glove OUTPUT_DIR ./checkpoints/IndoorVG4/SGDET/penet-yolov10m SOLVER.IMS_PER_BATCH 8
 ```
 
 The config and OUTPUT_DIR paths need to be absolute to allow faster loading. A lot of terminal outputs are disabled by default during tuning, using the ```cfg.VERBOSE``` variable.
 
 To watch the results with tensorboardX: 
 ```
-tensorboard --logdir=/home/maelic/ray_results/train_relation_net_2024-06-23_15-28-01
+tensorboard --logdir=./ray_results/train_relation_net_2024-06-23_15-28-01
 ```
 
 ## Evaluation

@@ -8,6 +8,23 @@ It's firstly used by [Pixel2Graph](https://arxiv.org/abs/1706.07365) and named b
 ### Mean Recall@K (mR@K)
 It is proposed by our work [VCTree](https://arxiv.org/abs/1812.01880) and Chen et al.s'[KERN](https://arxiv.org/abs/1903.03326) at the same time (CVPR 2019), although we didn't make it as our main contribution and only listed the full results on the [supplementary material](https://zpascal.net/cvpr2019/Tang_Learning_to_Compose_CVPR_2019_supplemental.pdf). However, we also acknowledge the contribution of [KERN](https://arxiv.org/abs/1903.03326), for they gave more mR@K results of previous methods. The main motivation of Mean Recall@K (mR@K) is that the VisualGenome dataset is biased towards dominant predicates. If the 10 most frequent predicates are correctly classified, the accuracy would reach 90% even the rest 40 kinds of predicates are all wrong. This is definitely not what we want. Therefore, Mean Recall@K (mR@K) calculates Recall@K for each predicate category independently then report their mean. 
 
+### Recall@K Relative (R@K Relative)
+The recall is calculated relative to the number of relationships in the ground truth, for each image.
+The goal is to alleviate the bias towards images with more relationships. For instance, if an image has only 1 GT relationship, a perfect Recall with the traditional implementation can be attained by predicting this relationship ranked at number 19, even though 18 other relationships are predicted with higher confidence. This implementation alleviates this bias.
+The implementation is mine, inspired by [https://arxiv.org/pdf/2404.09616](https://arxiv.org/pdf/2404.09616).
+
+### Mean Recall@K Relative (mR@K Relative)
+The mean recall is calculated relative to the number of relationships in the ground truth, for each image.
+The goal is to alleviate the bias towards images with more relationships. For instance, if an image has only 1 GT relationship, a perfect Mean Recall with the traditional implementation can be attained by predicting this relationship ranked at number 19, even though 18 other relationships are predicted with higher confidence. This implementation alleviates this bias.
+The implementation is mine, inspired by [https://arxiv.org/pdf/2404.09616](https://arxiv.org/pdf/2404.09616).
+
+### InformativeRecall@K (IR@K)
+This metric is proposed in [Mining Informativeness in Scene Graphs](https://www.sciencedirect.com/science/article/pii/S016786552500008X). The goal of this metric is to measure the informativeness of the predicted relationships, by respect on the subset of Gt relations contained in associated captions. If a predicted relationship also appears in the caption, it is considered informative, even if it is not in the ground truth graph annotations. The metric is calculated as the ratio of informative relationships in the top K predicted relationships, compared to the total number of informative relationships in the ground truth annotations.
+The metric is calculated as follows:
+![Informative Recall@K](process_data/image.png)
+With Gtext being the set of triplets extracted from the caption using an external parser. For this work, we used the [FACTUAL parser](https://github.com/zhuang-li/FactualSceneGraph) but others can be used such as the [Stanford Scene Gaph parser](https://nlp.stanford.edu/software/scenegraph-parser.shtml). For the GT captions, we used the ones provided by the [Visual Genome dataset](https://visualgenome.org/api/v0/api_home.html).
+We provide the GT triplets extracted from the captions in the [process data folder](process_data/) under the name `informative_sg.json`. This file can work with any dataset that uses as baseline the Visual Genome dataset, such as VG150 or IndoorVG. To use it, you have to modify the `informative_file` path in [here](sgg_benchmark/config/paths_catalog.py).
+
 ### No Graph Constraint Mean Recall@K (ng-mR@K)
 The same mean Recall metric, but for each pair of objects, all possible predicates are valid candidates (the original mean Recall@K only considers the predicate with maximum score of each pair as the valid candidate to calculate Recall).
 
@@ -19,9 +36,6 @@ The same zero-shot Recall metric, but for each pair of objects, all possible pre
 
 ### Top@K Accuracy (A@K) 
 It is actually caused by the misunderstanding of PredCls and SGCls protocols. [Contrastive Losses](https://arxiv.org/abs/1903.02728) reported Recall@K of PredCls and SGCls by not just giving ground-truth bounding boxes, but also giving the ground-truth subject-object pairs, so no ranking is involved. The results can only be considerred as Top@K Accuracy (A@K) for the given K ground-truth subject-object pairs. 
-
-### Sentence-to-Graph Retrieval (S2G)
-S2G is proposed by [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949) as an ideal downstream task that only relies on the quality of SGs, for the existing VQA and Captioning are too complicated and challenged by their own bias. It takes human descriptions as queries, searching for matching scene graphs (images), where SGs are considered as the symbolic representations of images. More details will be explained in [S2G-RETRIEVAL.md](maskrcnn_benchmark/image_retrieval/S2G-RETRIEVAL.md).
 
 # Two Common Misunderstandings in SGG Metrics
 When you read/follow a SGG paper, and you find that its performance is abnormally high for no obvious reasons, whose authors could mess up some metrics.

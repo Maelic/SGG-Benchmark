@@ -6,8 +6,8 @@ INPUT:
 MODEL:
   TEXT_EMBEDDING: clip
   META_ARCHITECTURE: "GeneralizedRCNN"
-  WEIGHT: "/home/maelic/SGG-Benchmark/checkpoints/PSG/BACKBONE/faster_rcnn/best_model_epoch_17.pth"
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/SGG-Benchmark/checkpoints/PSG/BACKBONE/faster_rcnn/best_model_epoch_17.pth"
+  WEIGHT: "./checkpoints/PSG/BACKBONE/faster_rcnn/best_model_epoch_17.pth"
+  PRETRAINED_DETECTOR_CKPT: "./checkpoints/PSG/BACKBONE/faster_rcnn/best_model_epoch_17.pth"
   BACKBONE:
     TYPE: "R-101-FPN" # VGG-16
     NMS_THRESH: 0.001

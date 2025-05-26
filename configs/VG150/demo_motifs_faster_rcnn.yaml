@@ -68,7 +68,7 @@ MODEL:
     NUM_GROUPS: 32
   MASK_ON: false
   META_ARCHITECTURE: GeneralizedRCNN
-  PRETRAINED_DETECTOR_CKPT: /home/maelic/SGG-Benchmark/checkpoints/VG150/Backbone/Faster_rcnn/model_final.pth
+  PRETRAINED_DETECTOR_CKPT: ./checkpoints/VG150/Backbone/Faster_rcnn/model_final.pth
   RELATION_ON: true
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256

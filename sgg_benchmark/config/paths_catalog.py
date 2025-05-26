@@ -18,7 +18,7 @@ class DatasetCatalog(object):
             "informative_file": "", #DATA_DIR+"datasets/informative_sg.json",
         },
         "PSG": {
-            "img_dir": "/home/maelic/Documents/Datasets/COCO/",
+            "img_dir": "./datasets/COCO/",
             "ann_file": DATA_DIR+"datasets/psg/psg_train_val.json",
             "informative_file":  "", #DATA_DIR+"datasets/informative_sg.json",
         },

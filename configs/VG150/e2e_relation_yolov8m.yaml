@@ -9,7 +9,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/VG150/Backbones/yolov8m/weights/best.pt"
+  PRETRAINED_DETECTOR_CKPT: "./checkpoints/VG150/Backbones/yolov8m/weights/best.pt"
   BACKBONE:
     TYPE: "yolo"
     NMS_THRESH: 0.001
@@ -101,7 +101,7 @@ SOLVER:
     COOLDOWN: 0
     FACTOR: 0.1
     MAX_DECAY_STEP: 3
-OUTPUT_DIR: '/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/VG150/SGDET/penet-yolov8m'
+OUTPUT_DIR: './checkpoints/VG150/SGDET/penet-yolov8m'
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
   INFORMATIVE: True

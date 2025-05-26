@@ -29,6 +29,8 @@ class YoloModel(DetectionModel):
 
         if self.end2end or '11' in yolo_cfg:
             self.layers_to_extract = [16, 19, 22]
+        elif '12' in yolo_cfg:
+            self.layers_to_extract = [14, 17, 20]
         else:
             self.layers_to_extract = [15, 18, 21]
 
@@ -50,7 +52,7 @@ class YoloModel(DetectionModel):
             """
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=Path(
-                    '/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/demo/test_custom/results'))
+                    './demo/test_custom/results'))
             if embed:
                 if i in self.layers_to_extract:  # if current layer is one of the feature extraction layers
                     feature_maps.append(x)

@@ -81,7 +81,7 @@ def process(path, output_file=None, categories=False):
 
     # triplet cat
     if categories:
-        triplet_cat_path = "/home/maelic/SGG-Benchmark/process_data/data_augmentation/triplets_categories.pkl"
+        triplet_cat_path = "./process_data/data_augmentation/triplets_categories.pkl"
         with open(triplet_cat_path, 'rb') as f:
             triplet_cat = pickle.load(f)
 

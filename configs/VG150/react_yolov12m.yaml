@@ -1,0 +1,119 @@
+INPUT:
+  MIN_SIZE_TRAIN: 640
+  MAX_SIZE_TRAIN: 640
+  MIN_SIZE_TEST: 640
+  MAX_SIZE_TEST: 640
+  PADDING: True
+MODEL:
+  TEXT_EMBEDDING: glove.6B
+  META_ARCHITECTURE: "GeneralizedYOLO"
+  BOX_HEAD: False
+  WEIGHT: ""
+  PRETRAINED_DETECTOR_CKPT: "./checkpoints/VG150/Backbones/yolov8m/weights/best.pt"
+  BACKBONE:
+    TYPE: "yolo"
+    NMS_THRESH: 0.001
+    FREEZE: True
+  YOLO:
+    SIZE: "yolo12m"
+    OUT_CHANNELS: [256,512,512] # [192,384,576] for yolov8m, [256,512,768] for yolov8l, [256,512,512] for yolo11m, [256,512,512] for yolov12m etc...
+  RELATION_ON: True
+  ATTRIBUTE_ON: False
+  FLIP_AUG: False            # if there is any left-right relation, FLIP AUG should be false
+  ROI_HEADS:
+    POSITIVE_FRACTION: 0.5
+    FG_IOU_THRESHOLD: 0.3
+    BG_IOU_THRESHOLD: 0.1
+    BATCH_SIZE_PER_IMAGE: 256
+    DETECTIONS_PER_IMG: 100
+    NMS_FILTER_DUPLICATES: True
+    NMS: 0.2
+  ROI_BOX_HEAD:
+    POOLER_RESOLUTION: 7
+    POOLER_SAMPLING_RATIO: 2
+    FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
+    NUM_CLASSES: 151              # 151 for VG, 1201 for GQA
+    MLP_HEAD_DIM: 512
+    POOLER_SCALES: (0.125, 0.0625, 0.03125)
+  ROI_RELATION_HEAD:
+    EMBED_DIM: 200
+    USE_GT_BOX: False
+    USE_GT_OBJECT_LABEL: False
+    MLP_HEAD_DIM: 512
+    TEXTUAL_FEATURES_ONLY: False
+    USE_SPATIAL_FEATURES: True
+    USE_UNION_FEATURES: False
+    REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
+    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
+    NUM_CLASSES: 51                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
+    BATCH_SIZE_PER_IMAGE: 256      # sample as much as possible
+    POSITIVE_FRACTION: 0.25
+    CONTEXT_POOLING_DIM: 2048
+    CONTEXT_HIDDEN_DIM: 512         #1024 for VCTree
+    POOLING_ALL_LEVELS: True
+    LABEL_SMOOTHING_LOSS: False
+    FEATURE_EXTRACTOR: "RelationFeatureExtractor"
+    #################### Select Relationship Model ####################
+    #PREDICTOR: "MotifPredictor"
+    #PREDICTOR: "VCTreePredictor"
+    #PREDICTOR: "TransformerPredictor"
+    PREDICTOR: "REACTPredictor"
+    ################# Parameters for Motif Predictor ##################
+    CONTEXT_OBJ_LAYER: 1
+    CONTEXT_REL_LAYER: 1
+    ############# Parameters for Causal Unbias Predictor ##############
+    ### Implementation for paper "Unbiased Scene Graph Generation from Biased Training"
+    CAUSAL:
+      EFFECT_TYPE: 'TDE'             # candicates: 'TDE', 'NIE', 'TE', 'none'
+      FUSION_TYPE: 'gate'              # candicates: 'sum', 'gate'         
+      SEPARATE_SPATIAL: False         # separate spatial in union feature
+      CONTEXT_LAYER: "vctree"         # candicates: motifs, vctree, vtranse
+      EFFECT_ANALYSIS: True
+    ############### Parameters for Transformer Predictor ##############
+    TRANSFORMER:
+      DROPOUT_RATE: 0.1
+      OBJ_LAYER: 4
+      REL_LAYER: 2
+      NUM_HEAD: 8
+      KEY_DIM: 64
+      VAL_DIM: 64
+      INNER_DIM: 2048 
+DATASETS:
+  TRAIN: ("VG150_train",)
+  VAL: ("VG150_val",)
+  TEST: ("VG150_test",)
+DATALOADER:
+  SIZE_DIVISIBILITY: 32
+SOLVER:
+  IMS_PER_BATCH: 8
+  MAX_EPOCH: 20
+  BIAS_LR_FACTOR: 1
+  BASE_LR: 0.025
+  WARMUP_FACTOR: 0.1
+  WEIGHT_DECAY: 0.0001
+  MOMENTUM: 0.75
+  GRAD_NORM_CLIP: 5.0
+  STEPS: (10000, 16000)
+  MAX_ITER: 40000
+  VAL_PERIOD: 2000
+  CHECKPOINT_PERIOD: 2000
+  PRINT_GRAD_FREQ: 4000
+  SCHEDULE:
+    # the following paramters are only used for WarmupReduceLROnPlateau
+    TYPE: "WarmupReduceLROnPlateau"    # WarmupMultiStepLR, WarmupReduceLROnPlateau
+    PATIENCE: 2
+    THRESHOLD: 0.001
+    COOLDOWN: 0
+    FACTOR: 0.1
+    MAX_DECAY_STEP: 3
+OUTPUT_DIR: './output/relation_baseline'
+TEST:
+  ALLOW_LOAD_FROM_CACHE: False
+  INFORMATIVE: False
+  IMS_PER_BATCH: 8
+  RELATION:
+    SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem
+    REQUIRE_OVERLAP: True
+    LATER_NMS_PREDICTION_THRES: 0.5
+  CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
+  CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed  

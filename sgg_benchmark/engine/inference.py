@@ -91,13 +91,11 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
 
 
 def init_informative_post_process():
-    classes_dict = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/datasets/IndoorVG_4/VG-SGG-dicts.json"
-    # classes_dict = "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/datasets/VG150/VG-SGG-dicts-with-attri.json"
+    classes_dict = "./datasets/IndoorVG_4/VG-SGG-dicts.json"
     with open(classes_dict, 'r') as f:
         classes = json.load(f)
 
-    informative_path = "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/informativeness_in_SG/Intrinsic_info/IndoorVG/similarity_mpnet.json"
-    # informative_path = "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/informativeness_in_SG/Intrinsic_info/VG150/similarity_mpnet.json"
+    informative_path = "./similarity_mpnet.json"
 
     with open(informative_path, 'r') as f:
         informative_rels = json.load(f)

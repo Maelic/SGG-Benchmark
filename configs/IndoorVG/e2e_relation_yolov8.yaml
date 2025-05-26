@@ -9,7 +9,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/SGG-Benchmark/checkpoints/IndoorVG4/Backbones/yolov8m/yolov8m_indoorvg.pt"
+  PRETRAINED_DETECTOR_CKPT: "./checkpoints/IndoorVG/yolov8m_indoorvg.pt"
   BACKBONE:
     TYPE: "yolo"
     NMS_THRESH: 0.001
@@ -86,7 +86,7 @@ MODEL:
     #PREDICTOR: "MotifPredictor"
     #PREDICTOR: "VCTreePredictor"
     #PREDICTOR: "TransformerPredictor"
-    PREDICTOR: "PENetSimplePredictor"
+    PREDICTOR: "MotifPredictor"
     ################# Parameters for Motif Predictor ##################
     CONTEXT_OBJ_LAYER: 1
     CONTEXT_REL_LAYER: 1

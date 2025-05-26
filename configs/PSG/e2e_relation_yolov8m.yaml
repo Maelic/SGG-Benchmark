@@ -9,7 +9,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/SGG-Benchmark/checkpoints/yolov8m_psg.pt"
+  PRETRAINED_DETECTOR_CKPT: "./checkpoints/yolov8m_psg.pt"
   BACKBONE:
     TYPE: "yolo"
     NMS_THRESH: 0.001

@@ -562,7 +562,7 @@ _C.VERBOSE = "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
 _C.SEED = 42 # -1 to desactivate
 
 _C.PATHS_CATALOG = os.path.join(os.path.dirname(__file__), "paths_catalog.py")
-_C.PATHS_DATA = os.path.join(os.path.dirname(__file__), "/home/maelic/Documents/Datasets/VG/")
+_C.PATHS_DATA = os.path.join(os.path.dirname(__file__), "/home/Documents/Datasets/VG/")
 
 _C.METRIC_TO_TRACK = "mR" # mR (mean Recall), R (Recall), zR (zero-shot Recall), ng-R (no graph constraint Recall),
                           # ng-mR (no graph constraint mean Recall), ng-zR (no graph constraint zero-shot Recall), topA (Top K Accuracy)
