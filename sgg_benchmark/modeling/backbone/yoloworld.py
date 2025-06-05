@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
 from ultralytics.nn.tasks import WorldModel
 from sgg_benchmark.data.transforms import LetterBox
@@ -13,8 +12,6 @@ from sgg_benchmark.utils.txt_embeddings import obj_edge_vectors
 from sgg_benchmark.modeling.backbone.utils import non_max_suppression
 
 import numpy as np
-import cv2
-from PIL import Image
 
 from ultralytics.nn.modules import (
     C2fAttn,

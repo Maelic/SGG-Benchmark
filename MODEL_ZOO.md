@@ -10,6 +10,7 @@
 | | | | [yolov8x_psg.pt](https://drive.google.com/file/d/1cZwQIzBOvaEPUSHXQ3UioTa18vti58dM/view?usp=sharing) | 57.20 |
 | | | | [yolov9m_PSG](https://drive.google.com/file/d/1hdf6um4QRXa4zN5heyHRZwL5tyeo-Ks2/view?usp=sharing) | 51.60 |
 | | | | [yolov10m_PSG](https://drive.google.com/file/d/1aaWCAMfmUQRTGUh4S0vC8BCOcRf5DykP/view?usp=sharing) | 51.20 |
+| | | | [yolov12m_PSG](https://drive.google.com/file/d/1CzO9Cn2TAN3wMvwqc0XoDkSQfzo9QDic/view?usp=sharing) | 56.65 |
 
 ## SGG Models
 

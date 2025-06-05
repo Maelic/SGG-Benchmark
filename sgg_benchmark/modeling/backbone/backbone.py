@@ -11,6 +11,7 @@ from . import resnet
 from . import vgg
 from .yolo import YoloModel
 from .yoloworld import YoloWorldModel
+from .yoloe import YOLOEDetectionModel
 
 @registry.BACKBONES.register("dinov2")
 def build_dinov2_backbone(cfg):
@@ -32,6 +33,15 @@ def build_yoloworld_backbone(cfg):
     nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
 
     model = YoloWorldModel(cfg, nc=nc)
+    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS[0]
+
+    return model
+
+@registry.BACKBONES.register("yoloe")
+def build_yoloworld_backbone(cfg):
+    nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
+
+    model = YOLOEDetectionModel(cfg, nc=nc)
     model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS[0]
 
     return model
