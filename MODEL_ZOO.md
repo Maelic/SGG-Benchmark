@@ -35,13 +35,10 @@ REACT (YOLOV8m)  | [Download](https://drive.google.com/file/d/1q7WAcJ9XS5ilt3Cf3
 
 Please download the weights in a ```checkpoints``` folder at the root of the codebase and run visualization using the ```demo/SGDET_on_cutom_images.ipynb``` notebook or evaluation using ```tools/relation_test_net.py```.
 
-<!-- 
-
 ### INDOORVG
 
-New weights for the REACT model with YOLOV8-m (SGDET only):
+New weights for the REACT model with YOLOV12-m (SGDET only):
 
-Models | WEIGHTS | R@20 | R@50 | R@100 | mR@20 | mR@50 | mR@100 | 
--- | -- | -- | -- | -- | -- | -- | -- |
-
- -->
+Models | WEIGHTS | R@20 | R@50 | R@100 | mR@20 | mR@50 | mR@100 | mAP | Latency (ms)
+-- | -- | -- | -- | -- | -- | -- | -- | -- | -- |
+REACT (YOLOV12m)  | [Download](https://drive.google.com/file/d/1XX2SbR1P_67B6y3cdrKn9ISCFFgImZk_/view?usp=sharing) | 20.17 | 25.48 | 28.43 | 14.91 | 18.67 | 20.53 | 35.10 | -
