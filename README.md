@@ -5,17 +5,15 @@
 ![PyTorch](https://img.shields.io/badge/pytorch-2.2.1-%237732a8)
 [![arXiv](https://img.shields.io/badge/arXiv-2405.16116-b31b1b.svg)](https://arxiv.org/abs/2405.16116)
 
-## :warning: We are looking for contributors to add the task of SGG directly to the [ultralytics codebase](https://github.com/ultralytics/ultralytics)! If you are interested, please contact me at [teoneau@gmail.com](mailto:teoneau@gmail.com)! :warning:
-
-## :rocket: [REAL-TIME SCENE GRAPH GENERATION](https://arxiv.org/abs/2405.16116) :rocket:
+## :rocket: Official code for the paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene Graph Generation](https://arxiv.org/abs/2405.16116) - BMVC 2025 :rocket:
 
 Previous work (PE-NET model) | Our REACT model for Real-Time SGG
 :-: | :-:
 <video src='https://github.com/user-attachments/assets/1e580ecc-6a31-409c-82b5-4488aadaf815' width=480/> | <video src='https://github.com/user-attachments/assets/6dfc22de-176a-4d50-9e3a-e91d8df76777' width=480/>
 
 
-Our latest paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene
-Graph Generation](https://arxiv.org/abs/2405.16116) is finally available! Please have a look if you're interested! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8. Weights are available [here](MODEL_ZOO.md).
+Our paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene
+Graph Generation](https://arxiv.org/abs/2405.16116) has been accepted at BMVC 2025! Please have a look if you're interested! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8/9/10/11/12. Weights are available [here](MODEL_ZOO.md).
 Here is a snapshot of the main results:
 
 <p align="center">
@@ -31,6 +29,7 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 
 ## Recent Updates
 
+- [X] 31.07.2025: REACT has been accepted at the BMVC 2025 conference!
 - [X] 26.05.2025: I have added some explanation for two new metrics: InformativeRecall@K and Recall@K Relative. InformativeRecall@K is defined in [Mining Informativeness in Scene Graphs](https://www.sciencedirect.com/science/article/pii/S016786552500008X) and can help to measure the pertinence and robustness of models for real-world applications. Please check the [METRICS.md](METRICS.md) file for more information.
 - [X] 26.05.2025: The codebase now supports also YOLOV12, see [configs/VG150/react_yolov12m.yaml](configs/VG150/react_yolov12m.yaml).
 - [X] 04.12.2024: Official release of the REACT model weights for VG150, please see [MODEL_ZOO.md](MODEL_ZOO.md)
