@@ -97,7 +97,12 @@ class SGMeanRecallRelative(SceneGraphEvaluation):
         super(SGMeanRecallRelative, self).__init__(result_dict)
         self.num_rel = num_rel
         self.print_detail = print_detail
-        self.rel_name_list = ind_to_predicates[1:] # remove __background__
+        # Handle both list and dict formats for ind_to_predicates
+        if isinstance(ind_to_predicates, dict):
+            # Convert dict to list and remove __background__ (index 0)
+            self.rel_name_list = [ind_to_predicates[i] for i in sorted(ind_to_predicates.keys()) if i > 0]
+        else:
+            self.rel_name_list = ind_to_predicates[1:]  # remove __background__
 
     def register_container(self, mode):
         self.result_dict[mode + '_mean_recall_relative'] = {'relative': 0.0}
@@ -723,7 +728,12 @@ class SGMeanRecall(SceneGraphEvaluation):
         super(SGMeanRecall, self).__init__(result_dict)
         self.num_rel = num_rel
         self.print_detail = print_detail
-        self.rel_name_list = ind_to_predicates[1:] # remove __background__
+        # Handle both list and dict formats for ind_to_predicates
+        if isinstance(ind_to_predicates, dict):
+            # Convert dict to list and remove __background__ (index 0)
+            self.rel_name_list = [ind_to_predicates[i] for i in sorted(ind_to_predicates.keys()) if i > 0]
+        else:
+            self.rel_name_list = ind_to_predicates[1:]  # remove __background__
 
     def register_container(self, mode):
         #self.result_dict[mode + '_recall_hit'] = {20: [0]*self.num_rel, 50: [0]*self.num_rel, 100: [0]*self.num_rel}
@@ -792,7 +802,12 @@ class SGWeightedMeanRecall(SceneGraphEvaluation):
         super(SGWeightedMeanRecall, self).__init__(result_dict)
         self.num_rel = num_rel
         self.print_detail = print_detail
-        self.rel_name_list = ind_to_predicates[1:] # remove __background__
+        # Handle both list and dict formats for ind_to_predicates
+        if isinstance(ind_to_predicates, dict):
+            # Convert dict to list and remove __background__ (index 0)
+            self.rel_name_list = [ind_to_predicates[i] for i in sorted(ind_to_predicates.keys()) if i > 0]
+        else:
+            self.rel_name_list = ind_to_predicates[1:]  # remove __background__
 
     def register_container(self, mode):
         #self.result_dict[mode + '_recall_hit'] = {20: [0]*self.num_rel, 50: [0]*self.num_rel, 100: [0]*self.num_rel}
@@ -872,7 +887,12 @@ class SGNGMeanRecall(SceneGraphEvaluation):
         super(SGNGMeanRecall, self).__init__(result_dict)
         self.num_rel = num_rel
         self.print_detail = print_detail
-        self.rel_name_list = ind_to_predicates[1:] # remove __background__
+        # Handle both list and dict formats for ind_to_predicates
+        if isinstance(ind_to_predicates, dict):
+            # Convert dict to list and remove __background__ (index 0)
+            self.rel_name_list = [ind_to_predicates[i] for i in sorted(ind_to_predicates.keys()) if i > 0]
+        else:
+            self.rel_name_list = ind_to_predicates[1:]  # remove __background__
 
     def register_container(self, mode):
         self.result_dict[mode + '_ng_mean_recall'] = {20: 0.0, 50: 0.0, 100: 0.0}

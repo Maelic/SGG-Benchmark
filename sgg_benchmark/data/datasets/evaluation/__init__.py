@@ -23,9 +23,7 @@ def evaluate(cfg, dataset, dataset_name, predictions, output_folder, logger, **k
         return coco_evaluation(**args)
     elif isinstance(dataset, datasets.PascalVOCDataset):
         return voc_evaluation(**args)
-    elif isinstance(dataset, datasets.VGDataset):
-        return vg_evaluation(**args)
-    elif isinstance(dataset, datasets.PSGDataset):
+    elif isinstance(dataset, datasets.VGDataset) or isinstance(dataset, datasets.PSGDataset) or isinstance(dataset, datasets.RelationDataset):
         return vg_evaluation(**args)
     else:
         dataset_name = dataset.__class__.__name__

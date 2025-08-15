@@ -20,6 +20,10 @@ from yacs.config import CfgNode as CN
 
 _C = CN()
 
+_C.SEED = 42
+_C.METRIC_TO_TRACK = "mR"
+_C.DTYPE = "float32"  # Options: float32, float16, bfloat16
+
 _C.MODEL = CN()
 _C.MODEL.FLIP_AUG = False
 _C.MODEL.RPN_ONLY = False
@@ -34,9 +38,7 @@ _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 # the path in paths_catalog. Else, it will use it as the specified absolute
 # path
 _C.MODEL.WEIGHT = ""
-
-# checkpoint of detector, for relation prediction
-_C.MODEL.PRETRAINED_DETECTOR_CKPT = ""
+_C.MODEL.PRETRAINED_DETECTOR_CKPT = ""  # Path to a pretrained detector checkpoint
 
 # -----------------------------------------------------------------------------
 # INPUT
@@ -81,7 +83,9 @@ _C.DATASETS.VAL = ()
 # List of the dataset names for testing, as present in paths_catalog.py
 _C.DATASETS.TEST = ()
 _C.DATASETS.NAME = ""
-_C.DATASETS.TO_TEST = ""
+_C.DATASETS.TYPE = ""
+_C.DATASETS.PATH = ""
+
 
 # -----------------------------------------------------------------------------
 # DataLoader
@@ -425,11 +429,7 @@ _C.MODEL.FBNET.DET_HEAD_BLOCKS = []
 # overwrite the stride for the head, 0 to use original value
 _C.MODEL.FBNET.DET_HEAD_STRIDE = 0
 
-# > 0 scale, == 0 skip, < 0 same dimension
-_C.MODEL.FBNET.KPTS_HEAD_LAST_SCALE = 0.0
-_C.MODEL.FBNET.KPTS_HEAD_BLOCKS = []
-# overwrite the stride for the head, 0 to use original value
-_C.MODEL.FBNET.KPTS_HEAD_STRIDE = 0
+
 
 # > 0 scale, == 0 skip, < 0 same dimension
 _C.MODEL.FBNET.MASK_HEAD_LAST_SCALE = 0.0
@@ -549,7 +549,7 @@ _C.TEST.CUSTUM_EVAL = False
 _C.TEST.CUSTUM_PATH = '.'
 _C.TEST.TOP_K = 100
 
-_C.TEST.COMPUTE_DCS = False
+
 
 
 # ---------------------------------------------------------------------------- #
@@ -559,17 +559,7 @@ _C.OUTPUT_DIR = "."
 _C.DETECTED_SGG_DIR = "."
 _C.GLOVE_DIR = "."
 _C.VERBOSE = "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
-_C.SEED = 42 # -1 to desactivate
 
 _C.PATHS_CATALOG = os.path.join(os.path.dirname(__file__), "paths_catalog.py")
 _C.PATHS_DATA = os.path.join(os.path.dirname(__file__), "/home/Documents/Datasets/VG/")
 
-_C.METRIC_TO_TRACK = "mR" # mR (mean Recall), R (Recall), zR (zero-shot Recall), ng-R (no graph constraint Recall),
-                          # ng-mR (no graph constraint mean Recall), ng-zR (no graph constraint zero-shot Recall), topA (Top K Accuracy)
-
-# ---------------------------------------------------------------------------- #
-# Precision options
-# ---------------------------------------------------------------------------- #
-
-# Precision of input, allowable: (float32, float16)
-_C.DTYPE = "float32"

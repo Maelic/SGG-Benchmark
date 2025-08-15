@@ -48,7 +48,7 @@ def do_vg_evaluation(
     # num_attributes = cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
     # extract evaluation settings from cfg
     # mode = cfg.TEST.RELATION.EVAL_MODE
-    if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX and not cfg.SGDET_TEST:
+    if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
         if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
             mode = 'predcls'
         else:

@@ -6,8 +6,8 @@ import copy
 
 
 class DatasetCatalog(object):
-    DATA_DIR = "./"
-    IMG_DIR = "./datasets/VG150/"
+    DATA_DIR = "/home/maelicneau/Documents/SGG-Benchmark/"
+    IMG_DIR = "/home/maelicneau/Documents/SGG-Benchmark/datasets/"
     DATASETS = {
         "VG150": {
             "img_dir": IMG_DIR+"VG_100K",
@@ -31,10 +31,10 @@ class DatasetCatalog(object):
         },
         "VG_indoor_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/IndoorVG_4/VG-SGG-augmented-penet-cat.h5",
-            "dict_file": DATA_DIR+"datasets/IndoorVG_4/VG-SGG-dicts.json",
+            "roidb_file": DATA_DIR+"datasets/IndoorVG/VG-SGG-augmented-penet-cat.h5",
+            "dict_file": DATA_DIR+"datasets/IndoorVG/VG-SGG-dicts.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/IndoorVG_4/zero_shot_triplets.pytorch",
+            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/zero_shot_triplets.pytorch",
             "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "VG178": {
@@ -44,6 +44,10 @@ class DatasetCatalog(object):
             "image_file": DATA_DIR+"vg/image_data.json",
             "zeroshot_file": DATA_DIR+"VG178/zero_shot_triplets.pytorch",
             "informative_file": DATA_DIR+"datasets/informative_sg.json",
+        },
+        "custom_dataset": {
+            "img_dir": IMG_DIR+"custom_images",
+            "roidb_file": DATA_DIR+"datasets/custom_dataset/roidb.json",
         },
     }
 
@@ -95,6 +99,25 @@ class DatasetCatalog(object):
                 factory="PSGDataset",
                 args=args,
             )
+        else:
+            # Try to use the new RelationDataset
+            data_dir = DatasetCatalog.DATA_DIR
+            split_dir = os.path.join(data_dir, attrs["img_dir"])+"/" + name
+            if name in DatasetCatalog.DATASETS:
+                attrs = DatasetCatalog.DATASETS[name]
+                args = dict(
+                    annotation_file=os.path.join(data_dir, attrs["roidb_file"]),
+                    img_dir=split_dir,
+                    split=attrs.get("split", "all"),
+                    filter_empty_rels=attrs.get("filter_empty_rels", True),
+                    filter_duplicate_rels=attrs.get("filter_duplicate_rels", True),
+                    filter_non_overlap=attrs.get("filter_non_overlap", False),
+                    flip_aug=attrs.get("flip_aug", False),
+                )
+                return dict(
+                    factory="RelationDataset",
+                    args=args,
+                )
 
         raise RuntimeError("Dataset not available: {}".format(name))
 

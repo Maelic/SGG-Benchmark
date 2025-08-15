@@ -17,6 +17,8 @@ from . import samplers
 from .collate_batch import BatchCollator, BBoxAugCollator
 from .transforms import build_transforms
 
+from .datasets.data import RelationDataset
+
 # by Jiaxin
 def get_dataset_statistics(cfg):
     """
@@ -29,44 +31,68 @@ def get_dataset_statistics(cfg):
         logger = logging.getLogger(__name__)
     logger.info('-'*100)
     logger.info('get dataset statistics...')
-    paths_catalog = import_file(
-        "maskrcnn_benchmark.config.paths_catalog", cfg.PATHS_CATALOG, True
-    )
-    DatasetCatalog = paths_catalog.DatasetCatalog
-    dataset_names = cfg.DATASETS.TRAIN
 
-    data_statistics_name = ''.join(dataset_names) + '_statistics'
-    save_file = os.path.join(cfg.OUTPUT_DIR, "{}.cache".format(data_statistics_name))
-    
-    if os.path.exists(save_file):
-        logger.info('Loading data statistics from: ' + str(save_file))
-        logger.info('-'*100)
-        return torch.load(save_file, map_location=torch.device("cpu"))
+    if cfg.DATASETS.TYPE == 'coco':
+        name = cfg.DATASETS.PATH.split('/')[-1]
+        data_statistics_name = ''.join(name) + '_statistics'
+        save_file = os.path.join(cfg.DATASETS.PATH, "{}.cache".format(data_statistics_name))
+        
+        if os.path.exists(save_file):
+            logger.info('Loading data statistics from: ' + str(save_file))
+            logger.info('-'*100)
+            return torch.load(save_file, map_location=torch.device("cpu"))
+        else:
+            logger.info('Unable to load data statistics from: ' + str(save_file))
+
+        # for COCO dataset, we use the RelationDataset class to get statistics
+        data = {
+            "factory": "RelationDataset",
+            "args": {
+                "annotation_file": os.path.join(cfg.DATASETS.PATH, "train/relations.json"),
+                "img_dir": os.path.join(cfg.DATASETS.PATH, 'train'),
+                "filter_empty_rels": True,
+                "filter_duplicate_rels": True,
+                "filter_non_overlap": True,
+                "flip_aug": cfg.MODEL.FLIP_AUG,
+            }
+        }
+        factory = getattr(D, data["factory"])
+        args = data["args"]
+        dataset = factory(**args)
+        statistics = dataset.get_statistics()
     else:
-        logger.info('Unable to load data statistics from: ' + str(save_file))
+        paths_catalog = import_file(
+            "sgg_benchmark.config.paths_catalog", cfg.PATHS_CATALOG, True
+        )
+        DatasetCatalog = paths_catalog.DatasetCatalog
+        dataset_names = cfg.DATASETS.TRAIN
 
-    statistics = []
-    for dataset_name in dataset_names:
-        data = DatasetCatalog.get(dataset_name, cfg)
+        data_statistics_name = ''.join(dataset_names) + '_statistics'
+        save_file = os.path.join(cfg.OUTPUT_DIR, "{}.cache".format(data_statistics_name))
+        
+        if os.path.exists(save_file):
+            logger.info('Loading data statistics from: ' + str(save_file))
+            logger.info('-'*100)
+            return torch.load(save_file, map_location=torch.device("cpu"))
+        else:
+            logger.info('Unable to load data statistics from: ' + str(save_file))
+
+        data = DatasetCatalog.get(dataset_names[0], cfg)
         factory = getattr(D, data["factory"])
         args = data["args"]
         dataset = factory(**args)
         statistics.append(dataset.get_statistics())
-    # dict with statistics[0]['rel_classes'] as keys and statistics[0]['pred_prop'] as values
-    # pred_dict = dict(zip(statistics[0]['rel_classes'][1:], statistics[0]['pred_freq']))
-    # logger.info('Predicate proportion: ' + str(pred_dict))
 
-    assert len(statistics) == 1
     result = {
-        'fg_matrix': statistics[0]['fg_matrix'],
-        'pred_dist': statistics[0]['pred_dist'],
-        'obj_classes': statistics[0]['obj_classes'], # must be exactly same for multiple datasets
-        'rel_classes': statistics[0]['rel_classes'],
-        'predicate_new_order': statistics[0]['predicate_new_order'], # for GCL
-        'predicate_new_order_count': statistics[0]['predicate_new_order_count'],
-        'pred_freq': statistics[0]['pred_freq'],
-        'triplet_freq': statistics[0]['triplet_freq'],
-        'pred_weight': statistics[0]['pred_weight'],
+        'fg_matrix': statistics['fg_matrix'],
+        'pred_dist': statistics['pred_dist'],
+        'obj_classes': statistics['obj_classes'], # must be exactly same for multiple datasets
+        'rel_classes': statistics['rel_classes'],
+        'predicate_new_order': statistics['predicate_new_order'], # for GCL
+        'predicate_new_order_count': statistics['predicate_new_order_count'],
+        'pred_freq': statistics['pred_freq'],
+        'triplet_freq': statistics['triplet_freq'],
+        'pred_weight': statistics['pred_weight'],
     }
     logger.info('Save data statistics to: ' + str(save_file))
     logger.info('-'*100)
@@ -211,7 +237,20 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, data
 
     # If bbox aug is enabled in testing, simply set transforms to None and we will apply transforms later
     transforms = None if not is_train and cfg.TEST.BBOX_AUG.ENABLED else build_transforms(cfg, is_train)
-    datasets = build_dataset(cfg, dataset_list, transforms, DatasetCatalog, is_train)
+
+    if cfg.DATASETS.TYPE == 'coco':
+        dataset = RelationDataset(
+            annotation_file=os.path.join(cfg.DATASETS.PATH, dataset_to_test+"/relations.json"),
+            transforms=transforms,
+            img_dir=os.path.join(cfg.DATASETS.PATH, dataset_to_test),
+            filter_empty_rels=True,
+            filter_duplicate_rels=True,
+            filter_non_overlap=True,
+            flip_aug=cfg.MODEL.FLIP_AUG,
+        )
+        datasets = [dataset]
+    else:
+        datasets = build_dataset(cfg, dataset_list, transforms, DatasetCatalog, is_train)
 
     if is_train:
         # save category_id to label name mapping

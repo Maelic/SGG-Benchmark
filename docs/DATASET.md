@@ -35,3 +35,7 @@ Note that for efficient encoding of the class labels it is necessary to change s
 We provide a script to convert any annotations in SGG format (.h5 file) to YOLO format, which make it easier for training an Object Detection backbone. Please have a look if you're interested: [process_data/convert_to_yolo.ipynb](process_data/convert_to_yolo.ipynb)
 
 Other tools related to data augmentation and conversion can be found under ```process_data/```.
+
+# Creating Your Own Dataset
+
+Please check the [SGG-Annotate](https://github.com/Maelic/SGG-Annotate) tool to create your own dataset in COCO format. Annotations can then be loaded using the ```RelationDataset``` class, see the ```cutom_dataset``` example in [path_catalog.py](sgg_benchmark/config/paths_catalog.py). For more information with the new format of annotations see [ANNOTATIONS.md](ANNOTATIONS.md).

@@ -5,7 +5,7 @@
 ![PyTorch](https://img.shields.io/badge/pytorch-2.2.1-%237732a8)
 [![arXiv](https://img.shields.io/badge/arXiv-2405.16116-b31b1b.svg)](https://arxiv.org/abs/2405.16116)
 
-## :rocket: Official code for the paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene Graph Generation](https://arxiv.org/abs/2405.16116) - BMVC 2025 :rocket:
+## [BMVC 2025] Code for the paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene Graph Generation](https://arxiv.org/abs/2405.16116)
 
 Previous work (PE-NET model) | Our REACT model for Real-Time SGG
 :-: | :-:
@@ -13,7 +13,7 @@ Previous work (PE-NET model) | Our REACT model for Real-Time SGG
 
 
 Our paper [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene
-Graph Generation](https://arxiv.org/abs/2405.16116) has been accepted at BMVC 2025! Please have a look if you're interested! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8/9/10/11/12. Weights are available [here](MODEL_ZOO.md).
+Graph Generation](https://arxiv.org/abs/2405.16116) has been accepted at BMVC 2025! We dive into current bottlenecks of SGG models for real-time constraints and propose a simple yet very efficient implementation using YOLOV8/9/10/11/12. Weights are available [here](docs/MODEL_ZOO.md).
 Here is a snapshot of the main results:
 
 <p align="center">
@@ -29,10 +29,11 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 
 ## Recent Updates
 
+- [X] 15/08/2025: I have created a new tool to annotate your own SGG dataset with visual relationships, please check it out: [SGG-Annotate](https://github.com/Maelic/SGG-Annotate). More info in [ANNOTATIONS.md](docs/ANNOTATIONS.md).
 - [X] 31.07.2025: REACT has been accepted at the BMVC 2025 conference!
-- [X] 26.05.2025: I have added some explanation for two new metrics: InformativeRecall@K and Recall@K Relative. InformativeRecall@K is defined in [Mining Informativeness in Scene Graphs](https://www.sciencedirect.com/science/article/pii/S016786552500008X) and can help to measure the pertinence and robustness of models for real-world applications. Please check the [METRICS.md](METRICS.md) file for more information.
+- [X] 26.05.2025: I have added some explanation for two new metrics: InformativeRecall@K and Recall@K Relative. InformativeRecall@K is defined in [Mining Informativeness in Scene Graphs](https://www.sciencedirect.com/science/article/pii/S016786552500008X) and can help to measure the pertinence and robustness of models for real-world applications. Please check the [METRICS.md](docs/METRICS.md) file for more information.
 - [X] 26.05.2025: The codebase now supports also YOLOV12, see [configs/VG150/react_yolov12m.yaml](configs/VG150/react_yolov12m.yaml).
-- [X] 04.12.2024: Official release of the REACT model weights for VG150, please see [MODEL_ZOO.md](MODEL_ZOO.md)
+- [X] 04.12.2024: Official release of the REACT model weights for VG150, please see [MODEL_ZOO.md](docs/MODEL_ZOO.md)
 - [X] 03.12.2024: Official release of the [REACT model](https://arxiv.org/abs/2405.16116)
 - [X] 23.05.2024: Added support for Hyperparameters Tuning with the RayTune library, please check it out: [Hyperparameters Tuning](#hyperparameters-tuning)
 - [X] 23.05.2024: Added support for the YOLOV10 backbone and SQUAT relation head!
@@ -46,14 +47,14 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 ## Contents
 
 1. [Overview](#Overview)
-2. [Install the Requirements](INSTALL.md)
-3. [Prepare the Dataset](DATASET.md)
+2. [Install the Requirements](docs/INSTALL.md)
+3. [Prepare the Dataset](docs/DATASET.md)
 4. [Simple Webcam Demo](#demo)
 5. [Supported Models](#supported-models)
-6. [Metrics and Results for our Toolkit](METRICS.md)
-    - [Explanation of R@K, mR@K, zR@K, ng-R@K, ng-mR@K, ng-zR@K, A@K, S2G](METRICS.md#explanation-of-our-metrics)
-    - [Output Format](METRICS.md#output-format-of-our-code)
-    - [Reported Results](METRICS.md#reported-results)
+6. [Metrics and Results for our Toolkit](docs/METRICS.md)
+    - [Explanation of R@K, mR@K, zR@K, ng-R@K, ng-mR@K, ng-zR@K, A@K, S2G](docs/METRICS.md#explanation-of-our-metrics)
+    - [Output Format](docs/METRICS.md#output-format-of-our-code)
+    - [Reported Results](docs/METRICS.md#reported-results)
 7. [Training on Scene Graph Generation](#perform-training-on-scene-graph-generation)
 8. [Hyperparameters Tuning](#hyperparameters-tuning)
 9. [Evaluation on Scene Graph Generation](#Evaluation)
@@ -64,35 +65,23 @@ This codebase is actually a work-in-progress, do not expect everything to work p
 11. [Frequently Asked Questions](#frequently-asked-questions)
 12. [Citations](#Citations)
 
-## Overview
+<!-- ## Overview
 
 Note from [Kaihua Tang](https://github.com/KaihuaTang), I keep it for reference:
 
-" This project aims to build a new CODEBASE of Scene Graph Generation (SGG), and it is also a Pytorch implementation of the paper [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949). The previous widely adopted SGG codebase [neural-motifs](https://github.com/rowanz/neural-motifs) is detached from the recent development of Faster/Mask R-CNN. Therefore, I decided to build a scene graph benchmark on top of the well-known [maskrcnn-benchmark](https://github.com/facebookresearch/maskrcnn-benchmark) project and define relationship prediction as an additional roi_head. By the way, thanks to their elegant framework, this codebase is much more novice-friendly and easier to read/modify for your own projects than previous neural-motifs framework (at least I hope so). It is a pity that when I was working on this project, the [detectron2](https://github.com/facebookresearch/detectron2) had not been released, but I think we can consider [maskrcnn-benchmark](https://github.com/facebookresearch/maskrcnn-benchmark) as a more stable version with less bugs, hahahaha. I also introduce all the old and new metrics used in SGG, and clarify two common misunderstandings in SGG metrics in [METRICS.md](METRICS.md), which cause abnormal results in some papers. "
-
-<!-- ### Benefit from the up-to-date Faster R-CNN in [maskrcnn-benchmark](https://github.com/facebookresearch/maskrcnn-benchmark), this codebase achieves new state-of-the-art Recall@k on SGCls & SGGen (by 2020.2.16) through the reimplemented VCTree using two 1080ti GPUs and batch size 8:
-
-Models | SGGen R@20 | SGGen R@50 | SGGen R@100 | SGCls R@20 | SGCls R@50 | SGCls R@100 | PredCls R@20 | PredCls R@50 | PredCls R@100
--- | -- | -- | -- | -- | -- | -- | -- | -- | -- 
-VCTree | 24.53 | 31.93 | 36.21 | 42.77 | 46.67 | 47.64 | 59.02 | 65.42 | 67.18
-
-Note that all results of VCTree should be better than what we reported in [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), because we optimized the tree construction network after the publication.
-
-### The illustration of the Unbiased SGG from 'Unbiased Scene Graph Generation from Biased Training'
-
-![alt text](demo/teaser_figure.png "from 'Unbiased Scene Graph Generation from Biased Training'") -->
+" This project aims to build a new CODEBASE of Scene Graph Generation (SGG), and it is also a Pytorch implementation of the paper [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949). The previous widely adopted SGG codebase [neural-motifs](https://github.com/rowanz/neural-motifs) is detached from the recent development of Faster/Mask R-CNN. Therefore, I decided to build a scene graph benchmark on top of the well-known [maskrcnn-benchmark](https://github.com/facebookresearch/maskrcnn-benchmark) project and define relationship prediction as an additional roi_head. By the way, thanks to their elegant framework, this codebase is much more novice-friendly and easier to read/modify for your own projects than previous neural-motifs framework (at least I hope so). It is a pity that when I was working on this project, the [detectron2](https://github.com/facebookresearch/detectron2) had not been released, but I think we can consider [maskrcnn-benchmark](https://github.com/facebookresearch/maskrcnn-benchmark) as a more stable version with less bugs, hahahaha. I also introduce all the old and new metrics used in SGG, and clarify two common misunderstandings in SGG metrics in [METRICS.md](METRICS.md), which cause abnormal results in some papers. " -->
 
 ## Installation
 
-Check [INSTALL.md](INSTALL.md) for installation instructions.
+Check [INSTALL.md](docs/INSTALL.md) for installation instructions.
 
-## Dataset
+## Datasets
 
-Check [DATASET.md](DATASET.md) for instructions regarding dataset preprocessing.
+Check [DATASET.md](docs/DATASET.md) for instructions regarding dataset preprocessing, including how to create your own dataset with [SGG-Annotate](https://github.com/Maelic/SGG-Annotate).
 
 ## DEMO
 
-You can [download a pre-train model](MODEL_ZOO.md) or [train your own model](#perform-training-on-scene-graph-generation) and run my off-the-shelf demo!
+You can [download a pre-train model](docs/MODEL_ZOO.md) or [train your own model](#perform-training-on-scene-graph-generation) and run my off-the-shelf demo!
 
 You can use the [SGDET_on_custom_images.ipynb](demo/SGDET_on_custom_images.ipynb) notebook to visualize detections on images.
 
@@ -100,9 +89,11 @@ I also made a demo code to try SGDET with your webcam in the [demo folder](./dem
 
 ## Supported Models
 
+### Background 
+
 Scene Graph Generation approaches can be categorized between one-stage and two-stage approaches:
 1. **Two-stages approaches** are the original implementation of SGG. It decouples the training process into (1) training an object detection backbone and (2) using bounding box proposals and image features from the backbone to train a relation prediction model.
-2. **One-stage approaches** are learning both the object and relation features in the same learning stage. This codebase focuses on the first category, two-stage approaches.
+2. **One-stage approaches** are learning both the object and relation features in the same learning stage. ***This codebase focuses only on the first category, two-stage approaches***.
 
 ### Object Detection Backbones
 
@@ -110,51 +101,56 @@ We proposed different object detection backbones that can be plugged with any re
 
 :rocket: NEW! No need to train a backbone anymore, we support Yolo-World for fast and easy open-vocabulary inference. Please check it out!
 
+- [x] [YOLO12](https://docs.ultralytics.com/models/yolo12/): New yolo architecture for SOTA real-time object detection.
+- [x] [YOLO11](https://docs.ultralytics.com/models/yolo11/): New  yolo version from Ultralytics for SOTA real-time object detection.
 - [x] [YOLOV10](https://docs.ultralytics.com/models/yolov10/): New end-to-end yolo architecture for SOTA real-time object detection.
 - [x] [YOLOV8-World](https://docs.ultralytics.com/models/yolo-world/): SOTA in real-time open-vocabulary object detection!
 - [x] [YOLOV9](https://docs.ultralytics.com/models/yolov9/): SOTA in real-time object detection.
-- [x] [YOLOV8](https://docs.ultralytics.com/models/yolov8/): SOTA in real-time object detection.
-- [x] Faster-RCNN: This is the original backbone used in most SGG approaches. It is based on a ResNeXt-101 feature extractor and an RPN for regression and classification. See [the original paper for reference](https://arxiv.org/pdf/1506.01497.pdf). Performance is 38.52/26.35/28.14 mAp on VG train/val/test set respectively. You can find the original pretrained model by Kaihua [here](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw).
+- [x] [YOLOV8](https://docs.ultralytics.com/models/yolov8/): New  yolo version from Ultralytics for SOTA real-time object detection.
+- [x] **LEGACY** Faster-RCNN: This is the original backbone used in most SGG approaches. It is based on a ResNeXt-101 feature extractor and an RPN for regression and classification. See [the original paper for reference](https://arxiv.org/pdf/1506.01497.pdf). Performance is 38.52/26.35/28.14 mAp on VG train/val/test set respectively. You can find the original pretrained model by Kaihua [here](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw).
 
 ### Relation Heads
 
 We try to compiled the main approaches for relation modeling in this codebase:
 
-- [x] SQUAT: [Devil's on the Edges: Selective Quad Attention for Scene Graph Generation](https://arxiv.org/abs/2304.03495), thanks to the [official implementation by authors](https://github.com/hesedjds/SQUAT)
+- [x] REACT (2025): [REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene Graph Generation](https://arxiv.org/abs/2405.16116)
 
-- [x] PE-NET: [Prototype-based Embedding Network for Scene Graph Generation](https://arxiv.org/abs/2303.07096), thanks to the [official implementation by authors](https://github.com/VL-Group/PENET)
+- [x] SQUAT (2023): [Devil's on the Edges: Selective Quad Attention for Scene Graph Generation](https://arxiv.org/abs/2304.03495), thanks to the [official implementation by authors](https://github.com/hesedjds/SQUAT)
 
-- [x] SHA-GCL: [Stacked Hybrid-Attention and Group Collaborative Learning for Unbiased Scene Graph Generation in Pytorch](https://arxiv.org/abs/2203.09811), thanks to the [official implementation by authors](https://github.com/dongxingning/SHA-GCL-for-SGG)
+- [x] PE-NET (2023): [Prototype-based Embedding Network for Scene Graph Generation](https://arxiv.org/abs/2303.07096), thanks to the [official implementation by authors](https://github.com/VL-Group/PENET)
 
-- [x] GPS-NET: [GPS-Net: Graph Property Sensing Network for Scene Graph Generation
-](https://arxiv.org/abs/2003.12962), thanks to the [official implementation by authors](https://github.com/siml3/GPS-Net)
+- [x] SHA-GCL (2022): [Stacked Hybrid-Attention and Group Collaborative Learning for Unbiased Scene Graph Generation in Pytorch](https://arxiv.org/abs/2203.09811), thanks to the [official implementation by authors](https://github.com/dongxingning/SHA-GCL-for-SGG)
 
-- [x] VCTree: [Learning to Compose Dynamic Tree Structures for Visual Contexts](https://arxiv.org/abs/1812.01880), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+- [x] GPS-NET (2020): [GPS-Net: Graph Property Sensing Network for Scene Graph Generation](https://arxiv.org/abs/2003.12962), thanks to the [official implementation by authors](https://github.com/siml3/GPS-Net)
 
-- [x] Neural-Motifs: [Neural Motifs: Scene Graph Parsing with Global Context](https://arxiv.org/abs/1711.06640), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+- [x] Transformer (2020): [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
 
-- [x] IMP: [Scene Graph Generation by Iterative Message Passing](https://arxiv.org/abs/1701.02426), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+- [x] VCTree (2018): [Learning to Compose Dynamic Tree Structures for Visual Contexts](https://arxiv.org/abs/1812.01880), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+
+- [x] Neural-Motifs (2018): [Neural Motifs: Scene Graph Parsing with Global Context](https://arxiv.org/abs/1711.06640), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+
+- [x] IMP (2017): [Scene Graph Generation by Iterative Message Passing](https://arxiv.org/abs/1701.02426), thanks to the [implementation by Kaihua](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
 
 ### Debiasing methods
 
 On top of relation heads, several debiasing methods have been proposed through the years with the aim of increasing the accuracy of baseline models in the prediction of tail classes.
 
-- [x] Hierarchical: [Hierarchical Relationships: A New Perspective to Enhance Scene Graph Generation](https://arxiv.org/abs/2303.06842), thanks to the [implementation by authors](https://github.com/zzjun725/Scene-Graph-Benchmark.pytorch)
+- [x] Hierarchical (2024): [Hierarchical Relationships: A New Perspective to Enhance Scene Graph Generation](https://arxiv.org/abs/2303.06842), thanks to the [implementation by authors](https://github.com/zzjun725/Scene-Graph-Benchmark.pytorch)
 
-- [x] Causal: [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), thanks to the [implementation by authors](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
+- [x] Causal (2020): [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), thanks to the [implementation by authors](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch)
 
 ### Data Augmentation methods
 
 Due to severe biases in datasets, the task of Scene Graph Generation as also been tackled through data-centring approaches.
 
-- [x] IETrans: [Fine-Grained Scene Graph Generation with Data Transfer](https://arxiv.org/abs/2203.11654), custom implementation based on the one [by Zijian Zhou](https://github.com/franciszzj/HiLo/tree/main/tools/data_prepare)
+- [x] IETrans (2022): [Fine-Grained Scene Graph Generation with Data Transfer](https://arxiv.org/abs/2203.11654), custom implementation based on the one [by Zijian Zhou](https://github.com/franciszzj/HiLo/tree/main/tools/data_prepare)
 
 ### Model ZOO
 
-We provide some of the pre-trained weights for evaluation or usage in downstream tasks, please see [MODEL_ZOO.md](MODEL_ZOO.md).
+We provide some of the pre-trained weights for evaluation or usage in downstream tasks, please see [MODEL_ZOO.md](docs/MODEL_ZOO.md).
 
 ## Metrics and Results **(IMPORTANT)**
-Explanation of metrics in our toolkit and reported results are given in [METRICS.md](METRICS.md)
+Explanation of metrics in our toolkit and reported results are given in [METRICS.md](docs/METRICS.md)
 
 <!-- ## Alternate links
 
@@ -162,9 +158,9 @@ Since OneDrive links might be broken in mainland China, we also provide the foll
 
 Link：[https://pan.baidu.com/s/1oyPQBDHXMQ5Tsl0jy5OzgA](https://pan.baidu.com/s/1oyPQBDHXMQ5Tsl0jy5OzgA)
 Extraction code：1234 -->
-## YOLOV8/9/10/11/World Pre-training
+## YOLOV8/9/10/11/12/World Pre-training
 
-If you want to use YoloV8/9/10/11 or Yolo-World as a backbone instead of Faster-RCNN, you need to first train a model using the official [ultralytics implementation](https://github.com/ultralytics/ultralytics). To help you with that, I have created a [dedicated notebook](process_data/convert_to_yolo.ipynb) to generate annotations in YOLO format from a .h5 file (SGG format). 
+If you want to use YoloV8/9/10/11/12 or Yolo-World as a backbone instead of Faster-RCNN, you need to first train a model using the official [ultralytics implementation](https://github.com/ultralytics/ultralytics). To help you with that, I have created a [dedicated notebook](process_data/convert_to_yolo.ipynb) to generate annotations in YOLO format from a .h5 file (SGG format). 
 Once you have a model, you can modify [this config file](configs/VG150/e2e_relation_yolov8m.yaml) and change the path `PRETRAINED_DETECTOR_CKPT` to your model weights. Please note that you will also need to change the variable `SIZE` and `OUT_CHANNELS` accordingly if you use another variant of YOLO (nano, small or large for instance). 
 For training an SGG model with YOLO as a backbone, you need to modify the `META_ARCHITECTURE` variable in the same config file to `GeneralizedYOLO`. You can then follow the standard procedure for PREDCLS, SGCLS or SGDET training below.
 
@@ -177,8 +173,6 @@ The following command can be used to train your own Faster R-CNN model:
 CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch --master_port 10001 --nproc_per_node=4 tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" SOLVER.MAX_EPOCH 20 MODEL.RELATION_ON False OUTPUT_DIR ./checkpoints/pretrained_faster_rcnn SOLVER.PRE_VAL False
 ```
 where ```CUDA_VISIBLE_DEVICES``` and ```--nproc_per_node``` represent the id of GPUs and number of GPUs you use, ```--config-file``` means the config we use, where you can change other parameters. ```SOLVER.IMS_PER_BATCH``` and ```TEST.IMS_PER_BATCH``` are the training and testing batch size respectively, ```DTYPE "float16"``` enables Automatic Mixed Precision, ```OUTPUT_DIR``` is the output directory to save checkpoints and log (considering `/home/username/checkpoints/pretrained_faster_rcnn`), ```SOLVER.PRE_VAL``` means whether we conduct validation before training or not.
- 
-
 
 ## Perform training on Scene Graph Generation
 

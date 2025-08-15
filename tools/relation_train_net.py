@@ -322,29 +322,22 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     if cfg.MODEL.ATTRIBUTE_ON:
         iou_types = iou_types + ("attributes", )
 
-    dataset_names = cfg.DATASETS.VAL
-    val_result = []
-    for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
-        dataset_result = inference(
-                            cfg,
-                            model,
-                            val_data_loader,
-                            dataset_name=dataset_name,
-                            iou_types=iou_types,
-                            box_only=cfg.MODEL.RPN_ONLY,
-                            device=cfg.MODEL.DEVICE,
-                            expected_results=cfg.TEST.EXPECTED_RESULTS,
-                            expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
-                            output_folder=None,
-                            logger=logger,
-                            informative=cfg.TEST.INFORMATIVE,
-                        )
-        synchronize()
+    dataset_result = inference(
+                        cfg,
+                        model,
+                        val_data_loaders[0],
+                        dataset_name="",
+                        iou_types=iou_types,
+                        box_only=cfg.MODEL.RPN_ONLY,
+                        device=cfg.MODEL.DEVICE,
+                        expected_results=cfg.TEST.EXPECTED_RESULTS,
+                        expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
+                        output_folder=None,
+                        logger=logger,
+                        informative=cfg.TEST.INFORMATIVE,
+                    )
+    synchronize()
 
-        val_result.append(dataset_result)
-
-    # VG has only one val dataset
-    dataset_result = val_result[0]
     if len(dataset_result) == 1:
         return dataset_result
     if distributed:
