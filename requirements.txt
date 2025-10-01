@@ -13,6 +13,6 @@ pycocotools
 h5py
 networkx
 sentence-transformers
-ultralytics
+ultralytics==8.3.100
 dill
 calflops
