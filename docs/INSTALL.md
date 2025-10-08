@@ -28,7 +28,7 @@ conda install ipython scipy h5py ninja cython matplotlib tqdm pandas
 
 # follow PyTorch installation in https://pytorch.org/get-started/locally/
 # we give the instructions for CUDA 12.1
-pip install pytorch==2.2.1 torchvision==0.17.1 pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install pytorch==2.2.1 torchvision==0.17.1 pytorch-cuda=12.1 -c pytorch -c nvidia
 
 # some pip dependencies
 pip install -r requirements.txt
