@@ -331,13 +331,12 @@ The counterfactual inference is not only applicable to SGG. Actually, my collegu
 If you find this project helps your research, please kindly consider citing our project or papers in your publications.
 
 ```
-@misc{neau2024reactrealtimeefficiencyaccuracy,
-      title={REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene Graph Generation}, 
-      author={Maëlic Neau and Paulo E. Santos and Anne-Gwenn Bosser and Cédric Buche},
-      year={2024},
-      eprint={2405.16116},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2405.16116}, 
+@inproceedings{Neau_2025_BMVC,
+    author    = {Maëlic Neau and Paulo Eduardo Santos and Anne-Gwenn Bosser and Akihiro Sugimoto and Cedric Buche},
+    title     = {REACT: Real-time Efficiency and Accuracy Compromise for Tradeoffs in Scene Graph Generation},
+    booktitle = {36th British Machine Vision Conference 2025, {BMVC} 2025, Sheffield, UK, November 24-27, 2025},
+    publisher = {BMVA},
+    year      = {2025},
+    url       = {https://bmva-archive.org.uk/bmvc/2025/assets/papers/Paper_239/paper.pdf}
 }
 ```
