@@ -170,24 +170,44 @@ class VGDataset(torch.utils.data.Dataset):
         self.img_info = []
         if not os.path.exists(path):
             return
+        # Allowed image extensions
+        valid_exts = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
         if os.path.isdir(path):
-            # check if there is images in the directory
-            files = os.listdir(path)
-            img = ['.jpg', '.jpeg', '.png']
-            # check if there is images in the directory
-            if not any([f.endswith(tuple(img)) for f in files]):
-                return
-            for file_name in os.listdir(path):
-                self.custom_files.append(os.path.join(path, file_name))
-                img = Image.open(os.path.join(path, file_name)).convert("RGB")
-                self.img_info.append({'width':int(img.width), 'height':int(img.height), 'image_id':str(file_name.split('.')[0])})
+            # List files and keep only real files with allowed extensions
+            for file_name in sorted(os.listdir(path)):
+                file_path = os.path.join(path, file_name)
+                if not os.path.isfile(file_path):
+                    continue
+                if not file_name.lower().endswith(valid_exts):
+                    continue
+                try:
+                    img = Image.open(file_path).convert("RGB")
+                except Exception:
+                    # skip files that PIL cannot open
+                    continue
+                self.custom_files.append(file_path)
+                self.img_info.append({'width': int(img.width), 'height': int(img.height), 'image_id': str(os.path.splitext(file_name)[0])})
         # Expecting a list of paths in a json file
         if os.path.isfile(path):
-            file_list = json.load(open(path))
+            # Expecting a JSON list of file paths
+            try:
+                file_list = json.load(open(path))
+            except Exception:
+                return
             for file in file_list:
+                if not isinstance(file, str):
+                    continue
+                if not os.path.isfile(file):
+                    continue
+                if not file.lower().endswith(valid_exts):
+                    continue
+                try:
+                    img = Image.open(file).convert("RGB")
+                except Exception:
+                    continue
                 self.custom_files.append(file)
-                img = Image.open(file).convert("RGB")
-                self.img_info.append({'width': int(img.width), 'height': int(img.height), 'image_id':str(file_name.split('.')[0])})
+                fname = os.path.splitext(os.path.basename(file))[0]
+                self.img_info.append({'width': int(img.width), 'height': int(img.height), 'image_id': str(fname)})
 
     def get_img_info(self, index):
         # WARNING: original image_file.json has several pictures with false image size

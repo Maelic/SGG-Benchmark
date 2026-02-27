@@ -577,8 +577,9 @@ Zero Shot Scene Graph
 Only calculate the triplet that not occurred in the training set
 """
 class SGZeroShotRecall(SceneGraphEvaluation):
-    def __init__(self, result_dict):
-        super(SGZeroShotRecall, self).__init__(result_dict)
+    def __init__(self, result_dict, seen_triplet_set=None):
+        super().__init__(result_dict)
+        self.seen_triplet_set = seen_triplet_set
 
     def register_container(self, mode):
         self.result_dict[mode + '_zeroshot_recall'] = {20: [], 50: [], 100: []} 
@@ -592,17 +593,13 @@ class SGZeroShotRecall(SceneGraphEvaluation):
         return result_str
 
     def prepare_zeroshot(self, global_container, local_container):
-        gt_rels = local_container['gt_rels']
-        gt_classes = local_container['gt_classes']
-        zeroshot_triplets = global_container['zeroshot_triplet']
-
-        sub_id, ob_id, pred_label = gt_rels[:, 0], gt_rels[:, 1], gt_rels[:, 2]
-        gt_triplets = np.column_stack((gt_classes[sub_id], gt_classes[ob_id], pred_label))  # num_rel, 3
-
-        if len(zeroshot_triplets) == 0: # no zero shot triplets
-            self.zeroshot_idx = []
+        gt_rels, gt_classes = local_container['gt_rels'], local_container['gt_classes']
+        gt_triplets = np.column_stack((gt_classes[gt_rels[:,0]], gt_classes[gt_rels[:,1]], gt_rels[:,2]))
+        if self.seen_triplet_set is not None:
+            self.zeroshot_idx = [i for i, t in enumerate(gt_triplets) if tuple(t) not in self.seen_triplet_set]
         else:
-            self.zeroshot_idx = np.where( intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0 )[0].tolist()
+            zeroshot_triplets = global_container.get('zeroshot_triplet', np.array([]))
+            self.zeroshot_idx = np.where(intersect_2d(gt_triplets, zeroshot_triplets).sum(-1) > 0)[0].tolist() if len(zeroshot_triplets) > 0 else []
 
     def calculate(self, global_container, local_container, mode):
         pred_to_gt = local_container['pred_to_gt']

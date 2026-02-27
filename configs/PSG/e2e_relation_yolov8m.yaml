@@ -34,10 +34,11 @@ MODEL:
     FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
     NUM_CLASSES: 134              # 151 for VG, 1201 for GQA
   ROI_RELATION_HEAD:
+    VISUAL_FEATURES_ONLY: False
+    TEXTUAL_FEATURES_ONLY: False
     EMBED_DIM: 200
     USE_GT_BOX: False
     USE_GT_OBJECT_LABEL: False
-    TEXTUAL_FEATURES_ONLY: True
     USE_SPATIAL_FEATURES: False
     REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
@@ -53,7 +54,7 @@ MODEL:
     #PREDICTOR: "MotifPredictor"
     #PREDICTOR: "VCTreePredictor"
     #PREDICTOR: "TransformerPredictor"
-    PREDICTOR: "CausalAnalysisPredictor"
+    PREDICTOR: "REACTPredictor"
     ################# Parameters for Motif Predictor ##################
     CONTEXT_OBJ_LAYER: 1
     CONTEXT_REL_LAYER: 1

@@ -81,7 +81,8 @@ def get_dataset_statistics(cfg):
         factory = getattr(D, data["factory"])
         args = data["args"]
         dataset = factory(**args)
-        statistics.append(dataset.get_statistics())
+        # For a single dataset, get_statistics returns the dict we need
+        statistics = dataset.get_statistics()
 
     result = {
         'fg_matrix': statistics['fg_matrix'],

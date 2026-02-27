@@ -16,7 +16,7 @@ MODEL:
     FREEZE: True
   YOLO:
     SIZE: "yolov8m"
-    OUT_CHANNELS: [256,512,512] # [192,384,576] for yolov8m, [256,512,768] for yolov8l, [256,512,512] for yolo11m, [256,512,512] for yolov12m etc...
+    OUT_CHANNELS: [192,384,576] # [192,384,576] for yolov8m, [256,512,768] for yolov8l, [256,512,512] for yolo11m, [256,512,512] for yolov12m etc...
   RELATION_ON: True
   ATTRIBUTE_ON: False
   FLIP_AUG: False            # if there is any left-right relation, FLIP AUG should be false

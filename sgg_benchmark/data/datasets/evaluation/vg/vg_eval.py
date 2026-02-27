@@ -21,7 +21,7 @@ def do_vg_evaluation(
         informative=False,
 ):
     # Control which metric to evaluate, recall need to be here BY DEFAULT
-    metrics_to_eval = {'relations': ['recall', 'mean_recall', 'f1_score'], 'bbox': ['mAP']}
+    metrics_to_eval = {'relations': ['recall', 'mean_recall', 'f1_score', 'zeroshot_recall'], 'bbox': ['mAP']}
 
     if cfg.TEST.INFORMATIVE:
         metrics_to_eval['relations'].extend(['informative_recall'])
@@ -33,6 +33,19 @@ def do_vg_evaluation(
                    'weighted_recall': SGWeightedRecall, 'weighted_mean_recall': SGWeightedMeanRecall}
 
     metrics_to_eval = {k: v for k, v in metrics_map.items() if k in metrics_to_eval['relations']}
+
+    seen_triplet_set = None
+    try:
+        from sgg_benchmark.data.build import get_dataset_statistics
+        stats = get_dataset_statistics(cfg)
+        if 'fg_matrix' in stats:
+            fg_matrix = stats['fg_matrix']
+            if torch.is_tensor(fg_matrix): fg_matrix = fg_matrix.cpu().numpy()
+            seen_indices = np.where(fg_matrix > 0)
+            seen_triplet_set = set(zip(seen_indices[0], seen_indices[1], seen_indices[2]))
+            logger.info(f"Dynamically loaded {len(seen_triplet_set)} seen triplets from training statistics for zero-shot evaluation.")
+    except Exception as e:
+        logger.warning(f"Could not compute seen triplets from training statistics: {e}. Falling back to zeroshot_file if available.")
 
     # get zeroshot triplet
     if "relations" in iou_types:
@@ -141,6 +154,8 @@ def do_vg_evaluation(
         for k, v in metrics_to_eval.items():
             if "mean" in k:
                 cur_metric = v(result_dict, num_rel_category, dataset.ind_to_predicates, print_detail=True)
+            elif "zeroshot" in k:
+                cur_metric = v(result_dict, seen_triplet_set=seen_triplet_set)
             else:
                 cur_metric = v(result_dict)
             cur_metric.register_container(mode)
